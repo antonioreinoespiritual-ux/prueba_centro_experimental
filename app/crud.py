@@ -27,6 +27,10 @@ def get_experiments(db: Session):
 def create_record(db: Session, data: schemas.RecordCreate):
     # Normalización: si viene string vacío => None (por seguridad)
     organic_piece_type = (data.organic_piece_type or "").strip() or None
+    video_url = (data.video_url or "").strip() or None
+    campaign_id = (data.campaign_id or "").strip() or None
+    ad_set_id = (data.ad_set_id or "").strip() or None
+    ad_id = (data.ad_id or "").strip() or None
 
     obj = models.ExperimentRecord(
         experiment_id=data.experiment_id,
@@ -40,6 +44,11 @@ def create_record(db: Session, data: schemas.RecordCreate):
         comments=data.comments,
         shares=data.shares,
         saves=data.saves,
+        video_url=video_url,
+        views_finish_percent=data.views_finish_percent,
+        retention_percent=data.retention_percent,
+        average_watch_time=data.average_watch_time,
+        video_duration=data.video_duration,
 
         ctr=data.ctr,
         cpc=data.cpc,
@@ -47,6 +56,10 @@ def create_record(db: Session, data: schemas.RecordCreate):
         view_content=data.view_content,
         lead_form=data.lead_form,
         purchase=data.purchase,
+        paid_video_duration=data.paid_video_duration,
+        campaign_id=campaign_id,
+        ad_set_id=ad_set_id,
+        ad_id=ad_id,
     )
     db.add(obj)
     db.commit()

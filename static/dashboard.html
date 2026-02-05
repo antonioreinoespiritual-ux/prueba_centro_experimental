@@ -58,6 +58,7 @@
           <option value="paid">paid</option>
           <option value="organic">organic</option>
           <option value="mixed">mixed</option>
+          <option value="live">live</option>
         </select>
       </div>
       <div>
@@ -68,6 +69,14 @@
         <label>Máx records a cargar (performance)</label>
         <input id="limit" type="number" value="5000" />
       </div>
+    </div>
+
+    <div id="hypothesisSection" style="margin-top:14px; padding:14px; border:1px solid var(--border); border-radius:10px; background:#f9fafb; display:none;">
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
+        <strong style="font-size:14px;">Hipótesis del experimento</strong>
+        <span class="pill" id="hypothesisExpName">—</span>
+      </div>
+      <p id="hypothesisText" style="margin:10px 0 0 0; font-size:14px; color:#374151; white-space:pre-wrap;"></p>
     </div>
 
     <div class="kpis" id="kpis"></div>
@@ -103,7 +112,10 @@
         <tr>
           <th>ID</th><th>Experiment</th><th>Traffic</th><th>Session</th><th>Clicks</th><th>Views</th>
           <th>CTR</th><th>CPC</th><th>VC</th><th>Lead</th><th>IC</th><th>Purchase</th>
-          <th>Organic type</th><th>Likes</th><th>Comments</th><th>Shares</th><th>Saves</th><th>Created</th>
+          <th>Organic type</th><th>Likes</th><th>Comments</th><th>Shares</th><th>Saves</th>
+          <th>Video URL</th><th>% Finish</th><th>% Ret</th><th>Avg Time</th><th>Duration</th>
+          <th>Paid Duration</th><th>Campaign ID</th><th>Ad Set ID</th><th>Ad ID</th>
+          <th>Created</th>
         </tr>
       </thead>
       <tbody id="tblBody"></tbody>
@@ -477,6 +489,7 @@
     for (const r of view){
       const exp = expMap.get(r.experiment_id);
       const traffic = exp ? exp.traffic_type : "";
+      const videoUrlDisplay = r.video_url ? `<a href="${escapeHtml(r.video_url)}" target="_blank" style="color:#2563eb;">🔗</a>` : "";
       const tr = document.createElement("tr");
       tr.innerHTML = `
         <td>${r.id}</td>
@@ -499,6 +512,18 @@
         <td>${fmt(r.comments)}</td>
         <td>${fmt(r.shares)}</td>
         <td>${fmt(r.saves)}</td>
+
+        <td>${videoUrlDisplay}</td>
+        <td>${r.views_finish_percent==null?"":fmtFloat(r.views_finish_percent,2)+"%"}</td>
+        <td>${r.retention_percent==null?"":fmtFloat(r.retention_percent,2)+"%"}</td>
+        <td>${r.average_watch_time==null?"":fmtFloat(r.average_watch_time,1)+"s"}</td>
+        <td>${r.video_duration==null?"":fmtFloat(r.video_duration,1)+"s"}</td>
+
+        <td>${r.paid_video_duration==null?"":fmtFloat(r.paid_video_duration,1)+"s"}</td>
+        <td>${escapeHtml(r.campaign_id || "")}</td>
+        <td>${escapeHtml(r.ad_set_id || "")}</td>
+        <td>${escapeHtml(r.ad_id || "")}</td>
+
         <td>${escapeHtml(r.created_at)}</td>
       `;
       tb.appendChild(tr);
@@ -523,9 +548,34 @@
     }
   }
 
+  function updateHypothesisDisplay(){
+    const expIdStr = $("experimentFilter").value;
+    const hypothesisSection = $("hypothesisSection");
+    const hypothesisText = $("hypothesisText");
+    const hypothesisExpName = $("hypothesisExpName");
+
+    if (!expIdStr || expIdStr === ""){
+      hypothesisSection.style.display = "none";
+      return;
+    }
+
+    const expId = Number(expIdStr);
+    const exp = experiments.find(e => e.id === expId);
+
+    if (exp && exp.hypothesis){
+      hypothesisSection.style.display = "block";
+      hypothesisText.textContent = exp.hypothesis;
+      hypothesisExpName.textContent = exp.project_name;
+    } else {
+      hypothesisSection.style.display = "none";
+    }
+  }
+
   async function refreshView(){
     const traffic = $("trafficFilter").value;
     const expIdStr = $("experimentFilter").value;
+
+    updateHypothesisDisplay();
 
     const expMap = new Map(experiments.map(e => [e.id, e]));
 

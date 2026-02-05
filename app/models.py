@@ -15,7 +15,7 @@ class Experiment(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     project_name: Mapped[str] = mapped_column(String(200), nullable=False)
     hypothesis: Mapped[str] = mapped_column(String(5000), nullable=False)
-    traffic_type: Mapped[str] = mapped_column(String(20), nullable=False)  # paid/organic/mixed
+    traffic_type: Mapped[str] = mapped_column(String(20), nullable=False)  # paid/organic/mixed/live
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
 
     records: Mapped[list["ExperimentRecord"]] = relationship(
@@ -41,6 +41,11 @@ class ExperimentRecord(Base):
     comments: Mapped[int | None] = mapped_column(Integer, nullable=True)
     shares: Mapped[int | None] = mapped_column(Integer, nullable=True)
     saves: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    video_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    views_finish_percent: Mapped[float | None] = mapped_column(Float, nullable=True)
+    retention_percent: Mapped[float | None] = mapped_column(Float, nullable=True)
+    average_watch_time: Mapped[float | None] = mapped_column(Float, nullable=True)
+    video_duration: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     # paid
     ctr: Mapped[float | None] = mapped_column(Float, nullable=True)
@@ -49,6 +54,10 @@ class ExperimentRecord(Base):
     view_content: Mapped[int | None] = mapped_column(Integer, nullable=True)
     lead_form: Mapped[int | None] = mapped_column(Integer, nullable=True)
     purchase: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    paid_video_duration: Mapped[float | None] = mapped_column(Float, nullable=True)
+    campaign_id: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    ad_set_id: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    ad_id: Mapped[str | None] = mapped_column(String(200), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
 

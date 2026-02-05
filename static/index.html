@@ -60,6 +60,7 @@
         <option value="paid">paid</option>
         <option value="organic">organic</option>
         <option value="mixed">mixed</option>
+        <option value="live">live</option>
       </select>
 
       <div style="margin-top:12px;">
@@ -116,6 +117,32 @@
         <input id="organic_comments" type="number" placeholder="comments" />
         <input id="organic_shares" type="number" placeholder="shares" />
         <input id="organic_saves" type="number" placeholder="saves" />
+      </div>
+
+      <label>URL del video (opcional)</label>
+      <input id="organic_video_url" type="url" placeholder="https://..." />
+
+      <label>Métricas de video (opcional)</label>
+      <div class="grid2">
+        <div>
+          <label>% Views finish (opcional)</label>
+          <input id="organic_views_finish_percent" type="number" step="0.01" placeholder="85.5" />
+        </div>
+        <div>
+          <label>% Retención (opcional)</label>
+          <input id="organic_retention_percent" type="number" step="0.01" placeholder="72.3" />
+        </div>
+      </div>
+
+      <div class="grid2">
+        <div>
+          <label>Tiempo promedio (segundos, opcional)</label>
+          <input id="organic_average_watch_time" type="number" step="0.01" placeholder="45.2" />
+        </div>
+        <div>
+          <label>Duración del video (segundos, opcional)</label>
+          <input id="organic_video_duration" type="number" step="0.01" placeholder="60" />
+        </div>
       </div>
 
       <div style="margin-top:12px;">
@@ -176,8 +203,95 @@
       <label>CTR (opcional)</label>
       <input id="paid_ctr" type="number" step="0.0001" placeholder="0.06" />
 
+      <label>Duración del video (segundos, opcional)</label>
+      <input id="paid_video_duration" type="number" step="0.01" placeholder="30" />
+
+      <label>IDs de campaña (opcional)</label>
+      <div class="grid3">
+        <div>
+          <label>Campaign ID</label>
+          <input id="paid_campaign_id" type="text" placeholder="camp_123" />
+        </div>
+        <div>
+          <label>Ad Set ID</label>
+          <input id="paid_ad_set_id" type="text" placeholder="adset_456" />
+        </div>
+        <div>
+          <label>Ad ID</label>
+          <input id="paid_ad_id" type="text" placeholder="ad_789" />
+        </div>
+      </div>
+
       <div style="margin-top:12px;">
         <button id="btnCreatePaidRecord">Crear record paid</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Form LIVE -->
+  <div style="margin-top:24px;">
+    <div class="card">
+      <div class="sectionTitle">
+        <h2 style="margin:0;">Crear record (LIVE)</h2>
+        <span class="pill">solo experiments: live</span>
+      </div>
+
+      <label>Experiment (live)</label>
+      <select id="live_experiment_id"></select>
+
+      <label>Session id</label>
+      <input id="live_session_id" placeholder="live-001" />
+
+      <div class="grid2">
+        <div>
+          <label>Clicks (opcional)</label>
+          <input id="live_clicks" type="number" placeholder="12" />
+        </div>
+        <div>
+          <label>Views (opcional)</label>
+          <input id="live_views" type="number" placeholder="120" />
+        </div>
+      </div>
+
+      <label>Plataforma (opcional)</label>
+      <input id="live_platform" placeholder="tiktok, instagram, youtube, etc." />
+
+      <label>Likes / Comments / Shares / Saves (opcional)</label>
+      <div class="grid4">
+        <input id="live_likes" type="number" placeholder="likes" />
+        <input id="live_comments" type="number" placeholder="comments" />
+        <input id="live_shares" type="number" placeholder="shares" />
+        <input id="live_saves" type="number" placeholder="saves" />
+      </div>
+
+      <label>URL del video/grabación (opcional)</label>
+      <input id="live_video_url" type="url" placeholder="https://..." />
+
+      <label>Métricas de video (opcional)</label>
+      <div class="grid2">
+        <div>
+          <label>% Views finish (opcional)</label>
+          <input id="live_views_finish_percent" type="number" step="0.01" placeholder="85.5" />
+        </div>
+        <div>
+          <label>% Retención (opcional)</label>
+          <input id="live_retention_percent" type="number" step="0.01" placeholder="72.3" />
+        </div>
+      </div>
+
+      <div class="grid2">
+        <div>
+          <label>Tiempo promedio (segundos, opcional)</label>
+          <input id="live_average_watch_time" type="number" step="0.01" placeholder="45.2" />
+        </div>
+        <div>
+          <label>Duración del live (segundos, opcional)</label>
+          <input id="live_video_duration" type="number" step="0.01" placeholder="3600" />
+        </div>
+      </div>
+
+      <div style="margin-top:12px;">
+        <button id="btnCreateLiveRecord">Crear record live</button>
       </div>
     </div>
   </div>
@@ -245,12 +359,14 @@
   }
 
   function syncFormSelects(){
-    // FIX REAL: cada formulario usa su propio filtro fijo (organic vs paid)
+    // FIX REAL: cada formulario usa su propio filtro fijo (organic vs paid vs live)
     const organicExps = experimentsCache.filter(e => e.traffic_type === "organic");
     const paidExps = experimentsCache.filter(e => e.traffic_type === "paid");
+    const liveExps = experimentsCache.filter(e => e.traffic_type === "live");
 
     fillExperimentSelect($("organic_experiment_id"), organicExps, true);
     fillExperimentSelect($("paid_experiment_id"), paidExps, true);
+    fillExperimentSelect($("live_experiment_id"), liveExps, true);
   }
 
   async function refreshAll() {
@@ -302,13 +418,20 @@
         comments: asIntOrNull($("organic_comments").value),
         shares: asIntOrNull($("organic_shares").value),
         saves: asIntOrNull($("organic_saves").value),
+        video_url: $("organic_video_url").value.trim() || null,
+        views_finish_percent: asFloatOrNull($("organic_views_finish_percent").value),
+        retention_percent: asFloatOrNull($("organic_retention_percent").value),
+        average_watch_time: asFloatOrNull($("organic_average_watch_time").value),
+        video_duration: asFloatOrNull($("organic_video_duration").value),
       };
       if (!body.session_id) throw new Error("session_id es obligatorio.");
 
       await apiPost("/records/", body);
 
       ["organic_session_id","organic_clicks","organic_views","organic_piece_type",
-       "organic_likes","organic_comments","organic_shares","organic_saves"
+       "organic_likes","organic_comments","organic_shares","organic_saves",
+       "organic_video_url","organic_views_finish_percent","organic_retention_percent",
+       "organic_average_watch_time","organic_video_duration"
       ].forEach(id => $(id).value = "");
 
       setStatus("record orgánico creado");
@@ -338,6 +461,11 @@
         cpc: asFloatOrNull($("paid_cpc").value),
         ctr: asFloatOrNull($("paid_ctr").value),
 
+        paid_video_duration: asFloatOrNull($("paid_video_duration").value),
+        campaign_id: $("paid_campaign_id").value.trim() || null,
+        ad_set_id: $("paid_ad_set_id").value.trim() || null,
+        ad_id: $("paid_ad_id").value.trim() || null,
+
         // no aplica para paid
         organic_piece_type: null,
       };
@@ -347,10 +475,51 @@
       await apiPost("/records/", body);
 
       ["paid_session_id","paid_clicks","paid_views","paid_initiate_checkouts",
-       "paid_view_content","paid_lead","paid_purchase","paid_cpc","paid_ctr"
+       "paid_view_content","paid_lead","paid_purchase","paid_cpc","paid_ctr",
+       "paid_video_duration","paid_campaign_id","paid_ad_set_id","paid_ad_id"
       ].forEach(id => $(id).value = "");
 
       setStatus("record paid creado");
+      setTimeout(()=>setStatus("listo"), 800);
+    } catch(e){
+      setStatus("error", true);
+      alert(String(e));
+    }
+  };
+
+  // Create live record
+  $("btnCreateLiveRecord").onclick = async () => {
+    try {
+      const expId = Number($("live_experiment_id").value);
+      if (!expId) throw new Error("Selecciona un experimento live.");
+
+      const body = {
+        experiment_id: expId,
+        session_id: $("live_session_id").value.trim(),
+        clicks: asIntOrNull($("live_clicks").value),
+        views: asIntOrNull($("live_views").value),
+        organic_piece_type: $("live_platform").value.trim() || null,
+        likes: asIntOrNull($("live_likes").value),
+        comments: asIntOrNull($("live_comments").value),
+        shares: asIntOrNull($("live_shares").value),
+        saves: asIntOrNull($("live_saves").value),
+        video_url: $("live_video_url").value.trim() || null,
+        views_finish_percent: asFloatOrNull($("live_views_finish_percent").value),
+        retention_percent: asFloatOrNull($("live_retention_percent").value),
+        average_watch_time: asFloatOrNull($("live_average_watch_time").value),
+        video_duration: asFloatOrNull($("live_video_duration").value),
+      };
+      if (!body.session_id) throw new Error("session_id es obligatorio.");
+
+      await apiPost("/records/", body);
+
+      ["live_session_id","live_clicks","live_views","live_platform",
+       "live_likes","live_comments","live_shares","live_saves",
+       "live_video_url","live_views_finish_percent","live_retention_percent",
+       "live_average_watch_time","live_video_duration"
+      ].forEach(id => $(id).value = "");
+
+      setStatus("record live creado");
       setTimeout(()=>setStatus("listo"), 800);
     } catch(e){
       setStatus("error", true);

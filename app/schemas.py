@@ -7,7 +7,7 @@ from typing import Optional, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 
-TrafficType = Literal["paid", "organic", "mixed"]
+TrafficType = Literal["paid", "organic", "mixed", "live"]
 
 
 # ---------- Experiments ----------
@@ -42,6 +42,11 @@ class RecordCreate(BaseModel):
     comments: Optional[int] = Field(default=None, ge=0)
     shares: Optional[int] = Field(default=None, ge=0)
     saves: Optional[int] = Field(default=None, ge=0)
+    video_url: Optional[str] = Field(default=None, max_length=500)
+    views_finish_percent: Optional[float] = Field(default=None, ge=0, le=100)
+    retention_percent: Optional[float] = Field(default=None, ge=0, le=100)
+    average_watch_time: Optional[float] = Field(default=None, ge=0)
+    video_duration: Optional[float] = Field(default=None, ge=0)
 
     # paid
     ctr: Optional[float] = Field(default=None, ge=0)
@@ -50,6 +55,10 @@ class RecordCreate(BaseModel):
     view_content: Optional[int] = Field(default=None, ge=0)
     lead_form: Optional[int] = Field(default=None, ge=0)
     purchase: Optional[int] = Field(default=None, ge=0)
+    paid_video_duration: Optional[float] = Field(default=None, ge=0)
+    campaign_id: Optional[str] = Field(default=None, max_length=200)
+    ad_set_id: Optional[str] = Field(default=None, max_length=200)
+    ad_id: Optional[str] = Field(default=None, max_length=200)
 
 
 class RecordOut(BaseModel):
@@ -67,6 +76,11 @@ class RecordOut(BaseModel):
     comments: Optional[int] = None
     shares: Optional[int] = None
     saves: Optional[int] = None
+    video_url: Optional[str] = None
+    views_finish_percent: Optional[float] = None
+    retention_percent: Optional[float] = None
+    average_watch_time: Optional[float] = None
+    video_duration: Optional[float] = None
 
     ctr: Optional[float] = None
     cpc: Optional[float] = None
@@ -74,5 +88,9 @@ class RecordOut(BaseModel):
     view_content: Optional[int] = None
     lead_form: Optional[int] = None
     purchase: Optional[int] = None
+    paid_video_duration: Optional[float] = None
+    campaign_id: Optional[str] = None
+    ad_set_id: Optional[str] = None
+    ad_id: Optional[str] = None
 
     created_at: datetime
