@@ -1,0 +1,567 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Dashboard — Centro Experimental</title>
+  <style>
+    :root { --border:#e5e5e5; --muted:#6b7280; --bg:#ffffff; }
+    body { font-family: system-ui, -apple-system, Arial; margin: 24px; max-width: 1200px; background:var(--bg); }
+    .top { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap; }
+    .small { font-size: 12px; color: var(--muted); }
+    .card { border: 1px solid var(--border); padding: 16px; border-radius: 14px; }
+    .row { display:grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; }
+    @media (max-width: 980px){ .row{ grid-template-columns: 1fr; } }
+    label { display:block; font-size: 12px; color: var(--muted); margin-top: 10px; }
+    select, input, button { width:100%; padding:10px; margin-top:6px; box-sizing:border-box; }
+    button { cursor:pointer; border: 1px solid var(--border); background:#111; color:#fff; border-radius: 10px; }
+    button.secondary { background:#fff; color:#111; }
+    .filters { display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+    @media (max-width: 980px){ .filters{ grid-template-columns: 1fr; } }
+    .kpis { display:grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top:12px; }
+    @media (max-width: 980px){ .kpis{ grid-template-columns: repeat(2, 1fr); } }
+    .kpi { border: 1px solid var(--border); border-radius: 14px; padding: 12px; }
+    .kpi .t { font-size: 12px; color: var(--muted); }
+    .kpi .v { font-size: 22px; font-weight: 650; margin-top: 4px; }
+    .pill { display:inline-block; padding: 2px 8px; border:1px solid var(--border); border-radius: 999px; font-size: 12px; color: var(--muted); }
+    .chartWrap { border: 1px solid var(--border); border-radius: 14px; padding: 12px; }
+    svg { width: 100%; height: 260px; display:block; }
+    table { width:100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { border-bottom: 1px solid #ddd; padding: 8px; text-align: left; font-size: 13px; vertical-align: top; }
+    th { font-size: 12px; color: var(--muted); font-weight: 600; }
+    a.btnlink{ display:inline-block; padding:10px 12px; border-radius:10px; border:1px solid var(--border); text-decoration:none; color:#111; background:#fff; }
+    a.btnlink:hover{ background:#f7f7f7; }
+    .muted { color: var(--muted); }
+  </style>
+</head>
+<body>
+  <div class="top">
+    <div>
+      <h1 style="margin:0;">Dashboard</h1>
+      <p class="small" style="margin:6px 0 0 0;">
+        Backend: <code id="apiBase"></code> <span class="pill" id="status">listo</span>
+      </p>
+    </div>
+    <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+      <a class="btnlink" href="/">Volver a formularios</a>
+      <button id="btnReload" class="secondary" style="max-width:220px;">Recargar datos</button>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:14px;">
+    <h2 style="margin:0;">Filtros</h2>
+    <div class="filters">
+      <div>
+        <label>Traffic</label>
+        <select id="trafficFilter">
+          <option value="all">all</option>
+          <option value="paid">paid</option>
+          <option value="organic">organic</option>
+          <option value="mixed">mixed</option>
+        </select>
+      </div>
+      <div>
+        <label>Experimento</label>
+        <select id="experimentFilter"></select>
+      </div>
+      <div>
+        <label>Máx records a cargar (performance)</label>
+        <input id="limit" type="number" value="5000" />
+      </div>
+    </div>
+
+    <div class="kpis" id="kpis"></div>
+  </div>
+
+  <div class="row">
+    <div class="chartWrap">
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
+        <strong>Clicks por día</strong>
+        <span class="pill" id="rangeClicks">—</span>
+      </div>
+      <svg id="chartClicks" viewBox="0 0 800 260" preserveAspectRatio="none"></svg>
+      <div class="small muted">Agrupa por fecha de creación del record.</div>
+    </div>
+
+    <div class="chartWrap">
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
+        <strong>Embudo paid por día (VC → Lead → IC → Purchase)</strong>
+        <span class="pill" id="rangeFunnel">—</span>
+      </div>
+      <svg id="chartFunnel" viewBox="0 0 800 260" preserveAspectRatio="none"></svg>
+      <div class="small muted">Solo suma campos paid si existen (si no, se verán en cero).</div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:16px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
+      <h2 style="margin:0;">Últimos records</h2>
+      <span class="small">Muestra hasta 100 del filtro actual</span>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th><th>Experiment</th><th>Traffic</th><th>Session</th><th>Clicks</th><th>Views</th>
+          <th>CTR</th><th>CPC</th><th>VC</th><th>Lead</th><th>IC</th><th>Purchase</th>
+          <th>Organic type</th><th>Likes</th><th>Comments</th><th>Shares</th><th>Saves</th><th>Created</th>
+        </tr>
+      </thead>
+      <tbody id="tblBody"></tbody>
+    </table>
+  </div>
+
+<script>
+  const API_BASE = "";
+  const $ = (id) => document.getElementById(id);
+  const statusEl = $("status");
+
+  $("apiBase").textContent = location.origin;
+
+  function setStatus(msg, isError=false){
+    statusEl.textContent = msg;
+    statusEl.style.borderColor = isError ? "#ef4444" : "#e5e5e5";
+    statusEl.style.color = isError ? "#b91c1c" : "#6b7280";
+  }
+
+  async function apiGet(path) {
+    const r = await fetch(API_BASE + path);
+    if (!r.ok) throw new Error(await r.text());
+    return r.json();
+  }
+
+  function escapeHtml(s) {
+    return String(s)
+      .replaceAll("&","&amp;").replaceAll("<","&lt;")
+      .replaceAll(">","&gt;").replaceAll('"',"&quot;");
+  }
+  function fmt(n){
+    if (n === null || n === undefined) return "";
+    const x = Number(n);
+    if (!Number.isFinite(x)) return "";
+    if (Math.abs(x) >= 1000) return x.toLocaleString("es-ES");
+    return String(x);
+  }
+  function fmtFloat(n, digits=4){
+    if (n === null || n === undefined) return "";
+    const x = Number(n);
+    if (!Number.isFinite(x)) return "";
+    return x.toFixed(digits);
+  }
+
+  // Cache
+  let experiments = [];
+  let records = [];
+
+  // Helpers
+  function byTrafficExp(exps, traffic){
+    if (!traffic || traffic === "all") return exps;
+    return exps.filter(e => e.traffic_type === traffic);
+  }
+
+  function fillExperimentsSelect(){
+    const traffic = $("trafficFilter").value;
+    const filtered = byTrafficExp(experiments, traffic);
+
+    const sel = $("experimentFilter");
+    const prev = sel.value;
+    sel.innerHTML = "";
+
+    const optAll = document.createElement("option");
+    optAll.value = "";
+    optAll.textContent = "(todos)";
+    sel.appendChild(optAll);
+
+    for (const e of filtered) {
+      const opt = document.createElement("option");
+      opt.value = String(e.id);
+      opt.textContent = `${e.id} — ${e.project_name} (${e.traffic_type})`;
+      sel.appendChild(opt);
+    }
+
+    if (prev && [...sel.options].some(o => o.value === prev)) sel.value = prev;
+    else sel.value = "";
+  }
+
+  function computeKPIs(filteredRecords, expMap){
+    let clicks=0, views=0;
+    let likes=0, comments=0, shares=0, saves=0;
+
+    let vc=0, lead=0, ic=0, purchase=0;
+    let cpcSum=0, cpcN=0;
+    let ctrSum=0, ctrN=0;
+
+    for (const r of filteredRecords){
+      clicks += r.clicks || 0;
+      views  += r.views || 0;
+
+      likes += r.likes || 0;
+      comments += r.comments || 0;
+      shares += r.shares || 0;
+      saves += r.saves || 0;
+
+      vc += r.view_content || 0;
+      lead += r.lead_form || 0;
+      ic += r.initiate_checkouts || 0;
+      purchase += r.purchase || 0;
+
+      if (r.cpc !== null && r.cpc !== undefined){ cpcSum += Number(r.cpc) || 0; cpcN++; }
+      if (r.ctr !== null && r.ctr !== undefined){ ctrSum += Number(r.ctr) || 0; ctrN++; }
+    }
+
+    const ctrAvg = ctrN ? (ctrSum/ctrN) : null;
+    const cpcAvg = cpcN ? (cpcSum/cpcN) : null;
+
+    return {
+      records: filteredRecords.length,
+      clicks, views,
+      ctrAvg, cpcAvg,
+      vc, lead, ic, purchase,
+      likes, comments, shares, saves
+    };
+  }
+
+  function renderKPIs(k){
+    const el = $("kpis");
+    el.innerHTML = "";
+
+    const items = [
+      ["Records", fmt(k.records)],
+      ["Clicks", fmt(k.clicks)],
+      ["Views", fmt(k.views)],
+      ["CTR avg", k.ctrAvg===null ? "" : fmtFloat(k.ctrAvg, 4)],
+      ["CPC avg", k.cpcAvg===null ? "" : fmtFloat(k.cpcAvg, 4)],
+      ["View Content", fmt(k.vc)],
+      ["Lead Form", fmt(k.lead)],
+      ["Initiate Checkouts", fmt(k.ic)],
+      ["Purchase", fmt(k.purchase)],
+      ["Likes", fmt(k.likes)],
+      ["Comments", fmt(k.comments)],
+      ["Shares", fmt(k.shares)],
+      ["Saves", fmt(k.saves)],
+    ];
+
+    // mostrar 8 más importantes arriba (puedes reordenar)
+    const top = items.slice(0, 8).concat(items.slice(8));
+
+    for (const [t,v] of top){
+      const d = document.createElement("div");
+      d.className = "kpi";
+      d.innerHTML = `<div class="t">${escapeHtml(t)}</div><div class="v">${escapeHtml(v || "—")}</div>`;
+      el.appendChild(d);
+    }
+  }
+
+  function isoDay(dt){
+    const d = new Date(dt);
+    if (Number.isNaN(d.getTime())) return null;
+    // YYYY-MM-DD
+    const y = d.getFullYear();
+    const m = String(d.getMonth()+1).padStart(2,"0");
+    const da = String(d.getDate()).padStart(2,"0");
+    return `${y}-${m}-${da}`;
+  }
+
+  function groupByDaySum(filteredRecords, field){
+    const map = new Map();
+    for (const r of filteredRecords){
+      const day = isoDay(r.created_at);
+      if (!day) continue;
+      map.set(day, (map.get(day) || 0) + (r[field] || 0));
+    }
+    const arr = [...map.entries()].sort((a,b)=>a[0].localeCompare(b[0]))
+      .map(([day,val]) => ({day, val}));
+    return arr;
+  }
+
+  function groupByDayMulti(filteredRecords, fields){
+    const map = new Map();
+    for (const r of filteredRecords){
+      const day = isoDay(r.created_at);
+      if (!day) continue;
+      if (!map.has(day)){
+        const obj = { day };
+        for (const f of fields) obj[f] = 0;
+        map.set(day, obj);
+      }
+      const obj = map.get(day);
+      for (const f of fields) obj[f] += (r[f] || 0);
+    }
+    return [...map.values()].sort((a,b)=>a.day.localeCompare(b.day));
+  }
+
+  function svgClear(svg){ while(svg.firstChild) svg.removeChild(svg.firstChild); }
+
+  function drawBarChart(svgId, series, labelElId){
+    const svg = $(svgId);
+    svgClear(svg);
+
+    if (!series.length){
+      $(labelElId).textContent = "sin datos";
+      return;
+    }
+
+    $(labelElId).textContent = `${series[0].day} → ${series[series.length-1].day}`;
+
+    const W = 800, H = 260;
+    const padL=44, padR=10, padT=10, padB=28;
+    const innerW = W - padL - padR;
+    const innerH = H - padT - padB;
+
+    const maxV = Math.max(...series.map(s=>s.val), 1);
+    const barW = innerW / series.length;
+
+    // axis baseline
+    const base = document.createElementNS("http://www.w3.org/2000/svg","line");
+    base.setAttribute("x1", padL);
+    base.setAttribute("y1", padT+innerH);
+    base.setAttribute("x2", padL+innerW);
+    base.setAttribute("y2", padT+innerH);
+    base.setAttribute("stroke", "#ddd");
+    svg.appendChild(base);
+
+    // bars
+    for (let i=0;i<series.length;i++){
+      const v = series[i].val;
+      const h = (v/maxV) * innerH;
+      const x = padL + i*barW + 2;
+      const y = padT + (innerH - h);
+
+      const rect = document.createElementNS("http://www.w3.org/2000/svg","rect");
+      rect.setAttribute("x", x);
+      rect.setAttribute("y", y);
+      rect.setAttribute("width", Math.max(2, barW-4));
+      rect.setAttribute("height", h);
+      rect.setAttribute("fill", "#111");
+      svg.appendChild(rect);
+    }
+
+    // y labels (min + max)
+    const tMax = document.createElementNS("http://www.w3.org/2000/svg","text");
+    tMax.setAttribute("x", 6);
+    tMax.setAttribute("y", 18);
+    tMax.setAttribute("font-size", "12");
+    tMax.setAttribute("fill", "#6b7280");
+    tMax.textContent = String(maxV);
+    svg.appendChild(tMax);
+
+    const tMin = document.createElementNS("http://www.w3.org/2000/svg","text");
+    tMin.setAttribute("x", 6);
+    tMin.setAttribute("y", padT+innerH);
+    tMin.setAttribute("font-size", "12");
+    tMin.setAttribute("fill", "#6b7280");
+    tMin.textContent = "0";
+    svg.appendChild(tMin);
+
+    // x labels (first/last)
+    const t1 = document.createElementNS("http://www.w3.org/2000/svg","text");
+    t1.setAttribute("x", padL);
+    t1.setAttribute("y", H-8);
+    t1.setAttribute("font-size", "12");
+    t1.setAttribute("fill", "#6b7280");
+    t1.textContent = series[0].day;
+    svg.appendChild(t1);
+
+    const t2 = document.createElementNS("http://www.w3.org/2000/svg","text");
+    t2.setAttribute("x", padL+innerW-120);
+    t2.setAttribute("y", H-8);
+    t2.setAttribute("font-size", "12");
+    t2.setAttribute("fill", "#6b7280");
+    t2.textContent = series[series.length-1].day;
+    svg.appendChild(t2);
+  }
+
+  function drawFunnelLines(svgId, multi, labelElId){
+    const svg = $(svgId);
+    svgClear(svg);
+
+    if (!multi.length){
+      $(labelElId).textContent = "sin datos";
+      return;
+    }
+
+    $(labelElId).textContent = `${multi[0].day} → ${multi[multi.length-1].day}`;
+
+    const fields = ["view_content", "lead_form", "initiate_checkouts", "purchase"];
+    const colors = ["#111", "#444", "#777", "#999"]; // simple grayscale
+    const W=800,H=260,padL=44,padR=10,padT=10,padB=28;
+    const innerW=W-padL-padR, innerH=H-padT-padB;
+
+    const maxV = Math.max(
+      1,
+      ...multi.flatMap(d => fields.map(f => d[f] || 0))
+    );
+
+    // axis baseline
+    const base = document.createElementNS("http://www.w3.org/2000/svg","line");
+    base.setAttribute("x1", padL);
+    base.setAttribute("y1", padT+innerH);
+    base.setAttribute("x2", padL+innerW);
+    base.setAttribute("y2", padT+innerH);
+    base.setAttribute("stroke", "#ddd");
+    svg.appendChild(base);
+
+    const stepX = innerW / Math.max(1, (multi.length-1));
+
+    function pathFor(field){
+      let d = "";
+      for (let i=0;i<multi.length;i++){
+        const x = padL + i*stepX;
+        const v = multi[i][field] || 0;
+        const y = padT + (innerH - (v/maxV)*innerH);
+        d += (i===0 ? `M ${x} ${y}` : ` L ${x} ${y}`);
+      }
+      return d;
+    }
+
+    for (let fi=0; fi<fields.length; fi++){
+      const p = document.createElementNS("http://www.w3.org/2000/svg","path");
+      p.setAttribute("d", pathFor(fields[fi]));
+      p.setAttribute("fill", "none");
+      p.setAttribute("stroke", colors[fi]);
+      p.setAttribute("stroke-width", "2");
+      svg.appendChild(p);
+    }
+
+    // legend
+    const legend = [
+      ["VC", colors[0]],
+      ["Lead", colors[1]],
+      ["IC", colors[2]],
+      ["Purchase", colors[3]],
+    ];
+    for (let i=0;i<legend.length;i++){
+      const y = 18 + i*16;
+      const dot = document.createElementNS("http://www.w3.org/2000/svg","rect");
+      dot.setAttribute("x", padL);
+      dot.setAttribute("y", y-10);
+      dot.setAttribute("width", 10);
+      dot.setAttribute("height", 10);
+      dot.setAttribute("fill", legend[i][1]);
+      svg.appendChild(dot);
+
+      const tx = document.createElementNS("http://www.w3.org/2000/svg","text");
+      tx.setAttribute("x", padL+16);
+      tx.setAttribute("y", y);
+      tx.setAttribute("font-size", "12");
+      tx.setAttribute("fill", "#6b7280");
+      tx.textContent = legend[i][0];
+      svg.appendChild(tx);
+    }
+
+    // y labels
+    const tMax = document.createElementNS("http://www.w3.org/2000/svg","text");
+    tMax.setAttribute("x", 6);
+    tMax.setAttribute("y", 18);
+    tMax.setAttribute("font-size", "12");
+    tMax.setAttribute("fill", "#6b7280");
+    tMax.textContent = String(maxV);
+    svg.appendChild(tMax);
+
+    const tMin = document.createElementNS("http://www.w3.org/2000/svg","text");
+    tMin.setAttribute("x", 6);
+    tMin.setAttribute("y", padT+innerH);
+    tMin.setAttribute("font-size", "12");
+    tMin.setAttribute("fill", "#6b7280");
+    tMin.textContent = "0";
+    svg.appendChild(tMin);
+  }
+
+  function renderTable(filteredRecords, expMap){
+    const tb = $("tblBody");
+    tb.innerHTML = "";
+    const view = filteredRecords
+      .slice()
+      .sort((a,b)=> String(b.created_at).localeCompare(String(a.created_at)))
+      .slice(0, 100);
+
+    for (const r of view){
+      const exp = expMap.get(r.experiment_id);
+      const traffic = exp ? exp.traffic_type : "";
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${r.id}</td>
+        <td>${r.experiment_id}</td>
+        <td>${escapeHtml(traffic)}</td>
+        <td>${escapeHtml(r.session_id)}</td>
+        <td>${fmt(r.clicks)}</td>
+        <td>${fmt(r.views)}</td>
+
+        <td>${r.ctr==null?"":fmtFloat(r.ctr,4)}</td>
+        <td>${r.cpc==null?"":fmtFloat(r.cpc,4)}</td>
+
+        <td>${fmt(r.view_content)}</td>
+        <td>${fmt(r.lead_form)}</td>
+        <td>${fmt(r.initiate_checkouts)}</td>
+        <td>${fmt(r.purchase)}</td>
+
+        <td>${escapeHtml(r.organic_piece_type || "")}</td>
+        <td>${fmt(r.likes)}</td>
+        <td>${fmt(r.comments)}</td>
+        <td>${fmt(r.shares)}</td>
+        <td>${fmt(r.saves)}</td>
+        <td>${escapeHtml(r.created_at)}</td>
+      `;
+      tb.appendChild(tr);
+    }
+  }
+
+  async function loadAll(){
+    try{
+      setStatus("cargando...");
+      experiments = await apiGet("/experiments/");
+      fillExperimentsSelect();
+
+      const limit = Math.max(1, Number($("limit").value) || 5000);
+      // endpoint con limit
+      records = await apiGet(`/records/?limit=${encodeURIComponent(limit)}`);
+
+      await refreshView();
+      setStatus("listo");
+    } catch(e){
+      setStatus("error", true);
+      alert(String(e));
+    }
+  }
+
+  async function refreshView(){
+    const traffic = $("trafficFilter").value;
+    const expIdStr = $("experimentFilter").value;
+
+    const expMap = new Map(experiments.map(e => [e.id, e]));
+
+    // Filtra records por experimento/traffic usando el experimento (join en frontend)
+    let filtered = records;
+
+    if (expIdStr){
+      const expId = Number(expIdStr);
+      filtered = filtered.filter(r => r.experiment_id === expId);
+    }
+
+    if (traffic !== "all"){
+      filtered = filtered.filter(r => (expMap.get(r.experiment_id)?.traffic_type) === traffic);
+    }
+
+    const k = computeKPIs(filtered, expMap);
+    renderKPIs(k);
+
+    const clicksDay = groupByDaySum(filtered, "clicks");
+    drawBarChart("chartClicks", clicksDay, "rangeClicks");
+
+    // Embudo paid: solo tiene sentido si traffic=paid, pero lo graficamos igual (si no hay datos, 0)
+    const funnelDay = groupByDayMulti(filtered, ["view_content","lead_form","initiate_checkouts","purchase"]);
+    drawFunnelLines("chartFunnel", funnelDay, "rangeFunnel");
+
+    renderTable(filtered, expMap);
+  }
+
+  // Eventos
+  $("btnReload").addEventListener("click", loadAll);
+  $("trafficFilter").addEventListener("change", () => { fillExperimentsSelect(); refreshView(); });
+  $("experimentFilter").addEventListener("change", refreshView);
+  $("limit").addEventListener("change", loadAll);
+
+  // init
+  loadAll();
+</script>
+</body>
+</html>

@@ -1,0 +1,365 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Centro Experimental</title>
+  <style>
+    :root { --border:#e5e5e5; --muted:#6b7280; }
+    body { font-family: system-ui, -apple-system, Arial; margin: 24px; max-width: 1200px; }
+    .row { display:grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+    @media (max-width: 980px){ .row{ grid-template-columns:1fr; } }
+    label { display:block; font-size: 12px; color: var(--muted); margin-top: 10px; }
+    input, select, textarea, button { width:100%; padding:10px; margin-top:6px; box-sizing:border-box; }
+    textarea { min-height: 90px; }
+    button { cursor:pointer; border: 1px solid var(--border); background:#111; color:#fff; border-radius: 10px; }
+    button.secondary { background:#fff; color:#111; }
+    button:disabled { opacity:.6; cursor:not-allowed; }
+    .card { border: 1px solid var(--border); padding: 16px; border-radius: 14px; }
+    .small { font-size: 12px; color: var(--muted); }
+    .grid2 { display:grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .grid3 { display:grid; grid-template-columns: repeat(3,1fr); gap: 10px; }
+    .grid4 { display:grid; grid-template-columns: repeat(4,1fr); gap: 8px; }
+    .pill { display:inline-block; padding: 2px 8px; border:1px solid var(--border); border-radius: 999px; font-size: 12px; color: var(--muted); }
+    .sectionTitle{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
+    .hint{ font-size:12px; color:var(--muted); }
+    a.btnlink{ display:inline-block; padding:10px 12px; border-radius:10px; border:1px solid var(--border); text-decoration:none; color:#111; background:#fff; }
+    a.btnlink:hover{ background:#f7f7f7; }
+  </style>
+</head>
+<body>
+  <div class="sectionTitle">
+    <div>
+      <h1 style="margin:0;">Centro Experimental</h1>
+      <p class="small" style="margin:6px 0 0 0;">
+        Backend: <code id="apiBase"></code> <span class="pill" id="status">listo</span>
+      </p>
+    </div>
+    <div style="display:flex; gap:10px; align-items:center;">
+      <a class="btnlink" href="/static/dashboard.html">Abrir Dashboard</a>
+      <button id="btnRefresh" class="secondary" style="max-width:220px;">Actualizar listas</button>
+    </div>
+  </div>
+
+  <div class="row" style="margin-top:18px;">
+    <!-- Crear experimento -->
+    <div class="card">
+      <div class="sectionTitle">
+        <h2 style="margin:0;">Crear experimento</h2>
+        <span class="hint">Se usa en ambos formularios</span>
+      </div>
+
+      <label>Project name</label>
+      <input id="project_name" placeholder="Atracción Inversa" />
+
+      <label>Hypothesis</label>
+      <textarea id="hypothesis" placeholder="Si X entonces Y..."></textarea>
+
+      <label>Traffic type</label>
+      <select id="traffic_type">
+        <option value="paid">paid</option>
+        <option value="organic">organic</option>
+        <option value="mixed">mixed</option>
+      </select>
+
+      <div style="margin-top:12px;">
+        <button id="btnCreateExperiment">Crear experimento</button>
+      </div>
+    </div>
+
+    <!-- Ayuda -->
+    <div class="card">
+      <h2 style="margin:0;">Flujo</h2>
+      <p class="small" style="margin-top:10px;">
+        1) Crea un experimento (paid u organic).<br/>
+        2) Crea records desde el formulario correspondiente.<br/>
+        3) Visualiza y grafica en <strong>Dashboard</strong>.
+      </p>
+      <p class="small">
+        Si no ves un experimento en la lista "paid" u "organic", pulsa <strong>Actualizar listas</strong>.
+      </p>
+    </div>
+  </div>
+
+  <!-- Forms separados -->
+  <div class="row" style="margin-top:24px;">
+    <!-- Crear record ORGÁNICO -->
+    <div class="card">
+      <div class="sectionTitle">
+        <h2 style="margin:0;">Crear record (ORGÁNICO)</h2>
+        <span class="pill">solo experiments: organic</span>
+      </div>
+
+      <label>Experiment (organic)</label>
+      <select id="organic_experiment_id"></select>
+
+      <label>Session id</label>
+      <input id="organic_session_id" placeholder="s-001" />
+
+      <div class="grid2">
+        <div>
+          <label>Clicks (opcional)</label>
+          <input id="organic_clicks" type="number" placeholder="12" />
+        </div>
+        <div>
+          <label>Views (opcional)</label>
+          <input id="organic_views" type="number" placeholder="120" />
+        </div>
+      </div>
+
+      <label>Organic piece type (opcional)</label>
+      <input id="organic_piece_type" placeholder="tiktok_live" />
+
+      <label>Likes / Comments / Shares / Saves (opcional)</label>
+      <div class="grid4">
+        <input id="organic_likes" type="number" placeholder="likes" />
+        <input id="organic_comments" type="number" placeholder="comments" />
+        <input id="organic_shares" type="number" placeholder="shares" />
+        <input id="organic_saves" type="number" placeholder="saves" />
+      </div>
+
+      <div style="margin-top:12px;">
+        <button id="btnCreateOrganicRecord">Crear record orgánico</button>
+      </div>
+    </div>
+
+    <!-- Crear record PAID -->
+    <div class="card">
+      <div class="sectionTitle">
+        <h2 style="margin:0;">Crear record (PAID)</h2>
+        <span class="pill">solo experiments: paid</span>
+      </div>
+
+      <label>Experiment (paid)</label>
+      <select id="paid_experiment_id"></select>
+
+      <label>Session id</label>
+      <input id="paid_session_id" placeholder="p-001" />
+
+      <div class="grid2">
+        <div>
+          <label>Clicks (opcional)</label>
+          <input id="paid_clicks" type="number" placeholder="280" />
+        </div>
+        <div>
+          <label>Views (opcional)</label>
+          <input id="paid_views" type="number" placeholder="1500" />
+        </div>
+      </div>
+
+      <div class="grid3">
+        <div>
+          <label>Initiate checkouts (opcional)</label>
+          <input id="paid_initiate_checkouts" type="number" placeholder="3" />
+        </div>
+        <div>
+          <label>View content (opcional)</label>
+          <input id="paid_view_content" type="number" placeholder="40" />
+        </div>
+        <div>
+          <label>Formulario lead (opcional)</label>
+          <input id="paid_lead" type="number" placeholder="10" />
+        </div>
+      </div>
+
+      <div class="grid2">
+        <div>
+          <label>Purchase (opcional)</label>
+          <input id="paid_purchase" type="number" placeholder="1" />
+        </div>
+        <div>
+          <label>CPC (opcional)</label>
+          <input id="paid_cpc" type="number" step="0.0001" placeholder="0.45" />
+        </div>
+      </div>
+
+      <label>CTR (opcional)</label>
+      <input id="paid_ctr" type="number" step="0.0001" placeholder="0.06" />
+
+      <div style="margin-top:12px;">
+        <button id="btnCreatePaidRecord">Crear record paid</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+  const API_BASE = "";
+  const $ = (id) => document.getElementById(id);
+  const statusEl = $("status");
+
+  let experimentsCache = [];
+
+  $("apiBase").textContent = location.origin;
+
+  function setStatus(msg, isError=false){
+    statusEl.textContent = msg;
+    statusEl.style.borderColor = isError ? "#ef4444" : "#e5e5e5";
+    statusEl.style.color = isError ? "#b91c1c" : "#6b7280";
+  }
+
+  function asIntOrNull(v) {
+    if (v === "" || v === null || v === undefined) return null;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  }
+  function asFloatOrNull(v) {
+    if (v === "" || v === null || v === undefined) return null;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  }
+
+  async function apiGet(path) {
+    const r = await fetch(API_BASE + path);
+    if (!r.ok) throw new Error(await r.text());
+    return r.json();
+  }
+
+  async function apiPost(path, body) {
+    const r = await fetch(API_BASE + path, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!r.ok) throw new Error(await r.text());
+    return r.json();
+  }
+
+  function fillExperimentSelect(selectEl, experiments, keepValue=true) {
+    const prev = keepValue ? selectEl.value : "";
+    selectEl.innerHTML = "";
+
+    for (const e of experiments) {
+      const opt = document.createElement("option");
+      opt.value = String(e.id);
+      opt.textContent = `${e.id} — ${e.project_name} (${e.traffic_type})`;
+      selectEl.appendChild(opt);
+    }
+
+    if (keepValue && prev) {
+      const stillExists = [...selectEl.options].some(o => o.value === prev);
+      if (stillExists) selectEl.value = prev;
+    }
+    if (!selectEl.value && selectEl.options.length > 0) {
+      selectEl.selectedIndex = 0;
+    }
+  }
+
+  function syncFormSelects(){
+    // FIX REAL: cada formulario usa su propio filtro fijo (organic vs paid)
+    const organicExps = experimentsCache.filter(e => e.traffic_type === "organic");
+    const paidExps = experimentsCache.filter(e => e.traffic_type === "paid");
+
+    fillExperimentSelect($("organic_experiment_id"), organicExps, true);
+    fillExperimentSelect($("paid_experiment_id"), paidExps, true);
+  }
+
+  async function refreshAll() {
+    setStatus("cargando...");
+    experimentsCache = await apiGet("/experiments/");
+    syncFormSelects();
+    setStatus("listo");
+  }
+
+  // Eventos
+  $("btnRefresh").onclick = async () => {
+    try { await refreshAll(); }
+    catch(e){ setStatus("error", true); alert(String(e)); }
+  };
+
+  // Create experiment
+  $("btnCreateExperiment").onclick = async () => {
+    try {
+      const body = {
+        project_name: $("project_name").value.trim(),
+        hypothesis: $("hypothesis").value.trim(),
+        traffic_type: $("traffic_type").value,
+      };
+      if (!body.project_name || !body.hypothesis) throw new Error("project_name y hypothesis son obligatorios.");
+      await apiPost("/experiments/", body);
+      await refreshAll();
+      $("project_name").value = "";
+      $("hypothesis").value = "";
+      $("traffic_type").value = "paid";
+    } catch(e){
+      setStatus("error", true);
+      alert(String(e));
+    }
+  };
+
+  // Create organic record
+  $("btnCreateOrganicRecord").onclick = async () => {
+    try {
+      const expId = Number($("organic_experiment_id").value);
+      if (!expId) throw new Error("Selecciona un experimento orgánico.");
+
+      const body = {
+        experiment_id: expId,
+        session_id: $("organic_session_id").value.trim(),
+        clicks: asIntOrNull($("organic_clicks").value),
+        views: asIntOrNull($("organic_views").value),
+        organic_piece_type: $("organic_piece_type").value.trim() || null, // opcional
+        likes: asIntOrNull($("organic_likes").value),
+        comments: asIntOrNull($("organic_comments").value),
+        shares: asIntOrNull($("organic_shares").value),
+        saves: asIntOrNull($("organic_saves").value),
+      };
+      if (!body.session_id) throw new Error("session_id es obligatorio.");
+
+      await apiPost("/records/", body);
+
+      ["organic_session_id","organic_clicks","organic_views","organic_piece_type",
+       "organic_likes","organic_comments","organic_shares","organic_saves"
+      ].forEach(id => $(id).value = "");
+
+      setStatus("record orgánico creado");
+      setTimeout(()=>setStatus("listo"), 800);
+    } catch(e){
+      setStatus("error", true);
+      alert(String(e));
+    }
+  };
+
+  // Create paid record
+  $("btnCreatePaidRecord").onclick = async () => {
+    try {
+      const expId = Number($("paid_experiment_id").value);
+      if (!expId) throw new Error("Selecciona un experimento paid.");
+
+      const body = {
+        experiment_id: expId,
+        session_id: $("paid_session_id").value.trim(),
+        clicks: asIntOrNull($("paid_clicks").value),
+        views: asIntOrNull($("paid_views").value),
+
+        initiate_checkouts: asIntOrNull($("paid_initiate_checkouts").value),
+        view_content: asIntOrNull($("paid_view_content").value),
+        lead_form: asIntOrNull($("paid_lead").value),
+        purchase: asIntOrNull($("paid_purchase").value),
+        cpc: asFloatOrNull($("paid_cpc").value),
+        ctr: asFloatOrNull($("paid_ctr").value),
+
+        // no aplica para paid
+        organic_piece_type: null,
+      };
+
+      if (!body.session_id) throw new Error("session_id es obligatorio.");
+
+      await apiPost("/records/", body);
+
+      ["paid_session_id","paid_clicks","paid_views","paid_initiate_checkouts",
+       "paid_view_content","paid_lead","paid_purchase","paid_cpc","paid_ctr"
+      ].forEach(id => $(id).value = "");
+
+      setStatus("record paid creado");
+      setTimeout(()=>setStatus("listo"), 800);
+    } catch(e){
+      setStatus("error", true);
+      alert(String(e));
+    }
+  };
+
+  // init
+  refreshAll().catch(e => { setStatus("error", true); alert(String(e)); });
+</script>
+</body>
+</html>
