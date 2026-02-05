@@ -95,6 +95,22 @@
     <div style="margin-top: 12px;">
       <button id="btnAnalyze" class="success">🔍 Analizar y Comparar</button>
     </div>
+
+    <!-- Hypothesis panels -->
+    <div id="hypothesisPanels" style="margin-top:16px; display:none;">
+      <div class="row">
+        <div id="hypothesisPanelA" style="padding:16px; border-radius:14px; background:linear-gradient(135deg, #667eea 0%, #764ba2 100%); color:#fff; display:none;" class="fade-in">
+          <div style="font-size:12px; opacity:0.9; margin-bottom:6px; font-weight:500;">💡 HIPÓTESIS - EXPERIMENTO A</div>
+          <div id="hypothesisTextA" style="font-size:15px; line-height:1.5; font-weight:400;"></div>
+          <div id="hypothesisProjectA" style="margin-top:8px; font-size:13px; opacity:0.85; font-style:italic;"></div>
+        </div>
+        <div id="hypothesisPanelB" style="padding:16px; border-radius:14px; background:linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color:#fff; display:none;" class="fade-in">
+          <div style="font-size:12px; opacity:0.9; margin-bottom:6px; font-weight:500;">💡 HIPÓTESIS - EXPERIMENTO B</div>
+          <div id="hypothesisTextB" style="font-size:15px; line-height:1.5; font-weight:400;"></div>
+          <div id="hypothesisProjectB" style="margin-top:8px; font-size:13px; opacity:0.85; font-style:italic;"></div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- Resultados del análisis -->
@@ -336,6 +352,41 @@
   }
 
   // Analyze experiments
+  function updateHypothesisPanels() {
+    const expAId = Number($("expA").value);
+    const expBId = $("expB").value ? Number($("expB").value) : null;
+
+    const panelsContainer = $("hypothesisPanels");
+    const panelA = $("hypothesisPanelA");
+    const panelB = $("hypothesisPanelB");
+
+    if (!expAId) {
+      panelsContainer.style.display = "none";
+      return;
+    }
+
+    const expA = experiments.find(e => e.id === expAId);
+    const expB = expBId ? experiments.find(e => e.id === expBId) : null;
+
+    if (expA) {
+      $("hypothesisTextA").textContent = expA.hypothesis || "Sin hipótesis definida";
+      $("hypothesisProjectA").textContent = `Proyecto: ${expA.project_name}`;
+      panelA.style.display = "block";
+    } else {
+      panelA.style.display = "none";
+    }
+
+    if (expB) {
+      $("hypothesisTextB").textContent = expB.hypothesis || "Sin hipótesis definida";
+      $("hypothesisProjectB").textContent = `Proyecto: ${expB.project_name}`;
+      panelB.style.display = "block";
+    } else {
+      panelB.style.display = "none";
+    }
+
+    panelsContainer.style.display = (expA || expB) ? "block" : "none";
+  }
+
   async function analyzeExperiments() {
     const expAId = Number($("expA").value);
     const expBId = $("expB").value ? Number($("expB").value) : null;
@@ -344,6 +395,9 @@
       alert("Selecciona al menos el Experimento A");
       return;
     }
+
+    // Update hypothesis panels
+    updateHypothesisPanels();
 
     $("loadingState").style.display = "block";
     $("resultsSection").style.display = "none";
@@ -864,6 +918,8 @@
   // Event listeners
   $("btnAnalyze").addEventListener("click", analyzeExperiments);
   $("btnExportCSV").addEventListener("click", exportToCSV);
+  $("expA").addEventListener("change", updateHypothesisPanels);
+  $("expB").addEventListener("change", updateHypothesisPanels);
 
   // Initialize
   loadExperiments();

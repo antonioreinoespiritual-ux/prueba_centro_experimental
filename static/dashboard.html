@@ -5,22 +5,22 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Dashboard — Centro Experimental</title>
   <style>
-    :root { --border:#e5e5e5; --muted:#6b7280; --bg:#ffffff; --primary:#111; --accent:#3b82f6; }
+    :root { --border:#e5e5e5; --muted:#6b7280; --bg:#ffffff; --primary:#111; --accent:#3b82f6; --gradient-1:linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
     * { transition: all 0.2s ease; }
-    body { font-family: system-ui, -apple-system, Arial; margin: 24px; max-width: 1200px; background:var(--bg); }
+    body { font-family: system-ui, -apple-system, Arial; margin: 24px; max-width: 1400px; background: linear-gradient(to bottom, #fafafa, #ffffff); min-height: 100vh; }
     .top { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap; }
     .small { font-size: 12px; color: var(--muted); }
-    .card { border: 1px solid var(--border); padding: 16px; border-radius: 14px; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
-    .card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+    .card { border: 2px solid var(--border); padding: 24px; border-radius: 20px; background: #fff; box-shadow: 0 4px 20px rgba(0,0,0,0.06); }
+    .card:hover { box-shadow: 0 8px 30px rgba(0,0,0,0.1); border-color: var(--accent); }
     .row { display:grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; }
     @media (max-width: 980px){ .row{ grid-template-columns: 1fr; } }
     label { display:block; font-size: 12px; color: var(--muted); margin-top: 10px; }
-    select, input, button { width:100%; padding:10px; margin-top:6px; box-sizing:border-box; border: 1px solid var(--border); border-radius: 8px; }
-    select:focus, input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
-    button { cursor:pointer; background:#111; color:#fff; font-weight: 500; }
-    button:hover { background:#000; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
-    button.secondary { background:#fff; color:#111; }
-    button.secondary:hover { background:#f7f7f7; }
+    select, input, button { width:100%; padding:12px; margin-top:6px; box-sizing:border-box; border: 2px solid var(--border); border-radius: 12px; font-size: 14px; }
+    select:focus, input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 4px rgba(59,130,246,0.1); }
+    button { cursor:pointer; background: var(--gradient-1); color:#fff; font-weight: 600; border: none; box-shadow: 0 4px 12px rgba(102,126,234,0.3); }
+    button:hover { background: var(--gradient-1); transform: translateY(-2px); box-shadow: 0 6px 20px rgba(102,126,234,0.4); }
+    button.secondary { background:#fff; color:#111; border: 2px solid var(--border); box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+    button.secondary:hover { background:#f7f7f7; border-color: var(--accent); }
     .filters { display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
     @media (max-width: 980px){ .filters{ grid-template-columns: 1fr; } }
     .kpis { display:grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top:12px; }
@@ -54,7 +54,7 @@
 <body>
   <div class="top">
     <div>
-      <h1 style="margin:0;">Dashboard</h1>
+      <h1 style="margin:0; background: var(--gradient-1); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">📊 Dashboard Experimental</h1>
       <p class="small" style="margin:6px 0 0 0;">
         Backend: <code id="apiBase"></code> <span class="pill" id="status">listo</span>
       </p>
@@ -66,8 +66,8 @@
     </div>
   </div>
 
-  <div class="card" style="margin-top:14px;">
-    <h2 style="margin:0;">Filtros</h2>
+  <div class="card fade-in" style="margin-top:14px;">
+    <h2 style="margin:0;">🔍 Filtros y Configuración</h2>
     <div class="filters">
       <div>
         <label>Traffic</label>
@@ -76,6 +76,7 @@
           <option value="paid">paid</option>
           <option value="organic">organic</option>
           <option value="mixed">mixed</option>
+          <option value="live">live</option>
         </select>
       </div>
       <div>
@@ -85,6 +86,16 @@
       <div>
         <label>Máx records a cargar (performance)</label>
         <input id="limit" type="number" value="5000" />
+      </div>
+    </div>
+
+    <div id="hypothesisPanel" style="margin-top:16px; padding:16px; border-radius:14px; background:linear-gradient(135deg, #667eea 0%, #764ba2 100%); color:#fff; display:none;" class="fade-in">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px;">
+        <div style="flex:1;">
+          <div style="font-size:12px; opacity:0.9; margin-bottom:6px; font-weight:500;">💡 HIPÓTESIS DEL EXPERIMENTO</div>
+          <div id="hypothesisText" style="font-size:15px; line-height:1.5; font-weight:400;"></div>
+          <div id="hypothesisProject" style="margin-top:8px; font-size:13px; opacity:0.85; font-style:italic;"></div>
+        </div>
       </div>
     </div>
 
@@ -111,9 +122,9 @@
     </div>
   </div>
 
-  <div class="card" style="margin-top:16px;">
+  <div class="card fade-in" style="margin-top:16px;">
     <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
-      <h2 style="margin:0;">Últimos records</h2>
+      <h2 style="margin:0;">📝 Últimos records</h2>
       <span class="small">Muestra hasta 100 del filtro actual</span>
     </div>
     <table>
@@ -121,7 +132,11 @@
         <tr>
           <th>ID</th><th>Experiment</th><th>Traffic</th><th>Session</th><th>Clicks</th><th>Views</th>
           <th>CTR</th><th>CPC</th><th>VC</th><th>Lead</th><th>IC</th><th>Purchase</th>
-          <th>Organic type</th><th>Likes</th><th>Comments</th><th>Shares</th><th>Saves</th><th>Created</th>
+          <th>Organic Type</th><th>Likes</th><th>Comments</th><th>Shares</th><th>Saves</th>
+          <th>Video URL</th><th>Views Finish %</th><th>Retention %</th><th>Avg Watch</th><th>Duration</th>
+          <th>Campaign ID</th><th>Ad Set ID</th><th>Ad ID</th>
+          <th>Live Peak</th><th>Live Avg</th><th>Live Followers</th>
+          <th>Created</th>
         </tr>
       </thead>
       <tbody id="tblBody"></tbody>
@@ -208,6 +223,16 @@
     let cpcSum=0, cpcN=0;
     let ctrSum=0, ctrN=0;
 
+    // Video metrics
+    let viewsFinishSum=0, viewsFinishN=0;
+    let retentionSum=0, retentionN=0;
+    let avgWatchTimeSum=0, avgWatchTimeN=0;
+
+    // Live metrics
+    let liveViewersPeakSum=0, liveViewersPeakN=0;
+    let liveAvgViewersSum=0, liveAvgViewersN=0;
+    let liveFollowersSum=0, liveFollowersN=0;
+
     for (const r of filteredRecords){
       clicks += r.clicks || 0;
       views  += r.views || 0;
@@ -224,17 +249,37 @@
 
       if (r.cpc !== null && r.cpc !== undefined){ cpcSum += Number(r.cpc) || 0; cpcN++; }
       if (r.ctr !== null && r.ctr !== undefined){ ctrSum += Number(r.ctr) || 0; ctrN++; }
+
+      // Video metrics
+      if (r.views_finish_pct !== null && r.views_finish_pct !== undefined){ viewsFinishSum += Number(r.views_finish_pct) || 0; viewsFinishN++; }
+      if (r.retention_pct !== null && r.retention_pct !== undefined){ retentionSum += Number(r.retention_pct) || 0; retentionN++; }
+      if (r.avg_watch_time !== null && r.avg_watch_time !== undefined){ avgWatchTimeSum += Number(r.avg_watch_time) || 0; avgWatchTimeN++; }
+
+      // Live metrics
+      if (r.live_viewers_peak !== null && r.live_viewers_peak !== undefined){ liveViewersPeakSum += Number(r.live_viewers_peak) || 0; liveViewersPeakN++; }
+      if (r.live_avg_viewers !== null && r.live_avg_viewers !== undefined){ liveAvgViewersSum += Number(r.live_avg_viewers) || 0; liveAvgViewersN++; }
+      if (r.live_new_followers !== null && r.live_new_followers !== undefined){ liveFollowersSum += Number(r.live_new_followers) || 0; liveFollowersN++; }
     }
 
     const ctrAvg = ctrN ? (ctrSum/ctrN) : null;
     const cpcAvg = cpcN ? (cpcSum/cpcN) : null;
+
+    const viewsFinishAvg = viewsFinishN ? (viewsFinishSum/viewsFinishN) : null;
+    const retentionAvg = retentionN ? (retentionSum/retentionN) : null;
+    const avgWatchTimeAvg = avgWatchTimeN ? (avgWatchTimeSum/avgWatchTimeN) : null;
+
+    const liveViewersPeakAvg = liveViewersPeakN ? (liveViewersPeakSum/liveViewersPeakN) : null;
+    const liveAvgViewersAvg = liveAvgViewersN ? (liveAvgViewersSum/liveAvgViewersN) : null;
+    const liveFollowersTotal = liveFollowersSum;
 
     return {
       records: filteredRecords.length,
       clicks, views,
       ctrAvg, cpcAvg,
       vc, lead, ic, purchase,
-      likes, comments, shares, saves
+      likes, comments, shares, saves,
+      viewsFinishAvg, retentionAvg, avgWatchTimeAvg,
+      liveViewersPeakAvg, liveAvgViewersAvg, liveFollowersTotal
     };
   }
 
@@ -256,12 +301,16 @@
       ["Comments", fmt(k.comments), "💬"],
       ["Shares", fmt(k.shares), "🔄"],
       ["Saves", fmt(k.saves), "🔖"],
+      ["Views Finish %", k.viewsFinishAvg===null ? "" : fmtFloat(k.viewsFinishAvg, 2) + "%", "🎬"],
+      ["Retention %", k.retentionAvg===null ? "" : fmtFloat(k.retentionAvg, 2) + "%", "⏱️"],
+      ["Avg Watch Time", k.avgWatchTimeAvg===null ? "" : fmtFloat(k.avgWatchTimeAvg, 1) + "s", "⏳"],
+      ["Live Peak Viewers", k.liveViewersPeakAvg===null ? "" : fmt(Math.round(k.liveViewersPeakAvg)), "🔴"],
+      ["Live Avg Viewers", k.liveAvgViewersAvg===null ? "" : fmt(Math.round(k.liveAvgViewersAvg)), "👥"],
+      ["Live New Followers", fmt(k.liveFollowersTotal), "🌟"],
     ];
 
-    // mostrar 8 más importantes arriba (puedes reordenar)
-    const top = items.slice(0, 8).concat(items.slice(8));
-
-    for (const [t,v,emoji] of top){
+    for (const [t,v,emoji] of items){
+      if (!v || v === "—") continue; // Skip empty KPIs
       const d = document.createElement("div");
       d.className = "kpi fade-in";
       d.innerHTML = `<div class="t">${emoji} ${escapeHtml(t)}</div><div class="v">${escapeHtml(v || "—")}</div>`;
@@ -595,6 +644,17 @@
         <td>${fmt(r.comments)}</td>
         <td>${fmt(r.shares)}</td>
         <td>${fmt(r.saves)}</td>
+        <td>${r.video_url ? '<a href="'+escapeHtml(r.video_url)+'" target="_blank">🔗</a>' : ""}</td>
+        <td>${fmtFloat(r.views_finish_pct, 2)}</td>
+        <td>${fmtFloat(r.retention_pct, 2)}</td>
+        <td>${fmtFloat(r.avg_watch_time, 1)}</td>
+        <td>${fmtFloat(r.video_duration, 1)}</td>
+        <td>${escapeHtml(r.campaign_id || "")}</td>
+        <td>${escapeHtml(r.ad_set_id || "")}</td>
+        <td>${escapeHtml(r.ad_id || "")}</td>
+        <td>${fmt(r.live_viewers_peak)}</td>
+        <td>${fmt(r.live_avg_viewers)}</td>
+        <td>${fmt(r.live_new_followers)}</td>
         <td>${escapeHtml(r.created_at)}</td>
       `;
       tb.appendChild(tr);
@@ -623,11 +683,38 @@
     }
   }
 
+  function updateHypothesisPanel(){
+    const expIdStr = $("experimentFilter").value;
+    const panel = $("hypothesisPanel");
+    const textEl = $("hypothesisText");
+    const projectEl = $("hypothesisProject");
+
+    if (!expIdStr){
+      panel.style.display = "none";
+      return;
+    }
+
+    const expId = Number(expIdStr);
+    const exp = experiments.find(e => e.id === expId);
+
+    if (!exp){
+      panel.style.display = "none";
+      return;
+    }
+
+    textEl.textContent = exp.hypothesis || "Sin hipótesis definida";
+    projectEl.textContent = `Proyecto: ${exp.project_name}`;
+    panel.style.display = "block";
+  }
+
   async function refreshView(){
     const traffic = $("trafficFilter").value;
     const expIdStr = $("experimentFilter").value;
 
     const expMap = new Map(experiments.map(e => [e.id, e]));
+
+    // Update hypothesis panel
+    updateHypothesisPanel();
 
     // Filtra records por experimento/traffic usando el experimento (join en frontend)
     let filtered = records;

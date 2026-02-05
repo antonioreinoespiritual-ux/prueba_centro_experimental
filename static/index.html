@@ -5,26 +5,40 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Centro Experimental</title>
   <style>
-    :root { --border:#e5e5e5; --muted:#6b7280; }
-    body { font-family: system-ui, -apple-system, Arial; margin: 24px; max-width: 1200px; }
+    :root { --border:#e5e5e5; --muted:#6b7280; --accent:#3b82f6; --success:#10b981; --gradient-1:linear-gradient(135deg, #667eea 0%, #764ba2 100%); --gradient-2:linear-gradient(135deg, #f093fb 0%, #f5576c 100%); --gradient-3:linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+    * { transition: all 0.2s ease; }
+    body { font-family: system-ui, -apple-system, Arial; margin: 24px; max-width: 1400px; background: linear-gradient(to bottom, #fafafa, #ffffff); min-height: 100vh; }
     .row { display:grid; grid-template-columns: 1fr 1fr; gap: 24px; }
-    @media (max-width: 980px){ .row{ grid-template-columns:1fr; } }
-    label { display:block; font-size: 12px; color: var(--muted); margin-top: 10px; }
-    input, select, textarea, button { width:100%; padding:10px; margin-top:6px; box-sizing:border-box; }
-    textarea { min-height: 90px; }
-    button { cursor:pointer; border: 1px solid var(--border); background:#111; color:#fff; border-radius: 10px; }
-    button.secondary { background:#fff; color:#111; }
-    button:disabled { opacity:.6; cursor:not-allowed; }
-    .card { border: 1px solid var(--border); padding: 16px; border-radius: 14px; }
+    .row3 { display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
+    @media (max-width: 980px){ .row, .row3 { grid-template-columns:1fr; } }
+    label { display:block; font-size: 12px; color: var(--muted); margin-top: 10px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }
+    input, select, textarea, button { width:100%; padding:12px; margin-top:6px; box-sizing:border-box; border: 2px solid var(--border); border-radius: 12px; font-size: 14px; }
+    input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 4px rgba(59,130,246,0.1); }
+    textarea { min-height: 120px; resize: vertical; }
+    button { cursor:pointer; border: none; background: var(--gradient-1); color:#fff; font-weight: 600; box-shadow: 0 4px 12px rgba(102,126,234,0.3); }
+    button:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(102,126,234,0.4); }
+    button.secondary { background:#fff; color:#111; border: 2px solid var(--border); box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+    button.secondary:hover { background:#f7f7f7; border-color: var(--accent); }
+    button:disabled { opacity:.5; cursor:not-allowed; transform: none; }
+    .card { border: 2px solid var(--border); padding: 24px; border-radius: 20px; background: #fff; box-shadow: 0 4px 20px rgba(0,0,0,0.06); }
+    .card:hover { box-shadow: 0 8px 30px rgba(0,0,0,0.1); border-color: var(--accent); }
     .small { font-size: 12px; color: var(--muted); }
     .grid2 { display:grid; grid-template-columns: 1fr 1fr; gap: 12px; }
     .grid3 { display:grid; grid-template-columns: repeat(3,1fr); gap: 10px; }
     .grid4 { display:grid; grid-template-columns: repeat(4,1fr); gap: 8px; }
-    .pill { display:inline-block; padding: 2px 8px; border:1px solid var(--border); border-radius: 999px; font-size: 12px; color: var(--muted); }
-    .sectionTitle{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
-    .hint{ font-size:12px; color:var(--muted); }
-    a.btnlink{ display:inline-block; padding:10px 12px; border-radius:10px; border:1px solid var(--border); text-decoration:none; color:#111; background:#fff; }
-    a.btnlink:hover{ background:#f7f7f7; }
+    @media (max-width: 768px){ .grid2, .grid3, .grid4 { grid-template-columns: 1fr; } }
+    .pill { display:inline-block; padding: 4px 12px; border:2px solid var(--border); border-radius: 999px; font-size: 11px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+    .pill.organic { background: #d1fae5; border-color: #6ee7b7; color: #065f46; }
+    .pill.paid { background: #dbeafe; border-color: #93c5fd; color: #1e40af; }
+    .pill.live { background: #fce7f3; border-color: #f9a8d4; color: #831843; }
+    .sectionTitle{ display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
+    .hint{ font-size:12px; color:var(--muted); font-style: italic; }
+    a.btnlink{ display:inline-block; padding:12px 20px; border-radius:12px; border:2px solid var(--border); text-decoration:none; color:#111; background:#fff; font-weight: 600; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+    a.btnlink:hover{ background:#f7f7f7; transform: translateY(-2px); box-shadow: 0 4px 16px rgba(0,0,0,0.1); border-color: var(--accent); }
+    h1 { background: var(--gradient-1); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    h2 { color: #111; font-size: 20px; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    .fade-in { animation: fadeIn 0.4s ease; }
   </style>
 </head>
 <body>
@@ -43,10 +57,10 @@
 
   <div class="row" style="margin-top:18px;">
     <!-- Crear experimento -->
-    <div class="card">
+    <div class="card fade-in">
       <div class="sectionTitle">
-        <h2 style="margin:0;">Crear experimento</h2>
-        <span class="hint">Se usa en ambos formularios</span>
+        <h2 style="margin:0;">🧪 Crear experimento</h2>
+        <span class="hint">Define tu hipótesis y tipo</span>
       </div>
 
       <label>Project name</label>
@@ -60,6 +74,7 @@
         <option value="paid">paid</option>
         <option value="organic">organic</option>
         <option value="mixed">mixed</option>
+        <option value="live">live</option>
       </select>
 
       <div style="margin-top:12px;">
@@ -68,26 +83,83 @@
     </div>
 
     <!-- Ayuda -->
-    <div class="card">
-      <h2 style="margin:0;">Flujo</h2>
-      <p class="small" style="margin-top:10px;">
-        1) Crea un experimento (paid u organic).<br/>
-        2) Crea records desde el formulario correspondiente.<br/>
-        3) Visualiza y grafica en <strong>Dashboard</strong>.
+    <div class="card fade-in" style="background: var(--gradient-3); color: white; border: none;">
+      <h2 style="margin:0; color: white;">📋 Flujo de Trabajo</h2>
+      <p style="margin-top:10px; font-size: 14px; opacity: 0.95;">
+        1️⃣ Crea un experimento (paid, organic o live)<br/>
+        2️⃣ Registra datos desde el formulario correspondiente<br/>
+        3️⃣ Visualiza y analiza en el <strong>Dashboard</strong>
       </p>
-      <p class="small">
-        Si no ves un experimento en la lista "paid" u "organic", pulsa <strong>Actualizar listas</strong>.
+      <p style="font-size: 13px; opacity: 0.9; margin-top: 12px;">
+        💡 Tip: Actualiza las listas si no ves tus experimentos
       </p>
     </div>
   </div>
 
   <!-- Forms separados -->
   <div class="row" style="margin-top:24px;">
-    <!-- Crear record ORGÁNICO -->
-    <div class="card">
+    <!-- Crear record LIVE -->
+    <div class="card fade-in" style="border-color: #f9a8d4;">
       <div class="sectionTitle">
-        <h2 style="margin:0;">Crear record (ORGÁNICO)</h2>
-        <span class="pill">solo experiments: organic</span>
+        <h2 style="margin:0;">🔴 Crear record (LIVE)</h2>
+        <span class="pill live">solo experiments: live</span>
+      </div>
+
+      <label>Experiment (live)</label>
+      <select id="live_experiment_id"></select>
+
+      <label>Session id</label>
+      <input id="live_session_id" placeholder="l-001" />
+
+      <div class="grid2">
+        <div>
+          <label>Clicks (opcional)</label>
+          <input id="live_clicks" type="number" placeholder="50" />
+        </div>
+        <div>
+          <label>Views (opcional)</label>
+          <input id="live_views" type="number" placeholder="500" />
+        </div>
+      </div>
+
+      <label>Métricas de Live (opcional)</label>
+      <div class="grid4">
+        <div>
+          <label>Pico Viewers</label>
+          <input id="live_viewers_peak" type="number" placeholder="250" />
+        </div>
+        <div>
+          <label>Viewers Prom.</label>
+          <input id="live_avg_viewers" type="number" placeholder="180" />
+        </div>
+        <div>
+          <label>Duración (min)</label>
+          <input id="live_duration" type="number" step="0.1" placeholder="45" />
+        </div>
+        <div>
+          <label>Nuevos Seguidores</label>
+          <input id="live_new_followers" type="number" placeholder="25" />
+        </div>
+      </div>
+
+      <label>Engagement (opcional)</label>
+      <div class="grid4">
+        <input id="live_likes" type="number" placeholder="likes" />
+        <input id="live_comments" type="number" placeholder="comments" />
+        <input id="live_shares" type="number" placeholder="shares" />
+        <input id="live_saves" type="number" placeholder="saves" />
+      </div>
+
+      <div style="margin-top:12px;">
+        <button id="btnCreateLiveRecord">Crear record live</button>
+      </div>
+    </div>
+
+    <!-- Crear record ORGÁNICO -->
+    <div class="card fade-in" style="border-color: #6ee7b7;">
+      <div class="sectionTitle">
+        <h2 style="margin:0;">🌱 Crear record (ORGÁNICO)</h2>
+        <span class="pill organic">solo experiments: organic</span>
       </div>
 
       <label>Experiment (organic)</label>
@@ -118,16 +190,39 @@
         <input id="organic_saves" type="number" placeholder="saves" />
       </div>
 
+      <label>URL del Video (opcional)</label>
+      <input id="organic_video_url" placeholder="https://..." />
+
+      <label>Métricas de Video (opcional)</label>
+      <div class="grid4">
+        <div>
+          <label>% Views Finish</label>
+          <input id="organic_views_finish_pct" type="number" step="0.01" placeholder="75.5" />
+        </div>
+        <div>
+          <label>% Retención</label>
+          <input id="organic_retention_pct" type="number" step="0.01" placeholder="68.2" />
+        </div>
+        <div>
+          <label>Tiempo Prom. (seg)</label>
+          <input id="organic_avg_watch_time" type="number" step="0.1" placeholder="45.3" />
+        </div>
+        <div>
+          <label>Duración (seg)</label>
+          <input id="organic_video_duration" type="number" step="0.1" placeholder="60" />
+        </div>
+      </div>
+
       <div style="margin-top:12px;">
         <button id="btnCreateOrganicRecord">Crear record orgánico</button>
       </div>
     </div>
 
     <!-- Crear record PAID -->
-    <div class="card">
+    <div class="card fade-in" style="border-color: #93c5fd;">
       <div class="sectionTitle">
-        <h2 style="margin:0;">Crear record (PAID)</h2>
-        <span class="pill">solo experiments: paid</span>
+        <h2 style="margin:0;">💰 Crear record (PAID)</h2>
+        <span class="pill paid">solo experiments: paid</span>
       </div>
 
       <label>Experiment (paid)</label>
@@ -175,6 +270,25 @@
 
       <label>CTR (opcional)</label>
       <input id="paid_ctr" type="number" step="0.0001" placeholder="0.06" />
+
+      <label>Duración del Video (seg, opcional)</label>
+      <input id="paid_video_duration" type="number" step="0.1" placeholder="30" />
+
+      <label>IDs de Campaña (opcional)</label>
+      <div class="grid3">
+        <div>
+          <label>Campaign ID</label>
+          <input id="paid_campaign_id" placeholder="camp_123" />
+        </div>
+        <div>
+          <label>Ad Set ID</label>
+          <input id="paid_ad_set_id" placeholder="adset_456" />
+        </div>
+        <div>
+          <label>Ad ID</label>
+          <input id="paid_ad_id" placeholder="ad_789" />
+        </div>
+      </div>
 
       <div style="margin-top:12px;">
         <button id="btnCreatePaidRecord">Crear record paid</button>
@@ -245,12 +359,14 @@
   }
 
   function syncFormSelects(){
-    // FIX REAL: cada formulario usa su propio filtro fijo (organic vs paid)
+    // FIX REAL: cada formulario usa su propio filtro fijo (organic vs paid vs live)
     const organicExps = experimentsCache.filter(e => e.traffic_type === "organic");
     const paidExps = experimentsCache.filter(e => e.traffic_type === "paid");
+    const liveExps = experimentsCache.filter(e => e.traffic_type === "live");
 
     fillExperimentSelect($("organic_experiment_id"), organicExps, true);
     fillExperimentSelect($("paid_experiment_id"), paidExps, true);
+    fillExperimentSelect($("live_experiment_id"), liveExps, true);
   }
 
   async function refreshAll() {
@@ -297,21 +413,70 @@
         session_id: $("organic_session_id").value.trim(),
         clicks: asIntOrNull($("organic_clicks").value),
         views: asIntOrNull($("organic_views").value),
-        organic_piece_type: $("organic_piece_type").value.trim() || null, // opcional
+        organic_piece_type: $("organic_piece_type").value.trim() || null,
         likes: asIntOrNull($("organic_likes").value),
         comments: asIntOrNull($("organic_comments").value),
         shares: asIntOrNull($("organic_shares").value),
         saves: asIntOrNull($("organic_saves").value),
+        video_url: $("organic_video_url").value.trim() || null,
+        views_finish_pct: asFloatOrNull($("organic_views_finish_pct").value),
+        retention_pct: asFloatOrNull($("organic_retention_pct").value),
+        avg_watch_time: asFloatOrNull($("organic_avg_watch_time").value),
+        video_duration: asFloatOrNull($("organic_video_duration").value),
       };
       if (!body.session_id) throw new Error("session_id es obligatorio.");
 
       await apiPost("/records/", body);
 
       ["organic_session_id","organic_clicks","organic_views","organic_piece_type",
-       "organic_likes","organic_comments","organic_shares","organic_saves"
+       "organic_likes","organic_comments","organic_shares","organic_saves",
+       "organic_video_url","organic_views_finish_pct","organic_retention_pct",
+       "organic_avg_watch_time","organic_video_duration"
       ].forEach(id => $(id).value = "");
 
       setStatus("record orgánico creado");
+      setTimeout(()=>setStatus("listo"), 800);
+    } catch(e){
+      setStatus("error", true);
+      alert(String(e));
+    }
+  };
+
+  // Create live record
+  $("btnCreateLiveRecord").onclick = async () => {
+    try {
+      const expId = Number($("live_experiment_id").value);
+      if (!expId) throw new Error("Selecciona un experimento live.");
+
+      const body = {
+        experiment_id: expId,
+        session_id: $("live_session_id").value.trim(),
+        clicks: asIntOrNull($("live_clicks").value),
+        views: asIntOrNull($("live_views").value),
+
+        live_viewers_peak: asIntOrNull($("live_viewers_peak").value),
+        live_avg_viewers: asIntOrNull($("live_avg_viewers").value),
+        live_duration: asFloatOrNull($("live_duration").value),
+        live_new_followers: asIntOrNull($("live_new_followers").value),
+
+        likes: asIntOrNull($("live_likes").value),
+        comments: asIntOrNull($("live_comments").value),
+        shares: asIntOrNull($("live_shares").value),
+        saves: asIntOrNull($("live_saves").value),
+
+        organic_piece_type: null,
+      };
+
+      if (!body.session_id) throw new Error("session_id es obligatorio.");
+
+      await apiPost("/records/", body);
+
+      ["live_session_id","live_clicks","live_views","live_viewers_peak",
+       "live_avg_viewers","live_duration","live_new_followers",
+       "live_likes","live_comments","live_shares","live_saves"
+      ].forEach(id => $(id).value = "");
+
+      setStatus("record live creado");
       setTimeout(()=>setStatus("listo"), 800);
     } catch(e){
       setStatus("error", true);
@@ -338,7 +503,11 @@
         cpc: asFloatOrNull($("paid_cpc").value),
         ctr: asFloatOrNull($("paid_ctr").value),
 
-        // no aplica para paid
+        paid_video_duration: asFloatOrNull($("paid_video_duration").value),
+        campaign_id: $("paid_campaign_id").value.trim() || null,
+        ad_set_id: $("paid_ad_set_id").value.trim() || null,
+        ad_id: $("paid_ad_id").value.trim() || null,
+
         organic_piece_type: null,
       };
 
@@ -347,7 +516,8 @@
       await apiPost("/records/", body);
 
       ["paid_session_id","paid_clicks","paid_views","paid_initiate_checkouts",
-       "paid_view_content","paid_lead","paid_purchase","paid_cpc","paid_ctr"
+       "paid_view_content","paid_lead","paid_purchase","paid_cpc","paid_ctr",
+       "paid_video_duration","paid_campaign_id","paid_ad_set_id","paid_ad_id"
       ].forEach(id => $(id).value = "");
 
       setStatus("record paid creado");
