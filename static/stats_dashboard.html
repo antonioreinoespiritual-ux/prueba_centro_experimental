@@ -1,0 +1,872 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Análisis Estadístico — Centro Experimental</title>
+  <style>
+    :root { --border:#e5e5e5; --muted:#6b7280; --bg:#ffffff; --primary:#111; --accent:#3b82f6; --success:#10b981; --warning:#f59e0b; --danger:#ef4444; }
+    * { transition: all 0.2s ease; }
+    body { font-family: system-ui, -apple-system, Arial; margin: 24px; max-width: 1400px; background:var(--bg); }
+    .top { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap; margin-bottom: 20px; }
+    .small { font-size: 12px; color: var(--muted); }
+    .card { border: 1px solid var(--border); padding: 16px; border-radius: 14px; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.05); margin-bottom: 16px; }
+    .card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+    .card h2 { margin: 0 0 12px 0; font-size: 18px; }
+    .card h3 { margin: 12px 0 8px 0; font-size: 16px; color: var(--primary); }
+    .row { display:grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .row3 { display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+    @media (max-width: 980px){ .row, .row3 { grid-template-columns: 1fr; } }
+    label { display:block; font-size: 12px; color: var(--muted); margin-top: 10px; }
+    select, input, button { width:100%; padding:10px; margin-top:6px; box-sizing:border-box; border: 1px solid var(--border); border-radius: 8px; }
+    select:focus, input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
+    button { cursor:pointer; background:#111; color:#fff; font-weight: 500; }
+    button:hover { background:#000; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+    button.secondary { background:#fff; color:#111; }
+    button.secondary:hover { background:#f7f7f7; }
+    button.success { background: var(--success); border-color: var(--success); }
+    button.success:hover { background: #059669; }
+    .filters { display:grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    @media (max-width: 980px){ .filters{ grid-template-columns: 1fr; } }
+    .stat-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-top:12px; }
+    .stat-box { border: 1px solid var(--border); border-radius: 12px; padding: 12px; text-align: center; }
+    .stat-box .label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .stat-box .value { font-size: 24px; font-weight: 700; margin-top: 4px; color: var(--primary); }
+    .stat-box .subvalue { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .pill { display:inline-block; padding: 4px 10px; border:1px solid var(--border); border-radius: 999px; font-size: 12px; color: var(--muted); font-weight: 500; }
+    .pill.success { background: #d1fae5; border-color: #6ee7b7; color: #065f46; }
+    .pill.danger { background: #fee2e2; border-color: #fca5a5; color: #991b1b; }
+    .pill.info { background: #dbeafe; border-color: #93c5fd; color: #1e40af; }
+    .chartWrap { border: 1px solid var(--border); border-radius: 14px; padding: 16px; position: relative; background: #fff; }
+    .chartWrap:hover { border-color: var(--accent); }
+    svg { width: 100%; height: 300px; display:block; }
+    table { width:100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
+    th, td { border-bottom: 1px solid #ddd; padding: 10px 8px; text-align: left; }
+    th { font-size: 12px; color: var(--muted); font-weight: 600; background: #f9fafb; position: sticky; top: 0; }
+    tr:hover { background: #f9fafb; }
+    a.btnlink{ display:inline-block; padding:10px 16px; border-radius:10px; border:1px solid var(--border); text-decoration:none; color:#111; background:#fff; font-weight: 500; }
+    a.btnlink:hover{ background:#f7f7f7; transform: translateY(-1px); box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    .tooltip { position: absolute; background: rgba(0,0,0,0.9); color: #fff; padding: 8px 12px; border-radius: 6px; font-size: 12px; pointer-events: none; opacity: 0; z-index: 1000; white-space: nowrap; }
+    .tooltip.show { opacity: 1; }
+    .loading { text-align: center; padding: 40px; color: var(--muted); font-size: 14px; }
+    .loading::after { content: '...'; animation: dots 1.5s infinite; }
+    @keyframes dots { 0%, 20% { content: '.'; } 40% { content: '..'; } 60%, 100% { content: '...'; } }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    .fade-in { animation: fadeIn 0.3s ease; }
+    .comparison-table { display: grid; grid-template-columns: 200px 1fr 1fr; gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+    .comparison-table > div { background: white; padding: 12px; }
+    .comparison-table .header { background: #f9fafb; font-weight: 600; font-size: 13px; }
+    .comparison-table .metric { font-weight: 500; color: var(--muted); font-size: 13px; }
+    .significance { font-size: 11px; font-weight: 600; padding: 2px 6px; border-radius: 4px; }
+    .significance.sig { background: #dcfce7; color: #166534; }
+    .significance.not-sig { background: #fee2e2; color: #991b1b; }
+    .chart-controls { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+    .chart-controls button { width: auto; padding: 6px 12px; font-size: 12px; }
+    .export-section { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+  </style>
+</head>
+<body>
+  <div class="top">
+    <div>
+      <h1 style="margin:0;">📊 Análisis Estadístico de Experimentos</h1>
+      <p class="small" style="margin:6px 0 0 0;">
+        Comparación avanzada y análisis estadístico de experimentos
+      </p>
+    </div>
+    <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+      <a class="btnlink" href="/static/dashboard.html">← Dashboard Principal</a>
+      <a class="btnlink" href="/">Formularios</a>
+    </div>
+  </div>
+
+  <!-- Selector de experimentos a comparar -->
+  <div class="card fade-in">
+    <h2>🔬 Seleccionar Experimentos para Análisis</h2>
+    <div class="filters">
+      <div>
+        <label>Experimento A</label>
+        <select id="expA"></select>
+      </div>
+      <div>
+        <label>Experimento B (para comparación)</label>
+        <select id="expB"></select>
+      </div>
+    </div>
+    <div style="margin-top: 12px;">
+      <button id="btnAnalyze" class="success">🔍 Analizar y Comparar</button>
+    </div>
+  </div>
+
+  <!-- Resultados del análisis -->
+  <div id="resultsSection" style="display:none;">
+    <!-- Resumen estadístico -->
+    <div class="card fade-in">
+      <h2>📈 Resumen Estadístico</h2>
+      <div id="summaryStats"></div>
+    </div>
+
+    <!-- Comparación directa -->
+    <div class="card fade-in">
+      <h2>⚖️ Comparación Directa</h2>
+      <div id="comparisonTable"></div>
+      <div class="export-section">
+        <button id="btnExportCSV" class="secondary" style="max-width: 300px;">📥 Exportar Comparación a CSV</button>
+      </div>
+    </div>
+
+    <!-- Tests de significancia -->
+    <div class="card fade-in">
+      <h2>🧪 Tests de Significancia Estadística</h2>
+      <p class="small">Nivel de confianza: 95% (α = 0.05)</p>
+      <div id="significanceTests"></div>
+    </div>
+
+    <!-- Gráficos de distribución -->
+    <div class="row">
+      <div class="card fade-in">
+        <div class="chartWrap">
+          <h3>📊 Distribución de Clicks</h3>
+          <div class="chart-controls">
+            <button class="secondary" onclick="updateDistributionChart('clicks')">Clicks</button>
+            <button class="secondary" onclick="updateDistributionChart('views')">Views</button>
+            <button class="secondary" onclick="updateDistributionChart('ctr')">CTR</button>
+          </div>
+          <svg id="distributionChart" viewBox="0 0 800 300" preserveAspectRatio="none"></svg>
+        </div>
+      </div>
+
+      <div class="card fade-in">
+        <div class="chartWrap">
+          <h3>📈 Tendencia Temporal</h3>
+          <svg id="trendChart" viewBox="0 0 800 300" preserveAspectRatio="none"></svg>
+        </div>
+      </div>
+    </div>
+
+    <!-- Análisis de correlación -->
+    <div class="card fade-in">
+      <h2>🔗 Análisis de Correlación</h2>
+      <div class="row">
+        <div class="chartWrap">
+          <h3>Clicks vs Views</h3>
+          <svg id="scatterChart" viewBox="0 0 800 300" preserveAspectRatio="none"></svg>
+        </div>
+        <div id="correlationStats"></div>
+      </div>
+    </div>
+
+    <!-- Análisis de funnel (solo para paid) -->
+    <div class="card fade-in" id="funnelAnalysis" style="display:none;">
+      <h2>🎯 Análisis de Embudo (Paid)</h2>
+      <div class="chartWrap">
+        <svg id="funnelComparisonChart" viewBox="0 0 800 300" preserveAspectRatio="none"></svg>
+      </div>
+      <div id="funnelStats" style="margin-top: 16px;"></div>
+    </div>
+  </div>
+
+  <!-- Loading state -->
+  <div id="loadingState" class="card" style="display:none;">
+    <div class="loading">Analizando experimentos y calculando estadísticas</div>
+  </div>
+
+<script>
+  const API_BASE = "";
+  const $ = (id) => document.getElementById(id);
+
+  let experiments = [];
+  let records = [];
+  let expAData = null;
+  let expBData = null;
+
+  // Utility functions
+  function escapeHtml(s) {
+    return String(s).replaceAll("&","&amp;").replaceAll("<","&lt;")
+      .replaceAll(">","&gt;").replaceAll('"',"&quot;");
+  }
+
+  function fmt(n, decimals = 0) {
+    if (n === null || n === undefined) return "—";
+    const x = Number(n);
+    if (!Number.isFinite(x)) return "—";
+    return decimals > 0 ? x.toFixed(decimals) : x.toLocaleString("es-ES");
+  }
+
+  async function apiGet(path) {
+    const r = await fetch(API_BASE + path);
+    if (!r.ok) throw new Error(await r.text());
+    return r.json();
+  }
+
+  function svgClear(svg) {
+    while(svg.firstChild) svg.removeChild(svg.firstChild);
+  }
+
+  // Statistical functions
+  function mean(arr) {
+    if (!arr.length) return 0;
+    return arr.reduce((a, b) => a + b, 0) / arr.length;
+  }
+
+  function median(arr) {
+    if (!arr.length) return 0;
+    const sorted = [...arr].sort((a, b) => a - b);
+    const mid = Math.floor(sorted.length / 2);
+    return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
+  }
+
+  function stdDev(arr) {
+    if (!arr.length) return 0;
+    const avg = mean(arr);
+    const squareDiffs = arr.map(value => Math.pow(value - avg, 2));
+    return Math.sqrt(mean(squareDiffs));
+  }
+
+  function percentile(arr, p) {
+    if (!arr.length) return 0;
+    const sorted = [...arr].sort((a, b) => a - b);
+    const index = (p / 100) * (sorted.length - 1);
+    const lower = Math.floor(index);
+    const upper = Math.ceil(index);
+    const weight = index % 1;
+    return sorted[lower] * (1 - weight) + sorted[upper] * weight;
+  }
+
+  function correlation(x, y) {
+    if (x.length !== y.length || x.length === 0) return 0;
+    const n = x.length;
+    const meanX = mean(x);
+    const meanY = mean(y);
+    let num = 0, denX = 0, denY = 0;
+    for (let i = 0; i < n; i++) {
+      const dx = x[i] - meanX;
+      const dy = y[i] - meanY;
+      num += dx * dy;
+      denX += dx * dx;
+      denY += dy * dy;
+    }
+    return num / Math.sqrt(denX * denY);
+  }
+
+  // T-test for independent samples
+  function tTest(arr1, arr2) {
+    const n1 = arr1.length, n2 = arr2.length;
+    if (n1 < 2 || n2 < 2) return { t: 0, pValue: 1, significant: false };
+
+    const mean1 = mean(arr1), mean2 = mean(arr2);
+    const std1 = stdDev(arr1), std2 = stdDev(arr2);
+
+    const pooledStd = Math.sqrt(((n1 - 1) * std1 * std1 + (n2 - 1) * std2 * std2) / (n1 + n2 - 2));
+    const t = (mean1 - mean2) / (pooledStd * Math.sqrt(1/n1 + 1/n2));
+    const df = n1 + n2 - 2;
+
+    // Simplified p-value approximation (for demonstration)
+    const pValue = 2 * (1 - normalCDF(Math.abs(t)));
+    const significant = pValue < 0.05;
+
+    return { t, pValue, significant, mean1, mean2, std1, std2 };
+  }
+
+  // Normal CDF approximation
+  function normalCDF(x) {
+    const t = 1 / (1 + 0.2316419 * Math.abs(x));
+    const d = 0.3989423 * Math.exp(-x * x / 2);
+    const p = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274))));
+    return x > 0 ? 1 - p : p;
+  }
+
+  // Load experiments
+  async function loadExperiments() {
+    try {
+      experiments = await apiGet("/experiments/");
+      records = await apiGet("/records/?limit=50000");
+
+      const selA = $("expA");
+      const selB = $("expB");
+
+      selA.innerHTML = "";
+      selB.innerHTML = "";
+
+      const emptyOpt = document.createElement("option");
+      emptyOpt.value = "";
+      emptyOpt.textContent = "Seleccionar experimento...";
+      selB.appendChild(emptyOpt.cloneNode(true));
+
+      for (const exp of experiments) {
+        const opt = document.createElement("option");
+        opt.value = String(exp.id);
+        opt.textContent = `${exp.project_name} (${exp.traffic_type}) - ID: ${exp.id}`;
+        selA.appendChild(opt.cloneNode(true));
+        selB.appendChild(opt);
+      }
+
+      if (experiments.length > 0) {
+        selA.selectedIndex = 0;
+        if (experiments.length > 1) selB.selectedIndex = 1;
+      }
+    } catch (e) {
+      alert("Error cargando datos: " + String(e));
+    }
+  }
+
+  // Get experiment data
+  function getExperimentData(expId) {
+    const exp = experiments.find(e => e.id === expId);
+    if (!exp) return null;
+
+    const expRecords = records.filter(r => r.experiment_id === expId);
+
+    const clicks = expRecords.map(r => r.clicks || 0).filter(v => v > 0);
+    const views = expRecords.map(r => r.views || 0).filter(v => v > 0);
+    const ctr = expRecords.map(r => r.ctr).filter(v => v !== null && v !== undefined);
+    const cpc = expRecords.map(r => r.cpc).filter(v => v !== null && v !== undefined);
+
+    return {
+      experiment: exp,
+      records: expRecords,
+      clicks,
+      views,
+      ctr,
+      cpc,
+      totalClicks: clicks.reduce((a, b) => a + b, 0),
+      totalViews: views.reduce((a, b) => a + b, 0),
+      avgCTR: mean(ctr),
+      avgCPC: mean(cpc),
+    };
+  }
+
+  // Analyze experiments
+  async function analyzeExperiments() {
+    const expAId = Number($("expA").value);
+    const expBId = $("expB").value ? Number($("expB").value) : null;
+
+    if (!expAId) {
+      alert("Selecciona al menos el Experimento A");
+      return;
+    }
+
+    $("loadingState").style.display = "block";
+    $("resultsSection").style.display = "none";
+
+    // Simulate processing
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    expAData = getExperimentData(expAId);
+    expBData = expBId ? getExperimentData(expBId) : null;
+
+    renderSummaryStats();
+    renderComparisonTable();
+    renderSignificanceTests();
+    renderDistributionChart('clicks');
+    renderTrendChart();
+    renderScatterChart();
+    renderFunnelAnalysis();
+
+    $("loadingState").style.display = "none";
+    $("resultsSection").style.display = "block";
+  }
+
+  // Render summary statistics
+  function renderSummaryStats() {
+    const el = $("summaryStats");
+    const stats = [];
+
+    if (expAData) {
+      stats.push({
+        label: expAData.experiment.project_name,
+        metrics: [
+          { name: "Records", value: expAData.records.length },
+          { name: "Total Clicks", value: fmt(expAData.totalClicks) },
+          { name: "Total Views", value: fmt(expAData.totalViews) },
+          { name: "Avg Clicks", value: fmt(mean(expAData.clicks), 2) },
+          { name: "Median Clicks", value: fmt(median(expAData.clicks), 2) },
+          { name: "Std Dev Clicks", value: fmt(stdDev(expAData.clicks), 2) },
+        ]
+      });
+    }
+
+    if (expBData) {
+      stats.push({
+        label: expBData.experiment.project_name,
+        metrics: [
+          { name: "Records", value: expBData.records.length },
+          { name: "Total Clicks", value: fmt(expBData.totalClicks) },
+          { name: "Total Views", value: fmt(expBData.totalViews) },
+          { name: "Avg Clicks", value: fmt(mean(expBData.clicks), 2) },
+          { name: "Median Clicks", value: fmt(median(expBData.clicks), 2) },
+          { name: "Std Dev Clicks", value: fmt(stdDev(expBData.clicks), 2) },
+        ]
+      });
+    }
+
+    let html = '<div class="row">';
+    for (const stat of stats) {
+      html += `<div><h3>${escapeHtml(stat.label)}</h3><div class="stat-grid">`;
+      for (const m of stat.metrics) {
+        html += `<div class="stat-box">
+          <div class="label">${escapeHtml(m.name)}</div>
+          <div class="value">${escapeHtml(m.value)}</div>
+        </div>`;
+      }
+      html += '</div></div>';
+    }
+    html += '</div>';
+    el.innerHTML = html;
+  }
+
+  // Render comparison table
+  function renderComparisonTable() {
+    const el = $("comparisonTable");
+
+    if (!expBData) {
+      el.innerHTML = '<p class="small">Selecciona un segundo experimento para comparar.</p>';
+      return;
+    }
+
+    const metrics = [
+      { name: "Records", a: expAData.records.length, b: expBData.records.length },
+      { name: "Total Clicks", a: expAData.totalClicks, b: expBData.totalClicks },
+      { name: "Total Views", a: expAData.totalViews, b: expBData.totalViews },
+      { name: "Avg Clicks", a: mean(expAData.clicks), b: mean(expBData.clicks) },
+      { name: "Median Clicks", a: median(expAData.clicks), b: median(expBData.clicks) },
+      { name: "Std Dev Clicks", a: stdDev(expAData.clicks), b: stdDev(expBData.clicks) },
+      { name: "Avg CTR", a: expAData.avgCTR, b: expBData.avgCTR },
+      { name: "Avg CPC", a: expAData.avgCPC, b: expBData.avgCPC },
+    ];
+
+    let html = '<div class="comparison-table">';
+    html += '<div class="header">Métrica</div>';
+    html += `<div class="header">${escapeHtml(expAData.experiment.project_name)}</div>`;
+    html += `<div class="header">${escapeHtml(expBData.experiment.project_name)}</div>`;
+
+    for (const m of metrics) {
+      html += `<div class="metric">${escapeHtml(m.name)}</div>`;
+      html += `<div>${fmt(m.a, 2)}</div>`;
+      html += `<div>${fmt(m.b, 2)}</div>`;
+    }
+
+    html += '</div>';
+    el.innerHTML = html;
+  }
+
+  // Render significance tests
+  function renderSignificanceTests() {
+    const el = $("significanceTests");
+
+    if (!expBData) {
+      el.innerHTML = '<p class="small">Requiere dos experimentos para realizar tests de significancia.</p>';
+      return;
+    }
+
+    const clicksTest = tTest(expAData.clicks, expBData.clicks);
+    const viewsTest = tTest(expAData.views, expBData.views);
+
+    let html = '<div class="stat-grid">';
+
+    const tests = [
+      { name: "Clicks", test: clicksTest },
+      { name: "Views", test: viewsTest },
+    ];
+
+    for (const t of tests) {
+      const sigClass = t.test.significant ? 'success' : 'danger';
+      const sigText = t.test.significant ? 'Significativo' : 'No significativo';
+      html += `<div class="stat-box">
+        <div class="label">${escapeHtml(t.name)}</div>
+        <div class="value">${fmt(t.test.t, 4)}</div>
+        <div class="subvalue">t-statistic</div>
+        <div style="margin-top: 8px;"><span class="pill ${sigClass}">${sigText}</span></div>
+        <div class="small" style="margin-top: 4px;">p = ${fmt(t.test.pValue, 4)}</div>
+      </div>`;
+    }
+
+    html += '</div>';
+    html += '<div class="small" style="margin-top: 12px;">📘 <strong>Interpretación:</strong> Un resultado "Significativo" indica que la diferencia entre los experimentos es estadísticamente relevante (p < 0.05).</div>';
+    el.innerHTML = html;
+  }
+
+  // Render distribution chart
+  function renderDistributionChart(metric) {
+    const svg = $("distributionChart");
+    svgClear(svg);
+
+    if (!expAData) return;
+
+    const W = 800, H = 300, padL = 50, padR = 20, padT = 20, padB = 40;
+    const innerW = W - padL - padR;
+    const innerH = H - padT - padB;
+
+    // Get data for the selected metric
+    const dataA = metric === 'clicks' ? expAData.clicks :
+                  metric === 'views' ? expAData.views : expAData.ctr;
+
+    const dataB = expBData ? (metric === 'clicks' ? expBData.clicks :
+                              metric === 'views' ? expBData.views : expBData.ctr) : [];
+
+    if (!dataA.length) return;
+
+    // Create histogram bins
+    const allData = [...dataA, ...dataB];
+    const minVal = Math.min(...allData);
+    const maxVal = Math.max(...allData);
+    const numBins = 20;
+    const binWidth = (maxVal - minVal) / numBins;
+
+    function getBins(data) {
+      const bins = Array(numBins).fill(0);
+      for (const val of data) {
+        const binIndex = Math.min(Math.floor((val - minVal) / binWidth), numBins - 1);
+        bins[binIndex]++;
+      }
+      return bins;
+    }
+
+    const binsA = getBins(dataA);
+    const binsB = getBins(dataB);
+    const maxBinCount = Math.max(...binsA, ...binsB);
+
+    // Draw axes
+    const baseline = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    baseline.setAttribute("x1", padL);
+    baseline.setAttribute("y1", padT + innerH);
+    baseline.setAttribute("x2", padL + innerW);
+    baseline.setAttribute("y2", padT + innerH);
+    baseline.setAttribute("stroke", "#ddd");
+    svg.appendChild(baseline);
+
+    const barWidth = innerW / numBins;
+
+    // Draw histogram bars for A
+    for (let i = 0; i < numBins; i++) {
+      const h = (binsA[i] / maxBinCount) * innerH * 0.9;
+      const x = padL + i * barWidth;
+      const y = padT + innerH - h;
+
+      const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+      rect.setAttribute("x", x);
+      rect.setAttribute("y", y);
+      rect.setAttribute("width", barWidth * 0.4);
+      rect.setAttribute("height", h);
+      rect.setAttribute("fill", "#3b82f6");
+      rect.setAttribute("opacity", "0.7");
+      svg.appendChild(rect);
+    }
+
+    // Draw histogram bars for B
+    if (expBData) {
+      for (let i = 0; i < numBins; i++) {
+        const h = (binsB[i] / maxBinCount) * innerH * 0.9;
+        const x = padL + i * barWidth + barWidth * 0.4;
+        const y = padT + innerH - h;
+
+        const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+        rect.setAttribute("x", x);
+        rect.setAttribute("y", y);
+        rect.setAttribute("width", barWidth * 0.4);
+        rect.setAttribute("height", h);
+        rect.setAttribute("fill", "#10b981");
+        rect.setAttribute("opacity", "0.7");
+        svg.appendChild(rect);
+      }
+    }
+
+    // Labels
+    const title = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    title.setAttribute("x", W / 2);
+    title.setAttribute("y", 15);
+    title.setAttribute("text-anchor", "middle");
+    title.setAttribute("font-size", "14");
+    title.setAttribute("font-weight", "600");
+    title.textContent = `Distribución de ${metric}`;
+    svg.appendChild(title);
+  }
+
+  window.updateDistributionChart = renderDistributionChart;
+
+  // Render trend chart
+  function renderTrendChart() {
+    const svg = $("trendChart");
+    svgClear(svg);
+
+    if (!expAData) return;
+
+    const W = 800, H = 300, padL = 50, padR = 20, padT = 20, padB = 40;
+    const innerW = W - padL - padR;
+    const innerH = H - padT - padB;
+
+    // Group by day
+    function groupByDay(records) {
+      const map = new Map();
+      for (const r of records) {
+        const date = new Date(r.created_at);
+        const day = date.toISOString().split('T')[0];
+        if (!map.has(day)) map.set(day, []);
+        map.get(day).push(r.clicks || 0);
+      }
+      return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0]))
+        .map(([day, clicks]) => ({ day, avg: mean(clicks) }));
+    }
+
+    const trendA = groupByDay(expAData.records);
+    const trendB = expBData ? groupByDay(expBData.records) : [];
+
+    if (!trendA.length) return;
+
+    const allAvgs = [...trendA.map(t => t.avg), ...trendB.map(t => t.avg)];
+    const maxAvg = Math.max(...allAvgs, 1);
+
+    // Draw axes
+    const baseline = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    baseline.setAttribute("x1", padL);
+    baseline.setAttribute("y1", padT + innerH);
+    baseline.setAttribute("x2", padL + innerW);
+    baseline.setAttribute("y2", padT + innerH);
+    baseline.setAttribute("stroke", "#ddd");
+    svg.appendChild(baseline);
+
+    // Draw trend lines
+    function drawTrend(data, color) {
+      if (!data.length) return;
+      const stepX = innerW / Math.max(1, data.length - 1);
+      let path = "";
+      for (let i = 0; i < data.length; i++) {
+        const x = padL + i * stepX;
+        const y = padT + innerH - (data[i].avg / maxAvg) * innerH;
+        path += (i === 0 ? `M ${x} ${y}` : ` L ${x} ${y}`);
+      }
+      const line = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      line.setAttribute("d", path);
+      line.setAttribute("fill", "none");
+      line.setAttribute("stroke", color);
+      line.setAttribute("stroke-width", "3");
+      svg.appendChild(line);
+    }
+
+    drawTrend(trendA, "#3b82f6");
+    if (expBData) drawTrend(trendB, "#10b981");
+
+    // Title
+    const title = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    title.setAttribute("x", W / 2);
+    title.setAttribute("y", 15);
+    title.setAttribute("text-anchor", "middle");
+    title.setAttribute("font-size", "14");
+    title.setAttribute("font-weight", "600");
+    title.textContent = "Promedio de Clicks por Día";
+    svg.appendChild(title);
+  }
+
+  // Render scatter chart
+  function renderScatterChart() {
+    const svg = $("scatterChart");
+    svgClear(svg);
+
+    if (!expAData) return;
+
+    const W = 800, H = 300, padL = 50, padR = 20, padT = 20, padB = 40;
+    const innerW = W - padL - padR;
+    const innerH = H - padT - padB;
+
+    const dataA = expAData.records.filter(r => r.clicks > 0 && r.views > 0)
+      .map(r => ({ clicks: r.clicks, views: r.views }));
+
+    if (!dataA.length) return;
+
+    const maxClicks = Math.max(...dataA.map(d => d.clicks));
+    const maxViews = Math.max(...dataA.map(d => d.views));
+
+    // Draw axes
+    const xAxis = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    xAxis.setAttribute("x1", padL);
+    xAxis.setAttribute("y1", padT + innerH);
+    xAxis.setAttribute("x2", padL + innerW);
+    xAxis.setAttribute("y2", padT + innerH);
+    xAxis.setAttribute("stroke", "#999");
+    svg.appendChild(xAxis);
+
+    const yAxis = document.createElementNS("http://www.w3.org/2000/svg", "line");
+    yAxis.setAttribute("x1", padL);
+    yAxis.setAttribute("y1", padT);
+    yAxis.setAttribute("x2", padL);
+    yAxis.setAttribute("y2", padT + innerH);
+    yAxis.setAttribute("stroke", "#999");
+    svg.appendChild(yAxis);
+
+    // Draw points
+    for (const d of dataA) {
+      const x = padL + (d.views / maxViews) * innerW;
+      const y = padT + innerH - (d.clicks / maxClicks) * innerH;
+
+      const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+      circle.setAttribute("cx", x);
+      circle.setAttribute("cy", y);
+      circle.setAttribute("r", "4");
+      circle.setAttribute("fill", "#3b82f6");
+      circle.setAttribute("opacity", "0.6");
+      svg.appendChild(circle);
+    }
+
+    // Calculate correlation
+    const corr = correlation(dataA.map(d => d.views), dataA.map(d => d.clicks));
+
+    // Correlation stats
+    const correlEl = $("correlationStats");
+    correlEl.innerHTML = `
+      <div class="stat-grid">
+        <div class="stat-box">
+          <div class="label">Correlación (r)</div>
+          <div class="value">${fmt(corr, 3)}</div>
+          <div class="subvalue">${Math.abs(corr) > 0.7 ? 'Fuerte' : Math.abs(corr) > 0.4 ? 'Moderada' : 'Débil'}</div>
+        </div>
+        <div class="stat-box">
+          <div class="label">R²</div>
+          <div class="value">${fmt(corr * corr, 3)}</div>
+          <div class="subvalue">Coef. determinación</div>
+        </div>
+        <div class="stat-box">
+          <div class="label">Puntos de datos</div>
+          <div class="value">${dataA.length}</div>
+          <div class="subvalue">Records analizados</div>
+        </div>
+      </div>
+      <div class="small" style="margin-top: 12px;">
+        📘 <strong>Interpretación:</strong> Una correlación cercana a 1 indica relación positiva fuerte,
+        cercana a -1 indica relación negativa fuerte, y cercana a 0 indica poca o ninguna relación lineal.
+      </div>
+    `;
+  }
+
+  // Render funnel analysis
+  function renderFunnelAnalysis() {
+    const el = $("funnelAnalysis");
+
+    if (!expAData || expAData.experiment.traffic_type !== 'paid') {
+      el.style.display = 'none';
+      return;
+    }
+
+    el.style.display = 'block';
+
+    const svg = $("funnelComparisonChart");
+    svgClear(svg);
+
+    // Calculate funnel metrics
+    function getFunnelMetrics(data) {
+      const totals = {
+        vc: 0,
+        lead: 0,
+        ic: 0,
+        purchase: 0
+      };
+
+      for (const r of data.records) {
+        totals.vc += r.view_content || 0;
+        totals.lead += r.lead_form || 0;
+        totals.ic += r.initiate_checkouts || 0;
+        totals.purchase += r.purchase || 0;
+      }
+
+      return totals;
+    }
+
+    const funnelA = getFunnelMetrics(expAData);
+    const funnelB = expBData && expBData.experiment.traffic_type === 'paid' ? getFunnelMetrics(expBData) : null;
+
+    // Draw funnel visualization
+    const W = 800, H = 300, padL = 100, padR = 100, padT = 40, padB = 40;
+    const stages = ['View Content', 'Lead Form', 'Init Checkout', 'Purchase'];
+    const valuesA = [funnelA.vc, funnelA.lead, funnelA.ic, funnelA.purchase];
+    const maxVal = Math.max(...valuesA, funnelB ? Math.max(funnelB.vc, funnelB.lead, funnelB.ic, funnelB.purchase) : 0);
+
+    const stageHeight = (H - padT - padB) / stages.length;
+
+    for (let i = 0; i < stages.length; i++) {
+      const y = padT + i * stageHeight;
+      const width = (valuesA[i] / maxVal) * (W - padL - padR);
+      const x = padL + (W - padL - padR - width) / 2;
+
+      const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+      rect.setAttribute("x", x);
+      rect.setAttribute("y", y);
+      rect.setAttribute("width", width);
+      rect.setAttribute("height", stageHeight - 10);
+      rect.setAttribute("fill", "#3b82f6");
+      rect.setAttribute("opacity", "0.7");
+      svg.appendChild(rect);
+
+      const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      label.setAttribute("x", 10);
+      label.setAttribute("y", y + stageHeight / 2);
+      label.setAttribute("font-size", "12");
+      label.setAttribute("fill", "#374151");
+      label.textContent = `${stages[i]}: ${fmt(valuesA[i])}`;
+      svg.appendChild(label);
+    }
+
+    // Funnel stats
+    const statsEl = $("funnelStats");
+    const conversionVC = funnelA.vc > 0 ? (funnelA.purchase / funnelA.vc * 100) : 0;
+    const conversionLead = funnelA.lead > 0 ? (funnelA.purchase / funnelA.lead * 100) : 0;
+
+    statsEl.innerHTML = `
+      <div class="stat-grid">
+        <div class="stat-box">
+          <div class="label">Conversión VC → Purchase</div>
+          <div class="value">${fmt(conversionVC, 2)}%</div>
+        </div>
+        <div class="stat-box">
+          <div class="label">Conversión Lead → Purchase</div>
+          <div class="value">${fmt(conversionLead, 2)}%</div>
+        </div>
+        <div class="stat-box">
+          <div class="label">Total View Content</div>
+          <div class="value">${fmt(funnelA.vc)}</div>
+        </div>
+        <div class="stat-box">
+          <div class="label">Total Purchase</div>
+          <div class="value">${fmt(funnelA.purchase)}</div>
+        </div>
+      </div>
+    `;
+  }
+
+  // Export to CSV
+  function exportToCSV() {
+    if (!expAData) return;
+
+    const rows = [
+      ['Metric', expAData.experiment.project_name, expBData ? expBData.experiment.project_name : '']
+    ];
+
+    const metrics = [
+      ['Records', expAData.records.length, expBData ? expBData.records.length : ''],
+      ['Total Clicks', expAData.totalClicks, expBData ? expBData.totalClicks : ''],
+      ['Total Views', expAData.totalViews, expBData ? expBData.totalViews : ''],
+      ['Avg Clicks', mean(expAData.clicks).toFixed(2), expBData ? mean(expBData.clicks).toFixed(2) : ''],
+      ['Median Clicks', median(expAData.clicks).toFixed(2), expBData ? median(expBData.clicks).toFixed(2) : ''],
+      ['Std Dev Clicks', stdDev(expAData.clicks).toFixed(2), expBData ? stdDev(expBData.clicks).toFixed(2) : ''],
+      ['Avg CTR', expAData.avgCTR.toFixed(4), expBData ? expBData.avgCTR.toFixed(4) : ''],
+      ['Avg CPC', expAData.avgCPC.toFixed(4), expBData ? expBData.avgCPC.toFixed(4) : ''],
+    ];
+
+    rows.push(...metrics);
+
+    const csv = rows.map(row => row.join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `comparison_${expAData.experiment.id}_${expBData ? expBData.experiment.id : 'single'}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  // Event listeners
+  $("btnAnalyze").addEventListener("click", analyzeExperiments);
+  $("btnExportCSV").addEventListener("click", exportToCSV);
+
+  // Initialize
+  loadExperiments();
+</script>
+</body>
+</html>

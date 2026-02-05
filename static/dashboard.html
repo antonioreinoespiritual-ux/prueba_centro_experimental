@@ -5,33 +5,50 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Dashboard — Centro Experimental</title>
   <style>
-    :root { --border:#e5e5e5; --muted:#6b7280; --bg:#ffffff; }
+    :root { --border:#e5e5e5; --muted:#6b7280; --bg:#ffffff; --primary:#111; --accent:#3b82f6; }
+    * { transition: all 0.2s ease; }
     body { font-family: system-ui, -apple-system, Arial; margin: 24px; max-width: 1200px; background:var(--bg); }
     .top { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap; }
     .small { font-size: 12px; color: var(--muted); }
-    .card { border: 1px solid var(--border); padding: 16px; border-radius: 14px; }
+    .card { border: 1px solid var(--border); padding: 16px; border-radius: 14px; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+    .card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
     .row { display:grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; }
     @media (max-width: 980px){ .row{ grid-template-columns: 1fr; } }
     label { display:block; font-size: 12px; color: var(--muted); margin-top: 10px; }
-    select, input, button { width:100%; padding:10px; margin-top:6px; box-sizing:border-box; }
-    button { cursor:pointer; border: 1px solid var(--border); background:#111; color:#fff; border-radius: 10px; }
+    select, input, button { width:100%; padding:10px; margin-top:6px; box-sizing:border-box; border: 1px solid var(--border); border-radius: 8px; }
+    select:focus, input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
+    button { cursor:pointer; background:#111; color:#fff; font-weight: 500; }
+    button:hover { background:#000; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
     button.secondary { background:#fff; color:#111; }
+    button.secondary:hover { background:#f7f7f7; }
     .filters { display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
     @media (max-width: 980px){ .filters{ grid-template-columns: 1fr; } }
     .kpis { display:grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top:12px; }
     @media (max-width: 980px){ .kpis{ grid-template-columns: repeat(2, 1fr); } }
-    .kpi { border: 1px solid var(--border); border-radius: 14px; padding: 12px; }
+    .kpi { border: 1px solid var(--border); border-radius: 14px; padding: 12px; cursor: pointer; }
+    .kpi:hover { border-color: var(--accent); background: #f9fafb; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
     .kpi .t { font-size: 12px; color: var(--muted); }
-    .kpi .v { font-size: 22px; font-weight: 650; margin-top: 4px; }
+    .kpi .v { font-size: 22px; font-weight: 650; margin-top: 4px; color: var(--primary); }
     .pill { display:inline-block; padding: 2px 8px; border:1px solid var(--border); border-radius: 999px; font-size: 12px; color: var(--muted); }
-    .chartWrap { border: 1px solid var(--border); border-radius: 14px; padding: 12px; }
+    .chartWrap { border: 1px solid var(--border); border-radius: 14px; padding: 12px; position: relative; background: #fff; }
+    .chartWrap:hover { border-color: var(--accent); }
     svg { width: 100%; height: 260px; display:block; }
     table { width:100%; border-collapse: collapse; margin-top: 10px; }
     th, td { border-bottom: 1px solid #ddd; padding: 8px; text-align: left; font-size: 13px; vertical-align: top; }
-    th { font-size: 12px; color: var(--muted); font-weight: 600; }
-    a.btnlink{ display:inline-block; padding:10px 12px; border-radius:10px; border:1px solid var(--border); text-decoration:none; color:#111; background:#fff; }
-    a.btnlink:hover{ background:#f7f7f7; }
+    th { font-size: 12px; color: var(--muted); font-weight: 600; background: #f9fafb; position: sticky; top: 0; }
+    tr:hover { background: #f9fafb; }
+    a.btnlink{ display:inline-block; padding:10px 12px; border-radius:10px; border:1px solid var(--border); text-decoration:none; color:#111; background:#fff; font-weight: 500; }
+    a.btnlink:hover{ background:#f7f7f7; transform: translateY(-1px); box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    a.btnlink.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+    a.btnlink.primary:hover { background: #2563eb; border-color: #2563eb; }
     .muted { color: var(--muted); }
+    .tooltip { position: absolute; background: rgba(0,0,0,0.9); color: #fff; padding: 8px 12px; border-radius: 6px; font-size: 12px; pointer-events: none; opacity: 0; z-index: 1000; white-space: nowrap; }
+    .tooltip.show { opacity: 1; }
+    .loading { text-align: center; padding: 20px; color: var(--muted); }
+    .loading::after { content: '...'; animation: dots 1.5s infinite; }
+    @keyframes dots { 0%, 20% { content: '.'; } 40% { content: '..'; } 60%, 100% { content: '...'; } }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    .fade-in { animation: fadeIn 0.3s ease; }
   </style>
 </head>
 <body>
@@ -44,6 +61,7 @@
     </div>
     <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
       <a class="btnlink" href="/">Volver a formularios</a>
+      <a class="btnlink primary" href="/static/stats_dashboard.html">📊 Análisis Estadístico</a>
       <button id="btnReload" class="secondary" style="max-width:220px;">Recargar datos</button>
     </div>
   </div>
@@ -225,28 +243,29 @@
     el.innerHTML = "";
 
     const items = [
-      ["Records", fmt(k.records)],
-      ["Clicks", fmt(k.clicks)],
-      ["Views", fmt(k.views)],
-      ["CTR avg", k.ctrAvg===null ? "" : fmtFloat(k.ctrAvg, 4)],
-      ["CPC avg", k.cpcAvg===null ? "" : fmtFloat(k.cpcAvg, 4)],
-      ["View Content", fmt(k.vc)],
-      ["Lead Form", fmt(k.lead)],
-      ["Initiate Checkouts", fmt(k.ic)],
-      ["Purchase", fmt(k.purchase)],
-      ["Likes", fmt(k.likes)],
-      ["Comments", fmt(k.comments)],
-      ["Shares", fmt(k.shares)],
-      ["Saves", fmt(k.saves)],
+      ["Records", fmt(k.records), "📊"],
+      ["Clicks", fmt(k.clicks), "👆"],
+      ["Views", fmt(k.views), "👁️"],
+      ["CTR avg", k.ctrAvg===null ? "" : fmtFloat(k.ctrAvg, 4), "📈"],
+      ["CPC avg", k.cpcAvg===null ? "" : fmtFloat(k.cpcAvg, 4), "💰"],
+      ["View Content", fmt(k.vc), "📱"],
+      ["Lead Form", fmt(k.lead), "📝"],
+      ["Initiate Checkouts", fmt(k.ic), "🛒"],
+      ["Purchase", fmt(k.purchase), "✅"],
+      ["Likes", fmt(k.likes), "❤️"],
+      ["Comments", fmt(k.comments), "💬"],
+      ["Shares", fmt(k.shares), "🔄"],
+      ["Saves", fmt(k.saves), "🔖"],
     ];
 
     // mostrar 8 más importantes arriba (puedes reordenar)
     const top = items.slice(0, 8).concat(items.slice(8));
 
-    for (const [t,v] of top){
+    for (const [t,v,emoji] of top){
       const d = document.createElement("div");
-      d.className = "kpi";
-      d.innerHTML = `<div class="t">${escapeHtml(t)}</div><div class="v">${escapeHtml(v || "—")}</div>`;
+      d.className = "kpi fade-in";
+      d.innerHTML = `<div class="t">${emoji} ${escapeHtml(t)}</div><div class="v">${escapeHtml(v || "—")}</div>`;
+      d.setAttribute('title', `${t}: ${v || "Sin datos"}`);
       el.appendChild(d);
     }
   }
@@ -310,6 +329,11 @@
     const maxV = Math.max(...series.map(s=>s.val), 1);
     const barW = innerW / series.length;
 
+    // Create tooltip
+    const tooltip = document.createElement('div');
+    tooltip.className = 'tooltip';
+    svg.parentElement.appendChild(tooltip);
+
     // axis baseline
     const base = document.createElementNS("http://www.w3.org/2000/svg","line");
     base.setAttribute("x1", padL);
@@ -319,7 +343,7 @@
     base.setAttribute("stroke", "#ddd");
     svg.appendChild(base);
 
-    // bars
+    // bars with hover effect
     for (let i=0;i<series.length;i++){
       const v = series[i].val;
       const h = (v/maxV) * innerH;
@@ -332,6 +356,26 @@
       rect.setAttribute("width", Math.max(2, barW-4));
       rect.setAttribute("height", h);
       rect.setAttribute("fill", "#111");
+      rect.style.cursor = "pointer";
+
+      // Interactive hover
+      rect.addEventListener("mouseenter", (e) => {
+        rect.setAttribute("fill", "#3b82f6");
+        tooltip.textContent = `${series[i].day}: ${fmt(v)} clicks`;
+        tooltip.classList.add('show');
+      });
+
+      rect.addEventListener("mousemove", (e) => {
+        const bounds = svg.getBoundingClientRect();
+        tooltip.style.left = (e.clientX - bounds.left + 10) + 'px';
+        tooltip.style.top = (e.clientY - bounds.top - 30) + 'px';
+      });
+
+      rect.addEventListener("mouseleave", () => {
+        rect.setAttribute("fill", "#111");
+        tooltip.classList.remove('show');
+      });
+
       svg.appendChild(rect);
     }
 
@@ -382,7 +426,8 @@
     $(labelElId).textContent = `${multi[0].day} → ${multi[multi.length-1].day}`;
 
     const fields = ["view_content", "lead_form", "initiate_checkouts", "purchase"];
-    const colors = ["#111", "#444", "#777", "#999"]; // simple grayscale
+    const colors = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444"];
+    const labels = ["View Content", "Lead Form", "Init. Checkout", "Purchase"];
     const W=800,H=260,padL=44,padR=10,padT=10,padB=28;
     const innerW=W-padL-padR, innerH=H-padT-padB;
 
@@ -390,6 +435,11 @@
       1,
       ...multi.flatMap(d => fields.map(f => d[f] || 0))
     );
+
+    // Create tooltip
+    const tooltip = document.createElement('div');
+    tooltip.className = 'tooltip';
+    svg.parentElement.appendChild(tooltip);
 
     // axis baseline
     const base = document.createElementNS("http://www.w3.org/2000/svg","line");
@@ -413,16 +463,62 @@
       return d;
     }
 
+    // Draw lines
     for (let fi=0; fi<fields.length; fi++){
       const p = document.createElementNS("http://www.w3.org/2000/svg","path");
       p.setAttribute("d", pathFor(fields[fi]));
       p.setAttribute("fill", "none");
       p.setAttribute("stroke", colors[fi]);
       p.setAttribute("stroke-width", "2");
+      p.style.cursor = "pointer";
+
+      p.addEventListener("mouseenter", () => {
+        p.setAttribute("stroke-width", "4");
+      });
+
+      p.addEventListener("mouseleave", () => {
+        p.setAttribute("stroke-width", "2");
+      });
+
       svg.appendChild(p);
     }
 
-    // legend
+    // Add interactive data points
+    for (let fi=0; fi<fields.length; fi++){
+      for (let i=0;i<multi.length;i++){
+        const x = padL + i*stepX;
+        const v = multi[i][fields[fi]] || 0;
+        const y = padT + (innerH - (v/maxV)*innerH);
+
+        const circle = document.createElementNS("http://www.w3.org/2000/svg","circle");
+        circle.setAttribute("cx", x);
+        circle.setAttribute("cy", y);
+        circle.setAttribute("r", "4");
+        circle.setAttribute("fill", colors[fi]);
+        circle.style.cursor = "pointer";
+
+        circle.addEventListener("mouseenter", (e) => {
+          circle.setAttribute("r", "6");
+          tooltip.textContent = `${multi[i].day} - ${labels[fi]}: ${fmt(v)}`;
+          tooltip.classList.add('show');
+        });
+
+        circle.addEventListener("mousemove", (e) => {
+          const bounds = svg.getBoundingClientRect();
+          tooltip.style.left = (e.clientX - bounds.left + 10) + 'px';
+          tooltip.style.top = (e.clientY - bounds.top - 30) + 'px';
+        });
+
+        circle.addEventListener("mouseleave", () => {
+          circle.setAttribute("r", "4");
+          tooltip.classList.remove('show');
+        });
+
+        svg.appendChild(circle);
+      }
+    }
+
+    // legend with better colors
     const legend = [
       ["VC", colors[0]],
       ["Lead", colors[1]],
@@ -431,11 +527,10 @@
     ];
     for (let i=0;i<legend.length;i++){
       const y = 18 + i*16;
-      const dot = document.createElementNS("http://www.w3.org/2000/svg","rect");
-      dot.setAttribute("x", padL);
-      dot.setAttribute("y", y-10);
-      dot.setAttribute("width", 10);
-      dot.setAttribute("height", 10);
+      const dot = document.createElementNS("http://www.w3.org/2000/svg","circle");
+      dot.setAttribute("cx", padL+5);
+      dot.setAttribute("cy", y-5);
+      dot.setAttribute("r", 5);
       dot.setAttribute("fill", legend[i][1]);
       svg.appendChild(dot);
 
@@ -443,7 +538,8 @@
       tx.setAttribute("x", padL+16);
       tx.setAttribute("y", y);
       tx.setAttribute("font-size", "12");
-      tx.setAttribute("fill", "#6b7280");
+      tx.setAttribute("fill", "#374151");
+      tx.setAttribute("font-weight", "500");
       tx.textContent = legend[i][0];
       svg.appendChild(tx);
     }
@@ -508,6 +604,10 @@
   async function loadAll(){
     try{
       setStatus("cargando...");
+
+      // Show loading in KPIs area
+      $("kpis").innerHTML = '<div class="loading" style="grid-column: 1/-1;">Cargando datos</div>';
+
       experiments = await apiGet("/experiments/");
       fillExperimentsSelect();
 
@@ -516,7 +616,7 @@
       records = await apiGet(`/records/?limit=${encodeURIComponent(limit)}`);
 
       await refreshView();
-      setStatus("listo");
+      setStatus(`listo · ${records.length} records cargados`);
     } catch(e){
       setStatus("error", true);
       alert(String(e));
