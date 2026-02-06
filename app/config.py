@@ -18,13 +18,16 @@ def load_env() -> None:
         os.environ.setdefault(key, value)
 
 
-def get_openai_api_key() -> str:
-    return os.getenv("OPENAI_API_KEY", "").strip()
+def get_groq_api_key() -> str:
+    return os.getenv("GROQ_API_KEY", "").strip()
 
 
-def get_openai_api_url() -> str:
-    return os.getenv("OPENAI_API_URL", "https://api.openai.com/v1/chat/completions").strip()
+def get_groq_api_url() -> str:
+    return os.getenv(
+        "GROQ_API_URL",
+        "https://api.groq.com/openai/v1/chat/completions",
+    ).strip()
 
 
-def get_openai_model() -> str:
-    return os.getenv("OPENAI_MODEL", "gpt-4o-mini").strip()
+def get_groq_model() -> str:
+    return os.getenv("GROQ_MODEL", "llama-3.1-70b-versatile").strip()
