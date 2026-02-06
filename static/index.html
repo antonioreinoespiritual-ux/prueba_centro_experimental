@@ -793,6 +793,19 @@
     return r.json();
   }
 
+  // Auto-fill session ID when experiment is selected
+  async function autoFillSessionId(selectId, sessionInputId, prefix) {
+    const expId = Number($(selectId).value);
+    if (!expId) return;
+    try {
+      const recs = await apiGet(`/records/?experiment_id=${expId}&limit=50000`);
+      const next = recs.length + 1;
+      $(sessionInputId).value = `${prefix}-${String(next).padStart(3, '0')}`;
+    } catch(e) {
+      $(sessionInputId).value = `${prefix}-001`;
+    }
+  }
+
   function fillExperimentSelect(selectEl, experiments, keepValue=true) {
     const prev = keepValue ? selectEl.value : "";
     selectEl.innerHTML = "";
@@ -823,6 +836,11 @@
     fillExperimentSelect($("organic_experiment_id"), organicExps, true);
     fillExperimentSelect($("paid_experiment_id"), paidExps, true);
     fillExperimentSelect($("live_experiment_id"), liveExps, true);
+
+    // Auto-fill session IDs for initial selections
+    if (liveExps.length) autoFillSessionId("live_experiment_id", "live_session_id", "l");
+    if (organicExps.length) autoFillSessionId("organic_experiment_id", "organic_session_id", "s");
+    if (paidExps.length) autoFillSessionId("paid_experiment_id", "paid_session_id", "p");
 
     // Update record section: all experiments
     const updSel = $("upd_experiment_id");
@@ -1166,6 +1184,10 @@
       showToast(String(e), 'error');
     }
   };
+
+  $("live_experiment_id").addEventListener("change", () => autoFillSessionId("live_experiment_id", "live_session_id", "l"));
+  $("organic_experiment_id").addEventListener("change", () => autoFillSessionId("organic_experiment_id", "organic_session_id", "s"));
+  $("paid_experiment_id").addEventListener("change", () => autoFillSessionId("paid_experiment_id", "paid_session_id", "p"));
 
   // init
   refreshAll().catch(e => { setStatus("error", true); showToast(String(e), 'error'); });

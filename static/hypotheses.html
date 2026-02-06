@@ -1,0 +1,352 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Lista de Hipotesis — Centro Experimental</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/design-system.css">
+  <style>
+    .hyp-card { cursor: pointer; transition: all var(--transition-fast); }
+    .hyp-card:hover { border-color: var(--accent); box-shadow: var(--shadow-glow); }
+    .hyp-card.selected { border-color: var(--accent); box-shadow: var(--shadow-glow); }
+    .hyp-text { font-size: var(--text-sm); color: var(--text-secondary); line-height: 1.6; margin-top: var(--space-sm); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+    .hyp-card.selected .hyp-text { -webkit-line-clamp: unset; }
+    .hyp-meta { display: flex; gap: var(--space-sm); flex-wrap: wrap; margin-top: var(--space-md); }
+    .record-row { cursor: pointer; transition: background var(--transition-fast); }
+    .record-row:hover { background: var(--glass-bg-hover) !important; }
+    .record-row.selected { background: var(--accent-subtle) !important; border-left: 3px solid var(--accent); }
+    .detail-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 2000; padding: var(--space-xl); animation: fadeIn 200ms ease; }
+    .detail-panel { background: var(--surface-2); border: 1px solid var(--glass-border); border-radius: var(--radius-xl); padding: var(--space-xl); width: 100%; max-width: 800px; max-height: 85vh; overflow: auto; box-shadow: var(--shadow-lg); }
+    .split-layout { display: grid; grid-template-columns: 1fr 1.4fr; gap: var(--space-lg); margin-top: var(--space-lg); }
+    @media (max-width: 980px) { .split-layout { grid-template-columns: 1fr; } }
+    .records-panel { max-height: 70vh; overflow-y: auto; }
+  </style>
+</head>
+<body>
+  <div class="app-container" role="main">
+
+    <!-- Top Bar -->
+    <div class="top-bar">
+      <div>
+        <h1 class="top-bar__title">Lista de Hipotesis</h1>
+        <p class="top-bar__subtitle">
+          Todas las hipotesis del centro experimental <span class="tag" id="totalCount">0 hipotesis</span>
+        </p>
+      </div>
+      <div class="top-bar__actions">
+        <a class="btn-link" href="/" aria-label="Formularios">Formularios</a>
+        <a class="btn-link" href="/static/dashboard.html" aria-label="Dashboard">Dashboard</a>
+        <a class="btn-link" href="/static/records.html" aria-label="Records">Records</a>
+      </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="card fade-in">
+      <div class="grid grid-4">
+        <div class="field-group">
+          <label for="fType">Tipo de hipotesis</label>
+          <select id="fType">
+            <option value="">Todos</option>
+            <option value="acquisition">Acquisition</option>
+            <option value="activation">Activation</option>
+            <option value="retention">Retention</option>
+            <option value="monetization">Monetization</option>
+            <option value="trust_credibility">Trust / Credibility</option>
+            <option value="message_market_fit">Message-Market Fit</option>
+            <option value="channel_fit">Channel Fit</option>
+            <option value="pricing">Pricing</option>
+            <option value="funnel_friction">Funnel Friction</option>
+          </select>
+        </div>
+        <div class="field-group">
+          <label for="fStatus">Estado</label>
+          <select id="fStatus">
+            <option value="">Todos</option>
+            <option value="draft">Draft</option>
+            <option value="running">Running</option>
+            <option value="validated">Validated</option>
+            <option value="invalidated">Invalidated</option>
+            <option value="pivot_candidate">Pivot Candidate</option>
+            <option value="archived">Archived</option>
+          </select>
+        </div>
+        <div class="field-group">
+          <label for="fChannel">Canal</label>
+          <select id="fChannel">
+            <option value="">Todos</option>
+            <option value="paid">Paid</option>
+            <option value="organic">Organic</option>
+            <option value="live">Live</option>
+            <option value="mixed">Mixed</option>
+          </select>
+        </div>
+        <div class="field-group">
+          <label for="fSearch">Buscar</label>
+          <input id="fSearch" placeholder="proyecto, hipotesis, variable..." />
+        </div>
+      </div>
+    </div>
+
+    <!-- Hypothesis List -->
+    <div id="hypList" class="mt-lg">
+      <div class="state-loading"><div class="state-loading__spinner"></div>Cargando hipotesis...</div>
+    </div>
+
+    <!-- Split: Records table + Record detail -->
+    <div id="recordsSection" class="split-layout" style="display:none;">
+      <div class="card records-panel">
+        <div class="section-header">
+          <h3 id="recordsTitle">Records</h3>
+          <span class="tag" id="recordsCount">0 records</span>
+        </div>
+        <div class="table-wrapper mt-md">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Record</th>
+                <th>Status</th>
+                <th>Clicks</th>
+                <th>Views</th>
+                <th>Purchase</th>
+                <th>Created</th>
+              </tr>
+            </thead>
+            <tbody id="tblRecords"></tbody>
+          </table>
+        </div>
+        <div id="recordsEmpty" class="text-muted text-sm mt-md" style="display:none;">Esta hipotesis no tiene records aun.</div>
+      </div>
+
+      <div class="card" id="recordDetailPanel">
+        <h3>Detalle del Record</h3>
+        <div id="recordDetailEmpty" class="text-muted text-sm mt-md">Selecciona un record para ver su detalle.</div>
+        <div id="recordDetail" style="display:none;" class="mt-md">
+          <div class="grid grid-3">
+            <div class="stat-chip"><div class="stat-chip__label">Record</div><div class="stat-chip__value" id="rdName">—</div><div class="stat-chip__meta" id="rdNameMeta"></div></div>
+            <div class="stat-chip"><div class="stat-chip__label">Experimento</div><div class="stat-chip__value" id="rdExp">—</div><div class="stat-chip__meta" id="rdExpMeta"></div></div>
+            <div class="stat-chip"><div class="stat-chip__label">Estado</div><div class="stat-chip__value" id="rdStatus">—</div><div class="stat-chip__meta" id="rdStatusMeta"></div></div>
+          </div>
+          <div class="grid grid-3 mt-md">
+            <div class="stat-chip"><div class="stat-chip__label">Clicks / Views</div><div class="stat-chip__value" id="rdTraffic">—</div><div class="stat-chip__meta" id="rdTrafficMeta"></div></div>
+            <div class="stat-chip"><div class="stat-chip__label">Funnel</div><div class="stat-chip__value" id="rdFunnel">—</div><div class="stat-chip__meta" id="rdFunnelMeta"></div></div>
+            <div class="stat-chip"><div class="stat-chip__label">Creative</div><div class="stat-chip__value" id="rdCreative">—</div><div class="stat-chip__meta" id="rdCreativeMeta"></div></div>
+          </div>
+          <div class="grid grid-3 mt-md">
+            <div class="stat-chip"><div class="stat-chip__label">Video</div><div class="stat-chip__value" id="rdVideo">—</div><div class="stat-chip__meta" id="rdVideoMeta"></div></div>
+            <div class="stat-chip"><div class="stat-chip__label">Live</div><div class="stat-chip__value" id="rdLive">—</div><div class="stat-chip__meta" id="rdLiveMeta"></div></div>
+            <div class="stat-chip"><div class="stat-chip__label">IDs campana</div><div class="stat-chip__value" id="rdCampaign">—</div><div class="stat-chip__meta" id="rdCampaignMeta"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="toast-container" id="toastContainer"></div>
+
+<script>
+  const API_BASE = "";
+  const $ = (id) => document.getElementById(id);
+
+  let experiments = [];
+  let allRecords = [];
+  let selectedExpId = null;
+
+  function escapeHtml(s) {
+    return String(s).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;");
+  }
+
+  function fmt(n) {
+    if (n === null || n === undefined) return "—";
+    const x = Number(n);
+    if (!Number.isFinite(x)) return "—";
+    return Math.abs(x) >= 1000 ? x.toLocaleString("es-ES") : String(x);
+  }
+
+  async function apiGet(path) {
+    const r = await fetch(API_BASE + path);
+    if (!r.ok) throw new Error(await r.text());
+    return r.json();
+  }
+
+  function showToast(message, type = 'success') {
+    const container = $('toastContainer');
+    const toast = document.createElement('div');
+    toast.className = `toast toast--${type}`;
+    toast.textContent = message;
+    container.appendChild(toast);
+    setTimeout(() => toast.remove(), 3000);
+  }
+
+  // ---------- FILTERS ----------
+  function getFiltered() {
+    let list = experiments.slice();
+    const type = $("fType").value;
+    const status = $("fStatus").value;
+    const channel = $("fChannel").value;
+    const search = $("fSearch").value.trim().toLowerCase();
+
+    if (type) list = list.filter(e => e.hypothesis_type === type);
+    if (status) list = list.filter(e => e.experiment_status === status);
+    if (channel) list = list.filter(e => e.traffic_type === channel);
+    if (search) list = list.filter(e => {
+      const hay = [e.project_name, e.hypothesis, e.independent_variable, e.primary_metric, e.hypothesis_type].filter(Boolean).join(" ").toLowerCase();
+      return hay.includes(search);
+    });
+
+    return list;
+  }
+
+  // ---------- RENDER HYPOTHESIS LIST ----------
+  function renderHypList() {
+    const filtered = getFiltered();
+    $("totalCount").textContent = `${filtered.length} hipotesis`;
+    const container = $("hypList");
+
+    if (!filtered.length) {
+      container.innerHTML = '<div class="card text-muted text-center" style="padding:var(--space-3xl);">No se encontraron hipotesis con estos filtros.</div>';
+      return;
+    }
+
+    let html = '<div class="grid grid-2">';
+    for (const exp of filtered) {
+      const status = exp.experiment_status || "draft";
+      const channel = exp.traffic_type || "mixed";
+      const recordCount = allRecords.filter(r => r.experiment_id === exp.id).length;
+      const isSelected = selectedExpId === exp.id;
+
+      html += `<div class="card hyp-card${isSelected ? ' selected' : ''}" data-id="${exp.id}" onclick="selectHypothesis(${exp.id})">
+        <div class="flex justify-between items-center">
+          <h3 style="font-size:var(--text-lg);">${escapeHtml(exp.project_name)}</h3>
+          <div class="flex gap-sm">
+            <span class="badge badge-${status}">${status}</span>
+            <span class="badge badge-${channel}">${channel}</span>
+          </div>
+        </div>
+        <div class="hyp-text">${escapeHtml(exp.hypothesis || "Sin hipotesis definida")}</div>
+        <div class="hyp-meta">
+          ${exp.hypothesis_type ? `<span class="tag">${exp.hypothesis_type}</span>` : ''}
+          ${exp.independent_variable ? `<span class="tag">X: ${escapeHtml(exp.independent_variable)}</span>` : ''}
+          ${exp.primary_metric ? `<span class="tag">Y: ${exp.primary_metric}</span>` : ''}
+          ${exp.threshold_operator && exp.threshold_value !== null ? `<span class="tag">Umbral: ${exp.threshold_operator} ${exp.threshold_value}${exp.threshold_type === 'percentage' ? '%' : ''}</span>` : ''}
+          <span class="tag">${recordCount} records</span>
+        </div>
+      </div>`;
+    }
+    html += '</div>';
+    container.innerHTML = html;
+  }
+
+  // ---------- SELECT HYPOTHESIS -> SHOW RECORDS ----------
+  function selectHypothesis(expId) {
+    selectedExpId = expId;
+    const exp = experiments.find(e => e.id === expId);
+    if (!exp) return;
+
+    renderHypList(); // refresh selection state
+
+    const records = allRecords.filter(r => r.experiment_id === expId);
+    $("recordsSection").style.display = "";
+    $("recordsTitle").textContent = `Records — ${exp.project_name}`;
+    $("recordsCount").textContent = `${records.length} records`;
+
+    const tbody = $("tblRecords");
+    tbody.innerHTML = "";
+
+    if (!records.length) {
+      $("recordsEmpty").style.display = "block";
+      $("tblRecords").parentElement.style.display = "none";
+    } else {
+      $("recordsEmpty").style.display = "none";
+      $("tblRecords").parentElement.style.display = "";
+
+      const sorted = records.slice().sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
+      for (const r of sorted) {
+        const tr = document.createElement("tr");
+        tr.className = "record-row";
+        const statusClass = r.record_status || "collecting";
+        tr.innerHTML = `
+          <td>${r.id}</td>
+          <td>${escapeHtml(r.record_name || r.session_id)}</td>
+          <td><span class="badge badge-${statusClass}">${statusClass}</span></td>
+          <td>${fmt(r.clicks)}</td>
+          <td>${fmt(r.views)}</td>
+          <td>${fmt(r.purchase)}</td>
+          <td>${escapeHtml(r.created_at || "")}</td>
+        `;
+        tr.onclick = () => {
+          [...tbody.querySelectorAll("tr")].forEach(row => row.classList.remove("selected"));
+          tr.classList.add("selected");
+          showRecordDetail(exp, r);
+        };
+        tbody.appendChild(tr);
+      }
+    }
+
+    // Reset detail panel
+    $("recordDetail").style.display = "none";
+    $("recordDetailEmpty").style.display = "block";
+
+    // Scroll to records
+    $("recordsSection").scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  // ---------- SHOW RECORD DETAIL ----------
+  function showRecordDetail(exp, r) {
+    $("recordDetailEmpty").style.display = "none";
+    $("recordDetail").style.display = "block";
+
+    $("rdName").textContent = r.record_name || r.session_id || "—";
+    $("rdNameMeta").textContent = `Record #${r.id} · ${r.created_at || "—"}`;
+
+    $("rdExp").textContent = exp ? exp.project_name : "—";
+    $("rdExpMeta").textContent = exp ? `Tipo: ${exp.hypothesis_type || "—"} · Y: ${exp.primary_metric || "—"}` : "—";
+
+    const status = r.record_status || "collecting";
+    $("rdStatus").innerHTML = `<span class="badge badge-${status}">${status}</span>`;
+    $("rdStatusMeta").textContent = `Execution: ${r.execution_type || "—"}`;
+
+    $("rdTraffic").textContent = `${fmt(r.clicks)} / ${fmt(r.views)}`;
+    $("rdTrafficMeta").textContent = `CTR: ${r.ctr ?? "—"} · CPC: ${r.cpc ?? "—"}`;
+
+    $("rdFunnel").textContent = `${fmt(r.view_content)} / ${fmt(r.lead_form)} / ${fmt(r.initiate_checkouts)} / ${fmt(r.purchase)}`;
+    $("rdFunnelMeta").textContent = "VC / Lead / IC / Purchase";
+
+    $("rdCreative").textContent = `${r.hook_type || "—"} / ${r.cta_type || "—"}`;
+    $("rdCreativeMeta").textContent = `Hook: ${r.hook_text || "—"} · CTA: ${r.cta_text || "—"}`;
+
+    $("rdVideo").textContent = `${r.views_finish_pct ?? "—"}% / ${r.retention_pct ?? "—"}%`;
+    $("rdVideoMeta").textContent = `Avg watch: ${r.avg_watch_time ?? "—"} · Duracion: ${r.video_duration ?? "—"}`;
+
+    $("rdLive").textContent = `${fmt(r.live_viewers_peak)} / ${fmt(r.live_avg_viewers)} / ${fmt(r.live_new_followers)}`;
+    $("rdLiveMeta").textContent = "Peak / Avg / New followers";
+
+    $("rdCampaign").textContent = `${r.campaign_id || "—"} / ${r.ad_set_id || "—"}`;
+    $("rdCampaignMeta").textContent = `Ad: ${r.ad_id || "—"}`;
+  }
+
+  // ---------- LOAD ----------
+  async function loadAll() {
+    try {
+      experiments = await apiGet("/experiments/");
+      allRecords = await apiGet("/records/?limit=50000");
+      renderHypList();
+    } catch (e) {
+      showToast("Error cargando datos: " + String(e), "error");
+      $("hypList").innerHTML = '<div class="card text-muted text-center" style="padding:var(--space-3xl);">Error al cargar datos.</div>';
+    }
+  }
+
+  // ---------- EVENTS ----------
+  $("fType").addEventListener("change", renderHypList);
+  $("fStatus").addEventListener("change", renderHypList);
+  $("fChannel").addEventListener("change", renderHypList);
+  $("fSearch").addEventListener("input", renderHypList);
+
+  // Init
+  loadAll();
+</script>
+</body>
+</html>
