@@ -4,9 +4,21 @@ from pathlib import Path
 import os
 
 
+def _find_env_file() -> Path | None:
+    """Search for .env in multiple likely locations."""
+    candidates = [
+        Path(__file__).resolve().parent.parent / ".env",
+        Path.cwd() / ".env",
+    ]
+    for path in candidates:
+        if path.exists():
+            return path
+    return None
+
+
 def load_env() -> None:
-    env_path = Path(__file__).resolve().parent.parent / ".env"
-    if not env_path.exists():
+    env_path = _find_env_file()
+    if env_path is None:
         return
     for line in env_path.read_text(encoding="utf-8").splitlines():
         stripped = line.strip()
@@ -15,7 +27,7 @@ def load_env() -> None:
         key, value = stripped.split("=", 1)
         key = key.strip()
         value = value.strip().strip('"').strip("'")
-        os.environ.setdefault(key, value)
+        os.environ[key] = value
 
 
 def get_groq_api_key() -> str:
