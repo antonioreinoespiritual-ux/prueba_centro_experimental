@@ -72,6 +72,11 @@
     .eval-item .label { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px; }
     .eval-item .value { font-size:18px; font-weight:650; margin-top:4px; }
     .divider { border: none; border-top: 2px solid var(--border); margin: 16px 0; }
+    .records-grid { display:grid; grid-template-columns: 1.1fr 0.9fr; gap:12px; margin-top:12px; }
+    @media (max-width: 1100px){ .records-grid{ grid-template-columns: 1fr; } }
+    .record-panel { border:1px solid var(--border); border-radius:14px; padding:14px; background:#fff; }
+    .record-table-wrapper { max-height: 320px; overflow:auto; border:1px solid var(--border); border-radius:12px; }
+    .record-row-active { background:#eef2ff !important; }
   </style>
 </head>
 <body>
@@ -134,6 +139,92 @@
         </div>
       </div>
       <div class="eval-grid" id="evalGrid"></div>
+    </div>
+
+    <div class="section-title" style="margin-top:12px;">
+      <h3 style="margin:0;">Records del experimento</h3>
+      <span class="tag" id="expRecordCount">0 récords</span>
+    </div>
+    <div id="expRecordsEmpty" class="small muted" style="margin-top:8px;">Selecciona un experimento para ver sus récords.</div>
+    <div id="expRecordsSection" style="display:none;">
+      <div class="records-grid">
+        <div class="record-panel">
+          <div class="small">Haz clic en un récord para ver la tarjeta.</div>
+          <div class="record-table-wrapper" style="margin-top:8px;">
+            <table>
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Record</th>
+                  <th>Status</th>
+                  <th>Clicks</th>
+                  <th>Views</th>
+                  <th>Purchase</th>
+                  <th>Created</th>
+                </tr>
+              </thead>
+              <tbody id="tblExpRecords"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="record-panel">
+          <h4 style="margin:0;">Tarjeta del récord</h4>
+          <div id="expRecordCardEmpty" class="small muted" style="margin-top:8px;">Selecciona un récord para ver su detalle.</div>
+          <div id="expRecordCard" style="display:none; margin-top:12px;">
+            <div class="grid-3">
+              <div class="stat">
+                <div class="label">Record</div>
+                <div class="value" id="expCardRecordName">—</div>
+                <div class="small muted" id="expCardRecordMeta"></div>
+              </div>
+              <div class="stat">
+                <div class="label">Experimento</div>
+                <div class="value" id="expCardExperiment">—</div>
+                <div class="small muted" id="expCardExperimentMeta"></div>
+              </div>
+              <div class="stat">
+                <div class="label">Estado</div>
+                <div class="value" id="expCardStatus">—</div>
+                <div class="small muted" id="expCardStatusMeta"></div>
+              </div>
+            </div>
+            <div class="grid-3" style="margin-top:12px;">
+              <div class="stat">
+                <div class="label">Clicks / Views</div>
+                <div class="value" id="expCardTraffic">—</div>
+                <div class="small muted" id="expCardTrafficMeta"></div>
+              </div>
+              <div class="stat">
+                <div class="label">Funnel</div>
+                <div class="value" id="expCardFunnel">—</div>
+                <div class="small muted" id="expCardFunnelMeta"></div>
+              </div>
+              <div class="stat">
+                <div class="label">Creative</div>
+                <div class="value" id="expCardCreative">—</div>
+                <div class="small muted" id="expCardCreativeMeta"></div>
+              </div>
+            </div>
+            <div class="grid-3" style="margin-top:12px;">
+              <div class="stat">
+                <div class="label">Video</div>
+                <div class="value" id="expCardVideo">—</div>
+                <div class="small muted" id="expCardVideoMeta"></div>
+              </div>
+              <div class="stat">
+                <div class="label">Live</div>
+                <div class="value" id="expCardLive">—</div>
+                <div class="small muted" id="expCardLiveMeta"></div>
+              </div>
+              <div class="stat">
+                <div class="label">IDs campaña</div>
+                <div class="value" id="expCardCampaign">—</div>
+                <div class="small muted" id="expCardCampaignMeta"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div class="section-title" style="margin-top:12px;">
@@ -306,6 +397,7 @@
   // Cache
   let experiments = [];
   let records = [];
+  let selectedRecordId = null;
 
   // Helpers
   function byTrafficExp(exps, traffic){
@@ -862,6 +954,104 @@
     }
   }
 
+  function renderExperimentRecordCard(exp, record){
+    if (!record){
+      $("expRecordCardEmpty").style.display = "block";
+      $("expRecordCard").style.display = "none";
+      return;
+    }
+
+    $("expRecordCardEmpty").style.display = "none";
+    $("expRecordCard").style.display = "block";
+
+    $("expCardRecordName").textContent = record.record_name || record.session_id || "—";
+    $("expCardRecordMeta").textContent = `Record #${record.id} · ${record.created_at || "—"}`;
+
+    $("expCardExperiment").textContent = exp ? exp.project_name : "—";
+    $("expCardExperimentMeta").textContent = exp ? `Hypótesis: ${exp.hypothesis_type || "—"} · Y: ${exp.primary_metric || "—"}` : "—";
+
+    const status = record.record_status || "collecting";
+    $("expCardStatus").innerHTML = `<span class="pill ${status}">${status}</span>`;
+    $("expCardStatusMeta").textContent = `Execution: ${record.execution_type || "—"}`;
+
+    $("expCardTraffic").textContent = `${fmt(record.clicks)} / ${fmt(record.views)}`;
+    $("expCardTrafficMeta").textContent = `CTR: ${record.ctr ?? "—"} · CPC: ${record.cpc ?? "—"}`;
+
+    $("expCardFunnel").textContent = `${fmt(record.view_content)} / ${fmt(record.lead_form)} / ${fmt(record.initiate_checkouts)} / ${fmt(record.purchase)}`;
+    $("expCardFunnelMeta").textContent = "VC / Lead / IC / Purchase";
+
+    $("expCardCreative").textContent = `${record.hook_type || "—"} / ${record.cta_type || "—"}`;
+    $("expCardCreativeMeta").textContent = `Hook: ${record.hook_text || "—"} · CTA: ${record.cta_text || "—"}`;
+
+    $("expCardVideo").textContent = `${record.views_finish_pct ?? "—"}% / ${record.retention_pct ?? "—"}%`;
+    $("expCardVideoMeta").textContent = `Avg watch: ${record.avg_watch_time ?? "—"} · Duración: ${record.video_duration ?? "—"}`;
+
+    $("expCardLive").textContent = `${fmt(record.live_viewers_peak)} / ${fmt(record.live_avg_viewers)} / ${fmt(record.live_new_followers)}`;
+    $("expCardLiveMeta").textContent = "Peak / Avg / New followers";
+
+    $("expCardCampaign").textContent = `${record.campaign_id || "—"} / ${record.ad_set_id || "—"}`;
+    $("expCardCampaignMeta").textContent = `Ad: ${record.ad_id || "—"}`;
+  }
+
+  function renderExperimentRecords(exp, recordsForExp){
+    const section = $("expRecordsSection");
+    const empty = $("expRecordsEmpty");
+    const tbody = $("tblExpRecords");
+
+    if (!exp){
+      empty.style.display = "block";
+      section.style.display = "none";
+      tbody.innerHTML = "";
+      $("expRecordCount").textContent = "0 récords";
+      selectedRecordId = null;
+      renderExperimentRecordCard(null, null);
+      return;
+    }
+
+    empty.style.display = "none";
+    section.style.display = "block";
+    $("expRecordCount").textContent = `${recordsForExp.length} récords`;
+
+    const sorted = recordsForExp.slice().sort((a,b)=>String(b.created_at).localeCompare(String(a.created_at)));
+    tbody.innerHTML = "";
+
+    for (const r of sorted){
+      const tr = document.createElement("tr");
+      tr.style.cursor = "pointer";
+      const statusClass = r.record_status || "collecting";
+      if (selectedRecordId === r.id) tr.classList.add("record-row-active");
+      tr.innerHTML = `
+        <td>${r.id}</td>
+        <td>${escapeHtml(r.record_name || r.session_id)}</td>
+        <td><span class="pill ${statusClass}">${statusClass}</span></td>
+        <td>${fmt(r.clicks)}</td>
+        <td>${fmt(r.views)}</td>
+        <td>${fmt(r.purchase)}</td>
+        <td>${escapeHtml(r.created_at || "")}</td>
+      `;
+      tr.onclick = () => {
+        selectedRecordId = r.id;
+        [...tbody.querySelectorAll("tr")].forEach(row => row.classList.remove("record-row-active"));
+        tr.classList.add("record-row-active");
+        renderExperimentRecordCard(exp, r);
+      };
+      tbody.appendChild(tr);
+    }
+
+    if (sorted.length){
+      const current = sorted.find(r => r.id === selectedRecordId) || sorted[0];
+      selectedRecordId = current.id;
+      const rows = tbody.querySelectorAll("tr");
+      if (rows.length){
+        rows[sorted.indexOf(current)].classList.add("record-row-active");
+      }
+      renderExperimentRecordCard(exp, current);
+    } else {
+      selectedRecordId = null;
+      renderExperimentRecordCard(exp, null);
+    }
+  }
+
   async function loadAll(){
     try{
       setStatus("cargando...");
@@ -1034,7 +1224,10 @@
     renderValidatedView(expMap, recordsByExp);
     renderAliveDeadView(recordsByExp);
     renderPatternsView(recordsByExp);
-    renderDetailView(expIdStr ? expMap.get(Number(expIdStr)) : null, expIdStr ? (recordsByExp.get(Number(expIdStr)) || []) : []);
+    const selectedExp = expIdStr ? expMap.get(Number(expIdStr)) : null;
+    const selectedRecords = expIdStr ? (recordsByExp.get(Number(expIdStr)) || []) : [];
+    renderDetailView(selectedExp, selectedRecords);
+    renderExperimentRecords(selectedExp, selectedRecords);
     experiments = originalExperiments;
   }
 
