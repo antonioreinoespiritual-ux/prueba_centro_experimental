@@ -704,9 +704,6 @@
       const typeLabel = exp.threshold_type === "percentage" ? "%" : exp.threshold_type;
       metaHtml += `<div style="font-size:12px; opacity:0.9; margin-top:4px;">Umbral: ${exp.threshold_operator} ${exp.threshold_value} ${typeLabel}</div>`;
     }
-    if (exp.rate_base_unit) {
-      metaHtml += `<div style="font-size:12px; opacity:0.9; margin-top:4px;">Base %: ${exp.rate_base_unit}</div>`;
-    }
     if (exp.volume_min_value !== null && exp.volume_unit) {
       metaHtml += `<div style="font-size:12px; opacity:0.9; margin-top:4px;">Volumen minimo: ${exp.volume_min_value} ${exp.volume_unit}</div>`;
     }
@@ -737,7 +734,6 @@
         ["Umbral", ev.threshold_operator && ev.threshold_value !== null && ev.threshold_type
           ? `${ev.threshold_operator} ${ev.threshold_value} ${ev.threshold_type === "percentage" ? "%" : ev.threshold_type}`
           : "—"],
-        ["Base %", ev.rate_base_unit || "—"],
         ["Volumen Total", String(ev.total_volume)],
         ["Volumen Minimo", ev.volume_min_value !== null && ev.volume_unit
           ? `${ev.volume_min_value} ${ev.volume_unit}`

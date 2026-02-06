@@ -145,27 +145,6 @@
               <option value="decimal">decimal</option>
             </select>
           </div>
-          <label>Base % (denominador)</label>
-          <select id="rate_base_unit">
-            <option value="">-- usar volumen minimo --</option>
-            <option value="ctr">CTR</option>
-            <option value="cpc">CPC</option>
-            <option value="initiate_checkout_rate">Initiate Checkout Rate</option>
-            <option value="view_content_rate">View Content Rate</option>
-            <option value="lead_rate">Lead Rate</option>
-            <option value="purchase_rate">Purchase Rate</option>
-            <option value="views">Views</option>
-            <option value="likes">Likes</option>
-            <option value="comments">Comments</option>
-            <option value="shares">Shares</option>
-            <option value="saves">Saves</option>
-            <option value="views_finish_pct">Views Finish %</option>
-            <option value="retention_pct">Retention %</option>
-            <option value="avg_watch_time">Avg Watch Time</option>
-            <option value="live_viewers_peak">Live Peak Viewers</option>
-            <option value="live_avg_viewers">Live Avg Viewers</option>
-            <option value="live_new_followers">Live New Followers</option>
-          </select>
         </div>
         <div>
           <label>Volumen Minimo</label>
@@ -838,7 +817,6 @@
         threshold_operator: $("threshold_operator").value || null,
         threshold_value: asFloatOrNull($("threshold_value").value),
         threshold_type: $("threshold_type").value || null,
-        rate_base_unit: $("rate_base_unit").value || null,
         volume_min_value: asIntOrNull($("volume_min_value").value),
         volume_unit: $("volume_unit").value || null,
         experiment_status: "draft",
@@ -851,7 +829,6 @@
       $("primary_metric").value = "";
       $("threshold_operator").value = "";
       $("threshold_type").value = "";
-      $("rate_base_unit").value = "";
       $("volume_unit").value = "";
       $("traffic_type").value = "paid";
     } catch(e){

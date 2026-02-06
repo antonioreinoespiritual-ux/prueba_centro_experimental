@@ -26,7 +26,6 @@ class Experiment(Base):
     threshold_value: Mapped[float | None] = mapped_column(Float, nullable=True)
     threshold_type: Mapped[str | None] = mapped_column(String(30), nullable=True)
     threshold_operator: Mapped[str | None] = mapped_column(String(5), nullable=True)
-    rate_base_unit: Mapped[str | None] = mapped_column(String(30), nullable=True)
     experiment_status: Mapped[str] = mapped_column(String(30), nullable=False, default="draft")
     min_volume: Mapped[int | None] = mapped_column(Integer, nullable=True)
     volume_min_value: Mapped[int | None] = mapped_column(Integer, nullable=True)

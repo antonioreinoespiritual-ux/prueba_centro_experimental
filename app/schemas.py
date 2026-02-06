@@ -56,7 +56,6 @@ ThresholdType = Literal["percentage", "absolute", "decimal"]
 
 ThresholdOperator = Literal[">=", "<=", ">", "<"]
 
-RateBaseUnit = PrimaryMetric
 
 ExecutionType = Literal["organic_video", "paid_ad", "live_session"]
 
@@ -93,7 +92,6 @@ class ExperimentCreate(BaseModel):
     threshold_value: Optional[float] = Field(default=None, ge=0)
     threshold_type: Optional[ThresholdType] = None
     threshold_operator: Optional[ThresholdOperator] = None
-    rate_base_unit: Optional[RateBaseUnit] = None
     experiment_status: ExperimentStatus = "draft"
     min_volume: Optional[int] = Field(default=None, ge=1)
     volume_min_value: Optional[int] = Field(default=None, ge=1)
@@ -109,7 +107,6 @@ class ExperimentUpdate(BaseModel):
     threshold_value: Optional[float] = Field(default=None, ge=0)
     threshold_type: Optional[ThresholdType] = None
     threshold_operator: Optional[ThresholdOperator] = None
-    rate_base_unit: Optional[RateBaseUnit] = None
     experiment_status: Optional[ExperimentStatus] = None
     min_volume: Optional[int] = Field(default=None, ge=1)
     volume_min_value: Optional[int] = Field(default=None, ge=1)
@@ -132,7 +129,6 @@ class ExperimentOut(BaseModel):
     threshold_value: Optional[float] = None
     threshold_type: Optional[str] = None
     threshold_operator: Optional[str] = None
-    rate_base_unit: Optional[str] = None
     experiment_status: str = "draft"
     min_volume: Optional[int] = None
     volume_min_value: Optional[int] = None
@@ -147,7 +143,6 @@ class ExperimentEvaluation(BaseModel):
     threshold_value: Optional[float] = None
     threshold_type: Optional[str] = None
     threshold_operator: Optional[str] = None
-    rate_base_unit: Optional[str] = None
     total_volume: int = 0
     min_volume: Optional[int] = None
     volume_min_value: Optional[int] = None

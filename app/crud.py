@@ -25,7 +25,6 @@ def create_experiment(db: Session, data: schemas.ExperimentCreate):
         threshold_value=data.threshold_value,
         threshold_type=data.threshold_type,
         threshold_operator=data.threshold_operator,
-        rate_base_unit=data.rate_base_unit,
         experiment_status=data.experiment_status or "draft",
         min_volume=data.min_volume,
         volume_min_value=data.volume_min_value,
@@ -360,8 +359,7 @@ def evaluate_experiment(db: Session, experiment_id: int) -> schemas.ExperimentEv
                 if _is_rate_metric(metric) or _is_percentage_metric(metric):
                     compare_value = aggregated_value
                 elif _is_count_metric(metric):
-                    base_unit = exp.rate_base_unit or exp.volume_unit
-                    base_total = _compute_volume_total(records, base_unit)
+                    base_total = _compute_volume_total(records, exp.volume_unit)
                     if base_total > 0:
                         compare_value = (aggregated_value / base_total) * 100
             elif threshold_type == "absolute":
@@ -391,7 +389,6 @@ def evaluate_experiment(db: Session, experiment_id: int) -> schemas.ExperimentEv
         threshold_value=exp.threshold_value,
         threshold_type=exp.threshold_type,
         threshold_operator=exp.threshold_operator,
-        rate_base_unit=exp.rate_base_unit,
         total_volume=volume_total,
         min_volume=exp.min_volume,
         volume_min_value=exp.volume_min_value,
