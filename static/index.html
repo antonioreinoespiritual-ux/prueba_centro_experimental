@@ -4,156 +4,72 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Centro Experimental</title>
-  <style>
-    :root { --border:#e5e5e5; --muted:#6b7280; --accent:#3b82f6; --success:#10b981; --gradient-1:linear-gradient(135deg, #667eea 0%, #764ba2 100%); --gradient-2:linear-gradient(135deg, #f093fb 0%, #f5576c 100%); --gradient-3:linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); --warn:#f59e0b; --danger:#ef4444; }
-    * { transition: all 0.2s ease; }
-    body { font-family: system-ui, -apple-system, Arial; margin: 24px; max-width: 1400px; background: linear-gradient(to bottom, #fafafa, #ffffff); min-height: 100vh; }
-    .row { display:grid; grid-template-columns: 1fr 1fr; gap: 24px; }
-    .row3 { display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
-    @media (max-width: 980px){ .row, .row3 { grid-template-columns:1fr; } }
-    label { display:block; font-size: 12px; color: var(--muted); margin-top: 10px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }
-    input, select, textarea, button { width:100%; padding:12px; margin-top:6px; box-sizing:border-box; border: 2px solid var(--border); border-radius: 12px; font-size: 14px; }
-    input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 4px rgba(59,130,246,0.1); }
-    textarea { min-height: 100px; resize: vertical; }
-    button { cursor:pointer; border: none; background: var(--gradient-1); color:#fff; font-weight: 600; box-shadow: 0 4px 12px rgba(102,126,234,0.3); }
-    button:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(102,126,234,0.4); }
-    button.secondary { background:#fff; color:#111; border: 2px solid var(--border); box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
-    button.secondary:hover { background:#f7f7f7; border-color: var(--accent); }
-    button:disabled { opacity:.5; cursor:not-allowed; transform: none; }
-    .card { border: 2px solid var(--border); padding: 24px; border-radius: 20px; background: #fff; box-shadow: 0 4px 20px rgba(0,0,0,0.06); }
-    .card:hover { box-shadow: 0 8px 30px rgba(0,0,0,0.1); border-color: var(--accent); }
-    .small { font-size: 12px; color: var(--muted); }
-    .grid2 { display:grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-    .grid3 { display:grid; grid-template-columns: repeat(3,1fr); gap: 10px; }
-    .grid4 { display:grid; grid-template-columns: repeat(4,1fr); gap: 8px; }
-    @media (max-width: 768px){ .grid2, .grid3, .grid4 { grid-template-columns: 1fr; } }
-    .pill { display:inline-block; padding: 4px 12px; border:2px solid var(--border); border-radius: 999px; font-size: 11px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
-    .pill.organic { background: #d1fae5; border-color: #6ee7b7; color: #065f46; }
-    .pill.paid { background: #dbeafe; border-color: #93c5fd; color: #1e40af; }
-    .pill.live { background: #fce7f3; border-color: #f9a8d4; color: #831843; }
-    .pill.draft { background: #f3f4f6; border-color: #d1d5db; color: #6b7280; }
-    .pill.running { background: #dbeafe; border-color: #93c5fd; color: #1e40af; }
-    .pill.validated { background: #d1fae5; border-color: #6ee7b7; color: #065f46; }
-    .pill.invalidated { background: #fee2e2; border-color: #fca5a5; color: #991b1b; }
-    .pill.pivot_candidate { background: #fef3c7; border-color: #fcd34d; color: #92400e; }
-    .pill.archived { background: #e5e7eb; border-color: #9ca3af; color: #4b5563; }
-    .sectionTitle{ display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
-    .hint{ font-size:12px; color:var(--muted); font-style: italic; }
-    a.btnlink{ display:inline-block; padding:12px 20px; border-radius:12px; border:2px solid var(--border); text-decoration:none; color:#111; background:#fff; font-weight: 600; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
-    a.btnlink:hover{ background:#f7f7f7; transform: translateY(-2px); box-shadow: 0 4px 16px rgba(0,0,0,0.1); border-color: var(--accent); }
-    h1 { background: var(--gradient-1); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
-    h2 { color: #111; font-size: 20px; }
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-    .fade-in { animation: fadeIn 0.4s ease; }
-    .divider { border: none; border-top: 2px solid var(--border); margin: 16px 0; }
-    .tag { display:inline-block; padding:2px 8px; border-radius:6px; font-size:11px; font-weight:600; }
-  </style>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/design-system.css">
 </head>
 <body>
-  <div class="sectionTitle">
-    <div>
-      <h1 style="margin:0;">Centro Experimental</h1>
-      <p class="small" style="margin:6px 0 0 0;">
-        Backend: <code id="apiBase"></code> <span class="pill" id="status">listo</span>
-      </p>
+  <div class="app-container" role="main">
+
+    <!-- ==================== TOP BAR ==================== -->
+    <div class="top-bar">
+      <div>
+        <h1 class="top-bar__title">Centro Experimental</h1>
+        <p class="top-bar__subtitle">
+          Backend: <code class="text-mono" id="apiBase"></code> <span class="badge" id="status">listo</span>
+        </p>
+      </div>
+      <div class="top-bar__actions">
+        <a class="btn-link" href="/static/dashboard.html" aria-label="Abrir Dashboard">Abrir Dashboard</a>
+        <a class="btn-link" href="/static/records.html" aria-label="Ver lista de records">Lista de records</a>
+        <button id="btnRefresh" class="btn-secondary" aria-label="Actualizar listas">Actualizar listas</button>
+      </div>
     </div>
-    <div style="display:flex; gap:10px; align-items:center;">
-      <a class="btnlink" href="/static/dashboard.html">Abrir Dashboard</a>
-      <a class="btnlink" href="/static/records.html">Lista de récords</a>
-      <button id="btnRefresh" class="secondary" style="max-width:220px;">Actualizar listas</button>
-    </div>
-  </div>
 
-  <!-- ==================== CREAR EXPERIMENTO (HIPOTESIS) ==================== -->
-  <div class="row" style="margin-top:18px;">
-    <div class="card fade-in">
-      <div class="sectionTitle">
-        <h2 style="margin:0;">Crear Experimento (Hipotesis)</h2>
-        <span class="hint">Una hipotesis falsable por experimento</span>
-      </div>
+    <!-- ==================== CREAR EXPERIMENTO (HIPOTESIS) ==================== -->
+    <div class="grid grid-2 mt-xl">
 
-      <div class="grid2">
-        <div>
-          <label>Proyecto</label>
-          <input id="project_name" placeholder="Atraccion Inversa" />
+      <div class="card fade-in" aria-label="Formulario crear experimento">
+        <div class="card__header">
+          <h2 class="card__title">Crear Experimento (Hipotesis)</h2>
+          <span class="card__subtitle">Una hipotesis falsable por experimento</span>
         </div>
-        <div>
-          <label>Tipo de Hipotesis</label>
-          <select id="hypothesis_type">
-            <option value="">-- seleccionar --</option>
-            <option value="acquisition">Acquisition</option>
-            <option value="activation">Activation</option>
-            <option value="retention">Retention</option>
-            <option value="monetization">Monetization</option>
-            <option value="trust_credibility">Trust / Credibility</option>
-            <option value="message_market_fit">Message-Market Fit</option>
-            <option value="channel_fit">Channel Fit</option>
-            <option value="pricing">Pricing</option>
-            <option value="funnel_friction">Funnel Friction</option>
-          </select>
-        </div>
-      </div>
 
-      <label>Hipotesis (Si X entonces Y...)</label>
-      <textarea id="hypothesis" placeholder="Si mostramos un test de elegibilidad antes del checkout, entonces aumentara el % de initiate checkout en trafico paid frio"></textarea>
-
-      <div class="grid2">
-        <div>
-          <label>Variable Independiente (X)</label>
-          <input id="independent_variable" placeholder="Test previo, Promesa condicional, Checkout directo..." />
-        </div>
-        <div>
-          <label>Metrica Objetivo (Y)</label>
-          <select id="primary_metric">
-            <option value="">-- seleccionar --</option>
-            <option value="ctr">CTR</option>
-            <option value="cpc">CPC</option>
-            <option value="initiate_checkout_rate">Initiate Checkout Rate</option>
-            <option value="view_content_rate">View Content Rate</option>
-            <option value="lead_rate">Lead Rate</option>
-            <option value="purchase_rate">Purchase Rate</option>
-            <option value="views">Views</option>
-            <option value="likes">Likes</option>
-            <option value="comments">Comments</option>
-            <option value="shares">Shares</option>
-            <option value="saves">Saves</option>
-            <option value="views_finish_pct">Views Finish %</option>
-            <option value="retention_pct">Retention %</option>
-            <option value="avg_watch_time">Avg Watch Time</option>
-            <option value="live_viewers_peak">Live Peak Viewers</option>
-            <option value="live_avg_viewers">Live Avg Viewers</option>
-            <option value="live_new_followers">Live New Followers</option>
-          </select>
-        </div>
-      </div>
-
-      <div class="grid3">
-        <div>
-          <label>Umbral de Validacion</label>
-          <div class="grid3" style="margin-top:6px;">
-            <select id="threshold_operator">
-              <option value="">-- operador --</option>
-              <option value=">=">>=</option>
-              <option value="<="><=</option>
-              <option value=">">></option>
-              <option value="<"><</option>
-            </select>
-            <input id="threshold_value" type="number" step="0.01" placeholder="3" />
-            <select id="threshold_type">
-              <option value="">-- tipo --</option>
-              <option value="percentage">%</option>
-              <option value="absolute">entero</option>
-              <option value="decimal">decimal</option>
+        <div class="grid grid-2">
+          <div class="field-group">
+            <label for="project_name">Proyecto</label>
+            <input id="project_name" placeholder="Atraccion Inversa" />
+          </div>
+          <div class="field-group">
+            <label for="hypothesis_type">Tipo de Hipotesis</label>
+            <select id="hypothesis_type">
+              <option value="">-- seleccionar --</option>
+              <option value="acquisition">Acquisition</option>
+              <option value="activation">Activation</option>
+              <option value="retention">Retention</option>
+              <option value="monetization">Monetization</option>
+              <option value="trust_credibility">Trust / Credibility</option>
+              <option value="message_market_fit">Message-Market Fit</option>
+              <option value="channel_fit">Channel Fit</option>
+              <option value="pricing">Pricing</option>
+              <option value="funnel_friction">Funnel Friction</option>
             </select>
           </div>
         </div>
-        <div>
-          <label>Volumen Minimo</label>
-          <div class="grid2" style="margin-top:6px;">
-            <input id="volume_min_value" type="number" placeholder="500" />
-            <select id="volume_unit">
-              <option value="">-- unidad --</option>
-              <option value="clicks">Clicks</option>
+
+        <div class="field-group mt-lg">
+          <label for="hypothesis">Hipotesis (Si X entonces Y...)</label>
+          <textarea id="hypothesis" placeholder="Si mostramos un test de elegibilidad antes del checkout, entonces aumentara el % de initiate checkout en trafico paid frio"></textarea>
+        </div>
+
+        <div class="grid grid-2 mt-lg">
+          <div class="field-group">
+            <label for="independent_variable">Variable Independiente (X)</label>
+            <input id="independent_variable" placeholder="Test previo, Promesa condicional, Checkout directo..." />
+          </div>
+          <div class="field-group">
+            <label for="primary_metric">Metrica Objetivo (Y)</label>
+            <select id="primary_metric">
+              <option value="">-- seleccionar --</option>
               <option value="ctr">CTR</option>
               <option value="cpc">CPC</option>
               <option value="initiate_checkout_rate">Initiate Checkout Rate</option>
@@ -170,531 +86,651 @@
               <option value="avg_watch_time">Avg Watch Time</option>
               <option value="live_viewers_peak">Live Peak Viewers</option>
               <option value="live_avg_viewers">Live Avg Viewers</option>
-              <option value="live_new_followers">Seguidores</option>
+              <option value="live_new_followers">Live New Followers</option>
             </select>
           </div>
         </div>
-        <div>
-          <label>Canal Principal</label>
-          <select id="traffic_type">
-            <option value="paid">paid</option>
-            <option value="organic">organic</option>
-            <option value="mixed">mixed</option>
-            <option value="live">live</option>
-          </select>
+
+        <div class="grid grid-3 mt-lg">
+          <div class="field-group">
+            <label>Umbral de Validacion</label>
+            <div class="grid grid-3 gap-sm mt-sm">
+              <select id="threshold_operator">
+                <option value="">-- operador --</option>
+                <option value=">=">>=</option>
+                <option value="<="><=</option>
+                <option value=">">></option>
+                <option value="<"><</option>
+              </select>
+              <input id="threshold_value" type="number" step="0.01" placeholder="3" />
+              <select id="threshold_type">
+                <option value="">-- tipo --</option>
+                <option value="percentage">%</option>
+                <option value="absolute">entero</option>
+                <option value="decimal">decimal</option>
+              </select>
+            </div>
+          </div>
+          <div class="field-group">
+            <label>Volumen Minimo</label>
+            <div class="grid grid-2 gap-sm mt-sm">
+              <input id="volume_min_value" type="number" placeholder="500" />
+              <select id="volume_unit">
+                <option value="">-- unidad --</option>
+                <option value="clicks">Clicks</option>
+                <option value="ctr">CTR</option>
+                <option value="cpc">CPC</option>
+                <option value="initiate_checkout_rate">Initiate Checkout Rate</option>
+                <option value="view_content_rate">View Content Rate</option>
+                <option value="lead_rate">Lead Rate</option>
+                <option value="purchase_rate">Purchase Rate</option>
+                <option value="views">Views</option>
+                <option value="likes">Likes</option>
+                <option value="comments">Comments</option>
+                <option value="shares">Shares</option>
+                <option value="saves">Saves</option>
+                <option value="views_finish_pct">Views Finish %</option>
+                <option value="retention_pct">Retention %</option>
+                <option value="avg_watch_time">Avg Watch Time</option>
+                <option value="live_viewers_peak">Live Peak Viewers</option>
+                <option value="live_avg_viewers">Live Avg Viewers</option>
+                <option value="live_new_followers">Seguidores</option>
+              </select>
+            </div>
+          </div>
+          <div class="field-group">
+            <label for="traffic_type">Canal Principal</label>
+            <select id="traffic_type">
+              <option value="paid">paid</option>
+              <option value="organic">organic</option>
+              <option value="mixed">mixed</option>
+              <option value="live">live</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="mt-lg">
+          <button id="btnCreateExperiment" aria-label="Crear experimento">Crear Experimento</button>
         </div>
       </div>
 
-      <div style="margin-top:12px;">
-        <button id="btnCreateExperiment">Crear Experimento</button>
+      <!-- Ayuda / Modelo Conceptual Lean -->
+      <div class="card guide-card fade-in" aria-label="Modelo conceptual lean">
+        <h2 class="guide-card__title">Modelo Conceptual Lean</h2>
+
+        <div class="guide-step">
+          <span class="guide-step__number">N0</span>
+          <span class="guide-step__content"><strong>Vision / Dominio</strong></span>
+        </div>
+        <div class="guide-step">
+          <span class="guide-step__number">N1</span>
+          <span class="guide-step__content"><strong>Proyecto</strong> (linea estrategica)</span>
+        </div>
+        <div class="guide-step">
+          <span class="guide-step__number">N2</span>
+          <span class="guide-step__content"><strong>Hipotesis</strong> = Experimento real</span>
+        </div>
+        <div class="guide-step">
+          <span class="guide-step__number">N3</span>
+          <span class="guide-step__content"><strong>Ejecucion</strong> = Record (variante creativa)</span>
+        </div>
+        <div class="guide-step">
+          <span class="guide-step__number">N4</span>
+          <span class="guide-step__content"><strong>Metricas</strong> (ya existen)</span>
+        </div>
+
+        <div class="guide-rule">
+          <strong>Regla:</strong> Cambiar X (variable independiente) = experimento nuevo.<br/>
+          Cambiar hook, CTA, edicion = record nuevo, misma hipotesis.
+        </div>
+
+        <div class="guide-rule">
+          <strong>Ciclo de vida del Record:</strong><br/>
+          1. Crear record al publicar ejecucion<br/>
+          2. Actualizar metricas sobre el MISMO record<br/>
+          3. Cerrar record cuando deja de recibir trafico<br/>
+          4. Evaluar hipotesis cuando records cerrados + volumen OK
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ==================== RECORDS ==================== -->
+    <div class="grid grid-2 mt-xl">
+
+      <!-- Crear record LIVE -->
+      <div class="card record-form record-form--live fade-in" aria-label="Formulario crear record live">
+        <div class="card__header">
+          <h2 class="card__title">Crear record (LIVE)</h2>
+          <span class="badge badge-live">solo experiments: live</span>
+        </div>
+
+        <div class="field-group">
+          <label for="live_experiment_id">Experiment (live)</label>
+          <select id="live_experiment_id"></select>
+        </div>
+
+        <div class="field-group mt-md">
+          <label for="live_session_id">Session id / Live id</label>
+          <input id="live_session_id" placeholder="l-001" />
+        </div>
+        <div class="field-group mt-md">
+          <label for="live_record_name">Nombre del record</label>
+          <input id="live_record_name" placeholder="Live A / Variante 1" />
+        </div>
+
+        <div class="field-section">CREATIVE / EJECUCION</div>
+        <div class="grid grid-2">
+          <div class="field-group">
+            <label for="live_hook_text">Hook (texto)</label>
+            <input id="live_hook_text" placeholder="Texto del hook..." />
+          </div>
+          <div class="field-group">
+            <label for="live_hook_type">Hook tipo</label>
+            <select id="live_hook_type">
+              <option value="">-- opcional --</option>
+              <option value="dolor">Dolor</option>
+              <option value="amenaza_perdida">Amenaza / Perdida</option>
+              <option value="autoridad">Autoridad</option>
+              <option value="alivio">Alivio</option>
+              <option value="curiosidad">Curiosidad</option>
+              <option value="validacion_emocional">Validacion Emocional</option>
+            </select>
+          </div>
+        </div>
+        <div class="grid grid-2 mt-md">
+          <div class="field-group">
+            <label for="live_cta_text">CTA (texto)</label>
+            <input id="live_cta_text" placeholder="Texto del CTA..." />
+          </div>
+          <div class="field-group">
+            <label for="live_cta_type">CTA tipo</label>
+            <select id="live_cta_type">
+              <option value="">-- opcional --</option>
+              <option value="accion_directa">Accion Directa</option>
+              <option value="condicional">Condicional</option>
+              <option value="urgencia">Urgencia</option>
+              <option value="informativo">Informativo</option>
+            </select>
+          </div>
+        </div>
+        <div class="field-group mt-md">
+          <label for="live_creative_id">Creative ID (opcional)</label>
+          <input id="live_creative_id" placeholder="live_2024_001" />
+        </div>
+
+        <div class="field-section">METRICAS</div>
+        <div class="grid grid-2">
+          <div class="field-group">
+            <label for="live_clicks">Clicks</label>
+            <input id="live_clicks" type="number" placeholder="50" />
+          </div>
+          <div class="field-group">
+            <label for="live_views">Views</label>
+            <input id="live_views" type="number" placeholder="500" />
+          </div>
+        </div>
+
+        <div class="grid grid-4 mt-md">
+          <div class="field-group">
+            <label for="live_viewers_peak">Pico Viewers</label>
+            <input id="live_viewers_peak" type="number" placeholder="250" />
+          </div>
+          <div class="field-group">
+            <label for="live_avg_viewers">Viewers Prom.</label>
+            <input id="live_avg_viewers" type="number" placeholder="180" />
+          </div>
+          <div class="field-group">
+            <label for="live_duration">Duracion (min)</label>
+            <input id="live_duration" type="number" step="0.1" placeholder="45" />
+          </div>
+          <div class="field-group">
+            <label for="live_new_followers">Nuevos Seguidores</label>
+            <input id="live_new_followers" type="number" placeholder="25" />
+          </div>
+        </div>
+
+        <div class="grid grid-4 mt-md">
+          <div class="field-group">
+            <label for="live_likes" class="sr-only">Likes</label>
+            <input id="live_likes" type="number" placeholder="likes" />
+          </div>
+          <div class="field-group">
+            <label for="live_comments" class="sr-only">Comments</label>
+            <input id="live_comments" type="number" placeholder="comments" />
+          </div>
+          <div class="field-group">
+            <label for="live_shares" class="sr-only">Shares</label>
+            <input id="live_shares" type="number" placeholder="shares" />
+          </div>
+          <div class="field-group">
+            <label for="live_saves" class="sr-only">Saves</label>
+            <input id="live_saves" type="number" placeholder="saves" />
+          </div>
+        </div>
+
+        <div class="mt-lg">
+          <button id="btnCreateLiveRecord" aria-label="Crear record live">Crear record live</button>
+        </div>
+      </div>
+
+      <!-- Crear record ORGANICO -->
+      <div class="card record-form record-form--organic fade-in" aria-label="Formulario crear record organico">
+        <div class="card__header">
+          <h2 class="card__title">Crear record (ORGANICO)</h2>
+          <span class="badge badge-organic">solo experiments: organic</span>
+        </div>
+
+        <div class="field-group">
+          <label for="organic_experiment_id">Experiment (organic)</label>
+          <select id="organic_experiment_id"></select>
+        </div>
+
+        <div class="field-group mt-md">
+          <label for="organic_session_id">Session id / Video id</label>
+          <input id="organic_session_id" placeholder="s-001" />
+        </div>
+        <div class="field-group mt-md">
+          <label for="organic_record_name">Nombre del record</label>
+          <input id="organic_record_name" placeholder="Organico A / Variante 1" />
+        </div>
+
+        <div class="field-section">CREATIVE / EJECUCION</div>
+        <div class="grid grid-2">
+          <div class="field-group">
+            <label for="organic_hook_text">Hook (texto)</label>
+            <input id="organic_hook_text" placeholder="Texto del hook..." />
+          </div>
+          <div class="field-group">
+            <label for="organic_hook_type">Hook tipo</label>
+            <select id="organic_hook_type">
+              <option value="">-- opcional --</option>
+              <option value="dolor">Dolor</option>
+              <option value="amenaza_perdida">Amenaza / Perdida</option>
+              <option value="autoridad">Autoridad</option>
+              <option value="alivio">Alivio</option>
+              <option value="curiosidad">Curiosidad</option>
+              <option value="validacion_emocional">Validacion Emocional</option>
+            </select>
+          </div>
+        </div>
+        <div class="grid grid-2 mt-md">
+          <div class="field-group">
+            <label for="organic_cta_text">CTA (texto)</label>
+            <input id="organic_cta_text" placeholder="Texto del CTA..." />
+          </div>
+          <div class="field-group">
+            <label for="organic_cta_type">CTA tipo</label>
+            <select id="organic_cta_type">
+              <option value="">-- opcional --</option>
+              <option value="accion_directa">Accion Directa</option>
+              <option value="condicional">Condicional</option>
+              <option value="urgencia">Urgencia</option>
+              <option value="informativo">Informativo</option>
+            </select>
+          </div>
+        </div>
+        <div class="field-group mt-md">
+          <label for="organic_creative_id">Creative ID (opcional)</label>
+          <input id="organic_creative_id" placeholder="vid_2024_001" />
+        </div>
+
+        <div class="field-section">METRICAS</div>
+        <div class="grid grid-2">
+          <div class="field-group">
+            <label for="organic_clicks">Clicks</label>
+            <input id="organic_clicks" type="number" placeholder="12" />
+          </div>
+          <div class="field-group">
+            <label for="organic_views">Views</label>
+            <input id="organic_views" type="number" placeholder="120" />
+          </div>
+        </div>
+
+        <div class="grid grid-4 mt-md">
+          <div class="field-group">
+            <label for="organic_initiate_checkouts">Initiate checkouts</label>
+            <input id="organic_initiate_checkouts" type="number" placeholder="3" />
+          </div>
+          <div class="field-group">
+            <label for="organic_view_content">View content</label>
+            <input id="organic_view_content" type="number" placeholder="40" />
+          </div>
+          <div class="field-group">
+            <label for="organic_lead_form">Formulario lead</label>
+            <input id="organic_lead_form" type="number" placeholder="10" />
+          </div>
+          <div class="field-group">
+            <label for="organic_purchase">Purchase</label>
+            <input id="organic_purchase" type="number" placeholder="1" />
+          </div>
+        </div>
+
+        <div class="field-group mt-md">
+          <label for="organic_piece_type">Organic piece type</label>
+          <input id="organic_piece_type" placeholder="tiktok_video, reel, story..." />
+        </div>
+
+        <div class="grid grid-4 mt-md">
+          <div class="field-group">
+            <label for="organic_likes" class="sr-only">Likes</label>
+            <input id="organic_likes" type="number" placeholder="likes" />
+          </div>
+          <div class="field-group">
+            <label for="organic_comments" class="sr-only">Comments</label>
+            <input id="organic_comments" type="number" placeholder="comments" />
+          </div>
+          <div class="field-group">
+            <label for="organic_shares" class="sr-only">Shares</label>
+            <input id="organic_shares" type="number" placeholder="shares" />
+          </div>
+          <div class="field-group">
+            <label for="organic_saves" class="sr-only">Saves</label>
+            <input id="organic_saves" type="number" placeholder="saves" />
+          </div>
+        </div>
+
+        <div class="field-group mt-md">
+          <label for="organic_video_url">URL del Video</label>
+          <input id="organic_video_url" placeholder="https://..." />
+        </div>
+
+        <div class="grid grid-4 mt-md">
+          <div class="field-group">
+            <label for="organic_views_finish_pct">% Views Finish</label>
+            <input id="organic_views_finish_pct" type="number" step="0.01" placeholder="75.5" />
+          </div>
+          <div class="field-group">
+            <label for="organic_retention_pct">% Retencion</label>
+            <input id="organic_retention_pct" type="number" step="0.01" placeholder="68.2" />
+          </div>
+          <div class="field-group">
+            <label for="organic_avg_watch_time">Tiempo Prom. (seg)</label>
+            <input id="organic_avg_watch_time" type="number" step="0.1" placeholder="45.3" />
+          </div>
+          <div class="field-group">
+            <label for="organic_video_duration">Duracion (seg)</label>
+            <input id="organic_video_duration" type="number" step="0.1" placeholder="60" />
+          </div>
+        </div>
+
+        <div class="mt-lg">
+          <button id="btnCreateOrganicRecord" aria-label="Crear record organico">Crear record organico</button>
+        </div>
+      </div>
+
+      <!-- Crear record PAID -->
+      <div class="card record-form record-form--paid fade-in" aria-label="Formulario crear record paid">
+        <div class="card__header">
+          <h2 class="card__title">Crear record (PAID)</h2>
+          <span class="badge badge-paid">solo experiments: paid</span>
+        </div>
+
+        <div class="field-group">
+          <label for="paid_experiment_id">Experiment (paid)</label>
+          <select id="paid_experiment_id"></select>
+        </div>
+
+        <div class="field-group mt-md">
+          <label for="paid_session_id">Session id / Ad id</label>
+          <input id="paid_session_id" placeholder="p-001" />
+        </div>
+        <div class="field-group mt-md">
+          <label for="paid_record_name">Nombre del record</label>
+          <input id="paid_record_name" placeholder="Paid A / Variante 1" />
+        </div>
+
+        <div class="field-section">CREATIVE / EJECUCION</div>
+        <div class="grid grid-2">
+          <div class="field-group">
+            <label for="paid_hook_text">Hook (texto)</label>
+            <input id="paid_hook_text" placeholder="Texto del hook..." />
+          </div>
+          <div class="field-group">
+            <label for="paid_hook_type">Hook tipo</label>
+            <select id="paid_hook_type">
+              <option value="">-- opcional --</option>
+              <option value="dolor">Dolor</option>
+              <option value="amenaza_perdida">Amenaza / Perdida</option>
+              <option value="autoridad">Autoridad</option>
+              <option value="alivio">Alivio</option>
+              <option value="curiosidad">Curiosidad</option>
+              <option value="validacion_emocional">Validacion Emocional</option>
+            </select>
+          </div>
+        </div>
+        <div class="grid grid-2 mt-md">
+          <div class="field-group">
+            <label for="paid_cta_text">CTA (texto)</label>
+            <input id="paid_cta_text" placeholder="Texto del CTA..." />
+          </div>
+          <div class="field-group">
+            <label for="paid_cta_type">CTA tipo</label>
+            <select id="paid_cta_type">
+              <option value="">-- opcional --</option>
+              <option value="accion_directa">Accion Directa</option>
+              <option value="condicional">Condicional</option>
+              <option value="urgencia">Urgencia</option>
+              <option value="informativo">Informativo</option>
+            </select>
+          </div>
+        </div>
+        <div class="field-group mt-md">
+          <label for="paid_creative_id">Creative ID (opcional)</label>
+          <input id="paid_creative_id" placeholder="ad_2024_001" />
+        </div>
+
+        <div class="field-section">METRICAS</div>
+        <div class="grid grid-2">
+          <div class="field-group">
+            <label for="paid_clicks">Clicks</label>
+            <input id="paid_clicks" type="number" placeholder="280" />
+          </div>
+          <div class="field-group">
+            <label for="paid_views">Views</label>
+            <input id="paid_views" type="number" placeholder="1500" />
+          </div>
+        </div>
+
+        <div class="grid grid-3 mt-md">
+          <div class="field-group">
+            <label for="paid_initiate_checkouts">Initiate checkouts</label>
+            <input id="paid_initiate_checkouts" type="number" placeholder="3" />
+          </div>
+          <div class="field-group">
+            <label for="paid_view_content">View content</label>
+            <input id="paid_view_content" type="number" placeholder="40" />
+          </div>
+          <div class="field-group">
+            <label for="paid_lead">Formulario lead</label>
+            <input id="paid_lead" type="number" placeholder="10" />
+          </div>
+        </div>
+
+        <div class="grid grid-2 mt-md">
+          <div class="field-group">
+            <label for="paid_purchase">Purchase</label>
+            <input id="paid_purchase" type="number" placeholder="1" />
+          </div>
+          <div class="field-group">
+            <label for="paid_cpc">CPC</label>
+            <input id="paid_cpc" type="number" step="0.0001" placeholder="0.45" />
+          </div>
+        </div>
+
+        <div class="field-group mt-md">
+          <label for="paid_ctr">CTR</label>
+          <input id="paid_ctr" type="number" step="0.0001" placeholder="0.06" />
+        </div>
+
+        <div class="field-group mt-md">
+          <label for="paid_video_duration">Duracion del Video (seg)</label>
+          <input id="paid_video_duration" type="number" step="0.1" placeholder="30" />
+        </div>
+
+        <div class="field-group mt-md">
+          <label>IDs de Campana</label>
+        </div>
+        <div class="grid grid-3">
+          <div class="field-group">
+            <label for="paid_campaign_id">Campaign ID</label>
+            <input id="paid_campaign_id" placeholder="camp_123" />
+          </div>
+          <div class="field-group">
+            <label for="paid_ad_set_id">Ad Set ID</label>
+            <input id="paid_ad_set_id" placeholder="adset_456" />
+          </div>
+          <div class="field-group">
+            <label for="paid_ad_id">Ad ID</label>
+            <input id="paid_ad_id" placeholder="ad_789" />
+          </div>
+        </div>
+
+        <div class="mt-lg">
+          <button id="btnCreatePaidRecord" aria-label="Crear record paid">Crear record paid</button>
+        </div>
       </div>
     </div>
 
-    <!-- Ayuda -->
-    <div class="card fade-in" style="background: var(--gradient-3); color: white; border: none;">
-      <h2 style="margin:0; color: white;">Modelo Conceptual Lean</h2>
-      <p style="margin-top:10px; font-size: 14px; opacity: 0.95;">
-        <strong>N0</strong> Vision / Dominio<br/>
-        <strong>N1</strong> Proyecto (linea estrategica)<br/>
-        <strong>N2</strong> Hipotesis = Experimento real<br/>
-        <strong>N3</strong> Ejecucion = Record (variante creativa)<br/>
-        <strong>N4</strong> Metricas (ya existen)
-      </p>
-      <hr style="border-color: rgba(255,255,255,0.3); margin: 12px 0;">
-      <p style="font-size: 13px; opacity: 0.9;">
-        <strong>Regla:</strong> Cambiar X (variable independiente) = experimento nuevo.<br/>
-        Cambiar hook, CTA, edicion = record nuevo, misma hipotesis.
-      </p>
-      <hr style="border-color: rgba(255,255,255,0.3); margin: 12px 0;">
-      <p style="font-size: 13px; opacity: 0.9;">
-        <strong>Ciclo de vida del Record:</strong><br/>
-        1. Crear record al publicar ejecucion<br/>
-        2. Actualizar metricas sobre el MISMO record<br/>
-        3. Cerrar record cuando deja de recibir trafico<br/>
-        4. Evaluar hipotesis cuando records cerrados + volumen OK
-      </p>
-    </div>
-  </div>
-
-  <!-- ==================== RECORDS ==================== -->
-  <div class="row" style="margin-top:24px;">
-    <!-- Crear record LIVE -->
-    <div class="card fade-in" style="border-color: #f9a8d4;">
-      <div class="sectionTitle">
-        <h2 style="margin:0;">Crear record (LIVE)</h2>
-        <span class="pill live">solo experiments: live</span>
+    <!-- ==================== UPDATE RECORD ==================== -->
+    <div class="card fade-in mt-xl" aria-label="Seccion actualizar record existente">
+      <div class="card__header">
+        <h2 class="card__title">Actualizar Record Existente</h2>
+        <span class="card__subtitle">Actualiza metricas sin crear record nuevo</span>
       </div>
+      <p class="text-sm text-secondary mb-lg">Los records viven y se actualizan. Selecciona un record, actualiza sus metricas, o cierralo cuando ya no reciba trafico.</p>
 
-      <label>Experiment (live)</label>
-      <select id="live_experiment_id"></select>
-
-      <label>Session id / Live id</label>
-      <input id="live_session_id" placeholder="l-001" />
-      <label>Nombre del record</label>
-      <input id="live_record_name" placeholder="Live A / Variante 1" />
-
-      <hr class="divider">
-      <p class="small" style="margin:0 0 6px 0; font-weight:600;">CREATIVE / EJECUCION</p>
-      <div class="grid2">
-        <div>
-          <label>Hook (texto)</label>
-          <input id="live_hook_text" placeholder="Texto del hook..." />
-        </div>
-        <div>
-          <label>Hook tipo</label>
-          <select id="live_hook_type">
-            <option value="">-- opcional --</option>
-            <option value="dolor">Dolor</option>
-            <option value="amenaza_perdida">Amenaza / Perdida</option>
-            <option value="autoridad">Autoridad</option>
-            <option value="alivio">Alivio</option>
-            <option value="curiosidad">Curiosidad</option>
-            <option value="validacion_emocional">Validacion Emocional</option>
-          </select>
-        </div>
-      </div>
-      <div class="grid2">
-        <div>
-          <label>CTA (texto)</label>
-          <input id="live_cta_text" placeholder="Texto del CTA..." />
-        </div>
-        <div>
-          <label>CTA tipo</label>
-          <select id="live_cta_type">
-            <option value="">-- opcional --</option>
-            <option value="accion_directa">Accion Directa</option>
-            <option value="condicional">Condicional</option>
-            <option value="urgencia">Urgencia</option>
-            <option value="informativo">Informativo</option>
-          </select>
-        </div>
-      </div>
-      <label>Creative ID (opcional)</label>
-      <input id="live_creative_id" placeholder="live_2024_001" />
-
-      <hr class="divider">
-      <p class="small" style="margin:0 0 6px 0; font-weight:600;">METRICAS</p>
-      <div class="grid2">
-        <div>
-          <label>Clicks</label>
-          <input id="live_clicks" type="number" placeholder="50" />
-        </div>
-        <div>
-          <label>Views</label>
-          <input id="live_views" type="number" placeholder="500" />
-        </div>
-      </div>
-
-      <div class="grid4">
-        <div>
-          <label>Pico Viewers</label>
-          <input id="live_viewers_peak" type="number" placeholder="250" />
-        </div>
-        <div>
-          <label>Viewers Prom.</label>
-          <input id="live_avg_viewers" type="number" placeholder="180" />
-        </div>
-        <div>
-          <label>Duracion (min)</label>
-          <input id="live_duration" type="number" step="0.1" placeholder="45" />
-        </div>
-        <div>
-          <label>Nuevos Seguidores</label>
-          <input id="live_new_followers" type="number" placeholder="25" />
-        </div>
-      </div>
-
-      <div class="grid4">
-        <input id="live_likes" type="number" placeholder="likes" />
-        <input id="live_comments" type="number" placeholder="comments" />
-        <input id="live_shares" type="number" placeholder="shares" />
-        <input id="live_saves" type="number" placeholder="saves" />
-      </div>
-
-      <div style="margin-top:12px;">
-        <button id="btnCreateLiveRecord">Crear record live</button>
-      </div>
-    </div>
-
-    <!-- Crear record ORGANICO -->
-    <div class="card fade-in" style="border-color: #6ee7b7;">
-      <div class="sectionTitle">
-        <h2 style="margin:0;">Crear record (ORGANICO)</h2>
-        <span class="pill organic">solo experiments: organic</span>
-      </div>
-
-      <label>Experiment (organic)</label>
-      <select id="organic_experiment_id"></select>
-
-      <label>Session id / Video id</label>
-      <input id="organic_session_id" placeholder="s-001" />
-      <label>Nombre del record</label>
-      <input id="organic_record_name" placeholder="Orgánico A / Variante 1" />
-
-      <hr class="divider">
-      <p class="small" style="margin:0 0 6px 0; font-weight:600;">CREATIVE / EJECUCION</p>
-      <div class="grid2">
-        <div>
-          <label>Hook (texto)</label>
-          <input id="organic_hook_text" placeholder="Texto del hook..." />
-        </div>
-        <div>
-          <label>Hook tipo</label>
-          <select id="organic_hook_type">
-            <option value="">-- opcional --</option>
-            <option value="dolor">Dolor</option>
-            <option value="amenaza_perdida">Amenaza / Perdida</option>
-            <option value="autoridad">Autoridad</option>
-            <option value="alivio">Alivio</option>
-            <option value="curiosidad">Curiosidad</option>
-            <option value="validacion_emocional">Validacion Emocional</option>
-          </select>
-        </div>
-      </div>
-      <div class="grid2">
-        <div>
-          <label>CTA (texto)</label>
-          <input id="organic_cta_text" placeholder="Texto del CTA..." />
-        </div>
-        <div>
-          <label>CTA tipo</label>
-          <select id="organic_cta_type">
-            <option value="">-- opcional --</option>
-            <option value="accion_directa">Accion Directa</option>
-            <option value="condicional">Condicional</option>
-            <option value="urgencia">Urgencia</option>
-            <option value="informativo">Informativo</option>
-          </select>
-        </div>
-      </div>
-      <label>Creative ID (opcional)</label>
-      <input id="organic_creative_id" placeholder="vid_2024_001" />
-
-      <hr class="divider">
-      <p class="small" style="margin:0 0 6px 0; font-weight:600;">METRICAS</p>
-      <div class="grid2">
-        <div>
-          <label>Clicks</label>
-          <input id="organic_clicks" type="number" placeholder="12" />
-        </div>
-        <div>
-          <label>Views</label>
-          <input id="organic_views" type="number" placeholder="120" />
-        </div>
-      </div>
-
-      <div class="grid4">
-        <div>
-          <label>Initiate checkouts</label>
-          <input id="organic_initiate_checkouts" type="number" placeholder="3" />
-        </div>
-        <div>
-          <label>View content</label>
-          <input id="organic_view_content" type="number" placeholder="40" />
-        </div>
-        <div>
-          <label>Formulario lead</label>
-          <input id="organic_lead_form" type="number" placeholder="10" />
-        </div>
-        <div>
-          <label>Purchase</label>
-          <input id="organic_purchase" type="number" placeholder="1" />
-        </div>
-      </div>
-
-      <label>Organic piece type</label>
-      <input id="organic_piece_type" placeholder="tiktok_video, reel, story..." />
-
-      <div class="grid4">
-        <input id="organic_likes" type="number" placeholder="likes" />
-        <input id="organic_comments" type="number" placeholder="comments" />
-        <input id="organic_shares" type="number" placeholder="shares" />
-        <input id="organic_saves" type="number" placeholder="saves" />
-      </div>
-
-      <label>URL del Video</label>
-      <input id="organic_video_url" placeholder="https://..." />
-
-      <div class="grid4">
-        <div>
-          <label>% Views Finish</label>
-          <input id="organic_views_finish_pct" type="number" step="0.01" placeholder="75.5" />
-        </div>
-        <div>
-          <label>% Retencion</label>
-          <input id="organic_retention_pct" type="number" step="0.01" placeholder="68.2" />
-        </div>
-        <div>
-          <label>Tiempo Prom. (seg)</label>
-          <input id="organic_avg_watch_time" type="number" step="0.1" placeholder="45.3" />
-        </div>
-        <div>
-          <label>Duracion (seg)</label>
-          <input id="organic_video_duration" type="number" step="0.1" placeholder="60" />
-        </div>
-      </div>
-
-      <div style="margin-top:12px;">
-        <button id="btnCreateOrganicRecord">Crear record organico</button>
-      </div>
-    </div>
-
-    <!-- Crear record PAID -->
-    <div class="card fade-in" style="border-color: #93c5fd;">
-      <div class="sectionTitle">
-        <h2 style="margin:0;">Crear record (PAID)</h2>
-        <span class="pill paid">solo experiments: paid</span>
-      </div>
-
-      <label>Experiment (paid)</label>
-      <select id="paid_experiment_id"></select>
-
-      <label>Session id / Ad id</label>
-      <input id="paid_session_id" placeholder="p-001" />
-      <label>Nombre del record</label>
-      <input id="paid_record_name" placeholder="Paid A / Variante 1" />
-
-      <hr class="divider">
-      <p class="small" style="margin:0 0 6px 0; font-weight:600;">CREATIVE / EJECUCION</p>
-      <div class="grid2">
-        <div>
-          <label>Hook (texto)</label>
-          <input id="paid_hook_text" placeholder="Texto del hook..." />
-        </div>
-        <div>
-          <label>Hook tipo</label>
-          <select id="paid_hook_type">
-            <option value="">-- opcional --</option>
-            <option value="dolor">Dolor</option>
-            <option value="amenaza_perdida">Amenaza / Perdida</option>
-            <option value="autoridad">Autoridad</option>
-            <option value="alivio">Alivio</option>
-            <option value="curiosidad">Curiosidad</option>
-            <option value="validacion_emocional">Validacion Emocional</option>
-          </select>
-        </div>
-      </div>
-      <div class="grid2">
-        <div>
-          <label>CTA (texto)</label>
-          <input id="paid_cta_text" placeholder="Texto del CTA..." />
-        </div>
-        <div>
-          <label>CTA tipo</label>
-          <select id="paid_cta_type">
-            <option value="">-- opcional --</option>
-            <option value="accion_directa">Accion Directa</option>
-            <option value="condicional">Condicional</option>
-            <option value="urgencia">Urgencia</option>
-            <option value="informativo">Informativo</option>
-          </select>
-        </div>
-      </div>
-      <label>Creative ID (opcional)</label>
-      <input id="paid_creative_id" placeholder="ad_2024_001" />
-
-      <hr class="divider">
-      <p class="small" style="margin:0 0 6px 0; font-weight:600;">METRICAS</p>
-      <div class="grid2">
-        <div>
-          <label>Clicks</label>
-          <input id="paid_clicks" type="number" placeholder="280" />
-        </div>
-        <div>
-          <label>Views</label>
-          <input id="paid_views" type="number" placeholder="1500" />
-        </div>
-      </div>
-
-      <div class="grid3">
-        <div>
-          <label>Initiate checkouts</label>
-          <input id="paid_initiate_checkouts" type="number" placeholder="3" />
-        </div>
-        <div>
-          <label>View content</label>
-          <input id="paid_view_content" type="number" placeholder="40" />
-        </div>
-        <div>
-          <label>Formulario lead</label>
-          <input id="paid_lead" type="number" placeholder="10" />
-        </div>
-      </div>
-
-      <div class="grid2">
-        <div>
-          <label>Purchase</label>
-          <input id="paid_purchase" type="number" placeholder="1" />
-        </div>
-        <div>
-          <label>CPC</label>
-          <input id="paid_cpc" type="number" step="0.0001" placeholder="0.45" />
-        </div>
-      </div>
-
-      <label>CTR</label>
-      <input id="paid_ctr" type="number" step="0.0001" placeholder="0.06" />
-
-      <label>Duracion del Video (seg)</label>
-      <input id="paid_video_duration" type="number" step="0.1" placeholder="30" />
-
-      <label>IDs de Campana</label>
-      <div class="grid3">
-        <div>
-          <label>Campaign ID</label>
-          <input id="paid_campaign_id" placeholder="camp_123" />
-        </div>
-        <div>
-          <label>Ad Set ID</label>
-          <input id="paid_ad_set_id" placeholder="adset_456" />
-        </div>
-        <div>
-          <label>Ad ID</label>
-          <input id="paid_ad_id" placeholder="ad_789" />
-        </div>
-      </div>
-
-      <div style="margin-top:12px;">
-        <button id="btnCreatePaidRecord">Crear record paid</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ==================== UPDATE RECORD ==================== -->
-  <div class="card fade-in" style="margin-top:24px; border-color: var(--warn);">
-    <div class="sectionTitle">
-      <h2 style="margin:0;">Actualizar Record Existente</h2>
-      <span class="hint">Actualiza metricas sin crear record nuevo</span>
-    </div>
-    <p class="small">Los records viven y se actualizan. Selecciona un record, actualiza sus metricas, o cierralo cuando ya no reciba trafico.</p>
-
-      <div class="grid3">
-        <div>
-          <label>Experimento</label>
+      <div class="grid grid-3">
+        <div class="field-group">
+          <label for="upd_experiment_id">Experimento</label>
           <select id="upd_experiment_id">
             <option value="">-- seleccionar --</option>
           </select>
         </div>
-        <div>
-          <label>Record ID</label>
+        <div class="field-group">
+          <label for="upd_record_id">Record ID</label>
           <select id="upd_record_id">
             <option value="">-- seleccionar --</option>
           </select>
         </div>
-        <div>
+        <div class="field-group">
           <label>Accion</label>
-          <div style="display:flex; gap:8px; margin-top:6px;">
-            <button id="btnLoadRecord" class="secondary" style="flex:1;">Cargar</button>
-            <button id="btnCloseRecord" style="flex:1; background:var(--warn); box-shadow: 0 4px 12px rgba(245,158,11,0.3);">Cerrar Record</button>
-            <button id="btnReopenRecord" class="secondary" style="flex:1;">Reabrir</button>
+          <div class="flex gap-sm mt-sm">
+            <button id="btnLoadRecord" class="btn-secondary w-full" aria-label="Cargar record">Cargar</button>
+            <button id="btnCloseRecord" class="btn-warning w-full" aria-label="Cerrar record">Cerrar Record</button>
+            <button id="btnReopenRecord" class="btn-secondary w-full" aria-label="Reabrir record">Reabrir</button>
           </div>
         </div>
       </div>
 
-    <div id="updRecordInfo" style="display:none; margin-top:12px; padding:12px; border-radius:12px; background:#f9fafb; border:1px solid var(--border);">
-      <p class="small" style="margin:0;" id="updRecordMeta"></p>
+      <div id="updRecordInfo" class="hidden mt-lg" style="padding:var(--space-md); border-radius:var(--radius-md); background:var(--surface-2); border:1px solid var(--glass-border);">
+        <p class="text-sm" id="updRecordMeta"></p>
+      </div>
+
+      <div id="updFields" class="hidden mt-lg">
+        <div class="grid grid-4">
+          <div class="field-group">
+            <label for="upd_record_name">Nombre del record</label>
+            <input id="upd_record_name" type="text" />
+          </div>
+          <div class="field-group">
+            <label for="upd_clicks">Clicks</label>
+            <input id="upd_clicks" type="number" />
+          </div>
+          <div class="field-group">
+            <label for="upd_views">Views</label>
+            <input id="upd_views" type="number" />
+          </div>
+          <div class="field-group">
+            <label for="upd_initiate_checkouts">Initiate Checkouts</label>
+            <input id="upd_initiate_checkouts" type="number" />
+          </div>
+          <div class="field-group">
+            <label for="upd_view_content">View Content</label>
+            <input id="upd_view_content" type="number" />
+          </div>
+        </div>
+        <div class="grid grid-4 mt-md">
+          <div class="field-group">
+            <label for="upd_lead_form">Lead Form</label>
+            <input id="upd_lead_form" type="number" />
+          </div>
+          <div class="field-group">
+            <label for="upd_purchase">Purchase</label>
+            <input id="upd_purchase" type="number" />
+          </div>
+          <div class="field-group">
+            <label for="upd_likes">Likes</label>
+            <input id="upd_likes" type="number" />
+          </div>
+          <div class="field-group">
+            <label for="upd_comments">Comments</label>
+            <input id="upd_comments" type="number" />
+          </div>
+        </div>
+        <div class="grid grid-4 mt-md">
+          <div class="field-group">
+            <label for="upd_shares">Shares</label>
+            <input id="upd_shares" type="number" />
+          </div>
+          <div class="field-group">
+            <label for="upd_saves">Saves</label>
+            <input id="upd_saves" type="number" />
+          </div>
+          <div class="field-group">
+            <label for="upd_live_viewers_peak">Live Peak</label>
+            <input id="upd_live_viewers_peak" type="number" />
+          </div>
+          <div class="field-group">
+            <label for="upd_live_avg_viewers">Live Avg</label>
+            <input id="upd_live_avg_viewers" type="number" />
+          </div>
+        </div>
+        <div class="grid grid-4 mt-md">
+          <div class="field-group">
+            <label for="upd_live_duration">Live Duration</label>
+            <input id="upd_live_duration" type="number" step="0.1" />
+          </div>
+          <div class="field-group">
+            <label for="upd_live_new_followers">Live Followers</label>
+            <input id="upd_live_new_followers" type="number" />
+          </div>
+          <div class="field-group">
+            <label for="upd_ctr">CTR</label>
+            <input id="upd_ctr" type="number" step="0.0001" />
+          </div>
+          <div class="field-group">
+            <label for="upd_cpc">CPC</label>
+            <input id="upd_cpc" type="number" step="0.0001" />
+          </div>
+        </div>
+        <div class="grid grid-4 mt-md">
+          <div class="field-group">
+            <label for="upd_views_finish_pct">Views Finish %</label>
+            <input id="upd_views_finish_pct" type="number" step="0.01" />
+          </div>
+          <div class="field-group">
+            <label for="upd_retention_pct">Retention %</label>
+            <input id="upd_retention_pct" type="number" step="0.01" />
+          </div>
+          <div class="field-group">
+            <label for="upd_avg_watch_time">Avg Watch Time</label>
+            <input id="upd_avg_watch_time" type="number" step="0.1" />
+          </div>
+          <div class="field-group">
+            <label for="upd_video_duration">Video Duration</label>
+            <input id="upd_video_duration" type="number" step="0.1" />
+          </div>
+        </div>
+        <div class="mt-lg">
+          <button id="btnUpdateRecord" aria-label="Guardar actualizacion del record">Guardar Actualizacion</button>
+        </div>
+      </div>
     </div>
 
-    <div id="updFields" style="display:none; margin-top:12px;">
-      <div class="grid4">
-        <div>
-          <label>Nombre del record</label>
-          <input id="upd_record_name" type="text" />
-        </div>
-        <div>
-          <label>Clicks</label>
-          <input id="upd_clicks" type="number" />
-        </div>
-        <div>
-          <label>Views</label>
-          <input id="upd_views" type="number" />
-        </div>
-        <div>
-          <label>Initiate Checkouts</label>
-          <input id="upd_initiate_checkouts" type="number" />
-        </div>
-        <div>
-          <label>View Content</label>
-          <input id="upd_view_content" type="number" />
-        </div>
-      </div>
-      <div class="grid4">
-        <div>
-          <label>Lead Form</label>
-          <input id="upd_lead_form" type="number" />
-        </div>
-        <div>
-          <label>Purchase</label>
-          <input id="upd_purchase" type="number" />
-        </div>
-        <div>
-          <label>Likes</label>
-          <input id="upd_likes" type="number" />
-        </div>
-        <div>
-          <label>Comments</label>
-          <input id="upd_comments" type="number" />
-        </div>
-      </div>
-      <div class="grid4">
-        <div>
-          <label>Shares</label>
-          <input id="upd_shares" type="number" />
-        </div>
-        <div>
-          <label>Saves</label>
-          <input id="upd_saves" type="number" />
-        </div>
-        <div>
-          <label>Live Peak</label>
-          <input id="upd_live_viewers_peak" type="number" />
-        </div>
-        <div>
-          <label>Live Avg</label>
-          <input id="upd_live_avg_viewers" type="number" />
-        </div>
-      </div>
-      <div class="grid4">
-        <div>
-          <label>Live Duration</label>
-          <input id="upd_live_duration" type="number" step="0.1" />
-        </div>
-        <div>
-          <label>Live Followers</label>
-          <input id="upd_live_new_followers" type="number" />
-        </div>
-        <div>
-          <label>CTR</label>
-          <input id="upd_ctr" type="number" step="0.0001" />
-        </div>
-        <div>
-          <label>CPC</label>
-          <input id="upd_cpc" type="number" step="0.0001" />
-        </div>
-      </div>
-      <div class="grid4">
-        <div>
-          <label>Views Finish %</label>
-          <input id="upd_views_finish_pct" type="number" step="0.01" />
-        </div>
-        <div>
-          <label>Retention %</label>
-          <input id="upd_retention_pct" type="number" step="0.01" />
-        </div>
-        <div>
-          <label>Avg Watch Time</label>
-          <input id="upd_avg_watch_time" type="number" step="0.1" />
-        </div>
-        <div>
-          <label>Video Duration</label>
-          <input id="upd_video_duration" type="number" step="0.1" />
-        </div>
-      </div>
-      <div style="margin-top:12px;">
-        <button id="btnUpdateRecord">Guardar Actualizacion</button>
-      </div>
-    </div>
-  </div>
+  </div><!-- /app-container -->
+
+  <div class="toast-container" id="toastContainer"></div>
 
 <script>
   const API_BASE = "";
@@ -709,6 +745,15 @@
     statusEl.textContent = msg;
     statusEl.style.borderColor = isError ? "#ef4444" : "#e5e5e5";
     statusEl.style.color = isError ? "#b91c1c" : "#6b7280";
+  }
+
+  function showToast(message, type = 'success') {
+    const container = document.getElementById('toastContainer');
+    const toast = document.createElement('div');
+    toast.className = `toast toast--${type}`;
+    toast.textContent = message;
+    container.appendChild(toast);
+    setTimeout(() => toast.remove(), 3000);
   }
 
   function asIntOrNull(v) {
@@ -796,14 +841,14 @@
     setStatus("cargando...");
     experimentsCache = await apiGet("/experiments/");
     syncFormSelects();
-    refreshRecordList().catch(e => { setStatus("error", true); alert(String(e)); });
+    refreshRecordList().catch(e => { setStatus("error", true); showToast(String(e), 'error'); });
     setStatus("listo");
   }
 
   // Eventos
   $("btnRefresh").onclick = async () => {
     try { await refreshAll(); }
-    catch(e){ setStatus("error", true); alert(String(e)); }
+    catch(e){ setStatus("error", true); showToast(String(e), 'error'); }
   };
 
   // Create experiment
@@ -835,7 +880,7 @@
       $("traffic_type").value = "paid";
     } catch(e){
       setStatus("error", true);
-      alert(String(e));
+      showToast(String(e), 'error');
     }
   };
 
@@ -886,11 +931,10 @@
       $("organic_hook_type").value = "";
       $("organic_cta_type").value = "";
 
-      setStatus("record organico creado");
-      setTimeout(()=>setStatus("listo"), 800);
+      showToast("Record organico creado", "success");
     } catch(e){
       setStatus("error", true);
-      alert(String(e));
+      showToast(String(e), 'error');
     }
   };
 
@@ -935,11 +979,10 @@
       $("live_hook_type").value = "";
       $("live_cta_type").value = "";
 
-      setStatus("record live creado");
-      setTimeout(()=>setStatus("listo"), 800);
+      showToast("Record live creado", "success");
     } catch(e){
       setStatus("error", true);
-      alert(String(e));
+      showToast(String(e), 'error');
     }
   };
 
@@ -986,11 +1029,10 @@
       $("paid_hook_type").value = "";
       $("paid_cta_type").value = "";
 
-      setStatus("record paid creado");
-      setTimeout(()=>setStatus("listo"), 800);
+      showToast("Record paid creado", "success");
     } catch(e){
       setStatus("error", true);
-      alert(String(e));
+      showToast(String(e), 'error');
     }
   };
 
@@ -1012,7 +1054,7 @@
   }
 
   $("upd_experiment_id").onchange = () => {
-    refreshRecordList().catch(e => { setStatus("error", true); alert(String(e)); });
+    refreshRecordList().catch(e => { setStatus("error", true); showToast(String(e), 'error'); });
   };
 
   $("upd_record_id").onchange = () => {
@@ -1028,7 +1070,9 @@
       const rec = await apiGet(`/records/${rid}`);
 
       $("updRecordInfo").style.display = "block";
+      $("updRecordInfo").classList.remove("hidden");
       $("updFields").style.display = "block";
+      $("updFields").classList.remove("hidden");
       const statusClass = rec.record_status === "closed" ? "color:#991b1b;" : "color:#065f46;";
       $("updRecordMeta").innerHTML =
         `<strong>Record #${rec.id}</strong> | Session: ${rec.session_id} | ` +
@@ -1055,7 +1099,7 @@
       setStatus("record cargado");
     } catch(e) {
       setStatus("error", true);
-      alert(String(e));
+      showToast(String(e), 'error');
     }
   };
 
@@ -1087,14 +1131,13 @@
       }
 
       await apiPatch(`/records/${rid}`, body);
-      setStatus("record actualizado");
-      setTimeout(()=>setStatus("listo"), 800);
+      showToast("Record actualizado", "success");
 
       // Reload the record to show updated info
       $("btnLoadRecord").click();
     } catch(e) {
       setStatus("error", true);
-      alert(String(e));
+      showToast(String(e), 'error');
     }
   };
 
@@ -1103,11 +1146,11 @@
       const rid = Number($("upd_record_id").value);
       if (!rid) throw new Error("Ingresa un Record ID.");
       await apiPost(`/records/${rid}/close`, {});
-      setStatus("record cerrado");
+      showToast("Record cerrado", "success");
       $("btnLoadRecord").click();
     } catch(e) {
       setStatus("error", true);
-      alert(String(e));
+      showToast(String(e), 'error');
     }
   };
 
@@ -1116,16 +1159,16 @@
       const rid = Number($("upd_record_id").value);
       if (!rid) throw new Error("Ingresa un Record ID.");
       await apiPost(`/records/${rid}/reopen`, {});
-      setStatus("record reabierto");
+      showToast("Record reabierto", "success");
       $("btnLoadRecord").click();
     } catch(e) {
       setStatus("error", true);
-      alert(String(e));
+      showToast(String(e), 'error');
     }
   };
 
   // init
-  refreshAll().catch(e => { setStatus("error", true); alert(String(e)); });
+  refreshAll().catch(e => { setStatus("error", true); showToast(String(e), 'error'); });
 </script>
 </body>
 </html>

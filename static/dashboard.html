@@ -4,367 +4,300 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Dashboard — Centro Experimental</title>
-  <style>
-    :root { --border:#e5e5e5; --muted:#6b7280; --bg:#ffffff; --primary:#111; --accent:#3b82f6; --success:#10b981; --warn:#f59e0b; --danger:#ef4444; --gradient-1:linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
-    * { transition: all 0.2s ease; }
-    body { font-family: system-ui, -apple-system, Arial; margin: 24px; max-width: 1400px; background: linear-gradient(to bottom, #fafafa, #ffffff); min-height: 100vh; }
-    .top { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap; }
-    .small { font-size: 12px; color: var(--muted); }
-    .card { border: 2px solid var(--border); padding: 24px; border-radius: 20px; background: #fff; box-shadow: 0 4px 20px rgba(0,0,0,0.06); }
-    .card:hover { box-shadow: 0 8px 30px rgba(0,0,0,0.1); border-color: var(--accent); }
-    .row { display:grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; }
-    @media (max-width: 980px){ .row{ grid-template-columns: 1fr; } }
-    label { display:block; font-size: 12px; color: var(--muted); margin-top: 10px; }
-    select, input, button { width:100%; padding:12px; margin-top:6px; box-sizing:border-box; border: 2px solid var(--border); border-radius: 12px; font-size: 14px; }
-    select:focus, input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 4px rgba(59,130,246,0.1); }
-    button { cursor:pointer; background: var(--gradient-1); color:#fff; font-weight: 600; border: none; box-shadow: 0 4px 12px rgba(102,126,234,0.3); }
-    button:hover { background: var(--gradient-1); transform: translateY(-2px); box-shadow: 0 6px 20px rgba(102,126,234,0.4); }
-    button.secondary { background:#fff; color:#111; border: 2px solid var(--border); box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
-    button.secondary:hover { background:#f7f7f7; border-color: var(--accent); }
-    .filters { display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
-    @media (max-width: 980px){ .filters{ grid-template-columns: 1fr; } }
-    .kpis { display:grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top:12px; }
-    @media (max-width: 980px){ .kpis{ grid-template-columns: repeat(2, 1fr); } }
-    .kpi { border: 1px solid var(--border); border-radius: 14px; padding: 12px; cursor: pointer; }
-    .kpi:hover { border-color: var(--accent); background: #f9fafb; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-    .kpi .t { font-size: 12px; color: var(--muted); }
-    .kpi .v { font-size: 22px; font-weight: 650; margin-top: 4px; color: var(--primary); }
-    .pill { display:inline-block; padding: 2px 8px; border:1px solid var(--border); border-radius: 999px; font-size: 12px; color: var(--muted); }
-    .pill.draft { background: #f3f4f6; border-color: #d1d5db; color: #6b7280; }
-    .pill.running { background: #dbeafe; border-color: #93c5fd; color: #1e40af; }
-    .pill.validated { background: #d1fae5; border-color: #6ee7b7; color: #065f46; }
-    .pill.invalidated { background: #fee2e2; border-color: #fca5a5; color: #991b1b; }
-    .pill.pivot_candidate { background: #fef3c7; border-color: #fcd34d; color: #92400e; }
-    .pill.archived { background: #e5e7eb; border-color: #9ca3af; color: #4b5563; }
-    .pill.collecting { background: #dbeafe; border-color: #93c5fd; color: #1e40af; }
-    .pill.closed { background: #e5e7eb; border-color: #9ca3af; color: #4b5563; }
-    .section-title { display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; }
-    .tag { display:inline-flex; align-items:center; gap:6px; border:1px solid var(--border); border-radius:999px; padding:4px 10px; font-size:11px; color:var(--muted); background:#f9fafb; }
-    .stat { display:flex; flex-direction:column; gap:4px; padding:12px; border-radius:12px; border:1px solid var(--border); background:#fff; }
-    .stat .label { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px; }
-    .stat .value { font-size:18px; font-weight:650; }
-    .grid-3 { display:grid; grid-template-columns: repeat(3,1fr); gap:12px; }
-    .grid-4 { display:grid; grid-template-columns: repeat(4,1fr); gap:12px; }
-    @media (max-width: 980px){ .grid-3, .grid-4{ grid-template-columns: 1fr; } }
-    .grid-2 { display:grid; grid-template-columns: repeat(2,1fr); gap:12px; }
-    @media (max-width: 980px){ .grid-2{ grid-template-columns: 1fr; } }
-    .timeline { display:flex; flex-direction:column; gap:10px; margin-top:12px; }
-    .timeline-item { border:1px solid var(--border); border-radius:12px; padding:12px; background:#fff; display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; }
-    .timeline-meta { font-size:12px; color:var(--muted); }
-    table { width:100%; border-collapse: collapse; margin-top: 10px; }
-    th, td { border-bottom: 1px solid #ddd; padding: 8px; text-align: left; font-size: 13px; vertical-align: top; }
-    th { font-size: 12px; color: var(--muted); font-weight: 600; background: #f9fafb; position: sticky; top: 0; }
-    tr:hover { background: #f9fafb; }
-    a.btnlink{ display:inline-block; padding:10px 12px; border-radius:10px; border:1px solid var(--border); text-decoration:none; color:#111; background:#fff; font-weight: 500; }
-    a.btnlink:hover{ background:#f7f7f7; transform: translateY(-1px); box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-    a.btnlink.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
-    a.btnlink.primary:hover { background: #2563eb; border-color: #2563eb; }
-    .muted { color: var(--muted); }
-    .loading { text-align: center; padding: 20px; color: var(--muted); }
-    .loading::after { content: '...'; animation: dots 1.5s infinite; }
-    @keyframes dots { 0%, 20% { content: '.'; } 40% { content: '..'; } 60%, 100% { content: '...'; } }
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-    .fade-in { animation: fadeIn 0.3s ease; }
-    .eval-panel { margin-top:16px; padding:20px; border-radius:14px; border:2px solid var(--border); }
-    .eval-grid { display:grid; grid-template-columns: repeat(4,1fr); gap:12px; margin-top:12px; }
-    @media (max-width: 980px){ .eval-grid{ grid-template-columns: repeat(2,1fr); } }
-    .eval-item { padding:10px; border-radius:10px; background:#f9fafb; border:1px solid var(--border); }
-    .eval-item .label { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px; }
-    .eval-item .value { font-size:18px; font-weight:650; margin-top:4px; }
-    .divider { border: none; border-top: 2px solid var(--border); margin: 16px 0; }
-    .records-grid { display:grid; grid-template-columns: 1.1fr 0.9fr; gap:12px; margin-top:12px; }
-    @media (max-width: 1100px){ .records-grid{ grid-template-columns: 1fr; } }
-    .record-panel { border:1px solid var(--border); border-radius:14px; padding:14px; background:#fff; }
-    .record-table-wrapper { max-height: 320px; overflow:auto; border:1px solid var(--border); border-radius:12px; }
-    .record-row-active { background:#eef2ff !important; }
-    .modal-backdrop { position:fixed; inset:0; background:rgba(15, 23, 42, 0.6); display:flex; align-items:center; justify-content:center; z-index:2000; padding:24px; }
-    .modal { background:#fff; border-radius:16px; padding:20px; width:100%; max-width:900px; max-height:85vh; overflow:auto; box-shadow: 0 20px 50px rgba(0,0,0,0.25); }
-    .modal-header { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; }
-    .modal-title { font-size:18px; font-weight:700; }
-    .modal-body { margin-top:12px; white-space:pre-wrap; line-height:1.6; font-size:14px; }
-    .hidden { display:none; }
-  </style>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/design-system.css">
 </head>
 <body>
-  <div class="top">
-    <div>
-      <h1 style="margin:0; background: var(--gradient-1); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">Dashboard Experimental</h1>
-      <p class="small" style="margin:6px 0 0 0;">
-        Backend: <code id="apiBase"></code> <span class="pill" id="status">listo</span>
-      </p>
-    </div>
-    <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-      <a class="btnlink" href="/">Volver a formularios</a>
-      <a class="btnlink primary" href="/static/stats_dashboard.html">Analisis Estadistico</a>
-      <button id="btnReload" class="secondary" style="max-width:220px;">Recargar datos</button>
-    </div>
-  </div>
+  <div class="app-container" role="main">
 
-  <div class="card fade-in" style="margin-top:14px;">
-    <h2 style="margin:0;">Filtros y Configuracion</h2>
-    <div class="filters">
+    <!-- Top Bar -->
+    <div class="top-bar">
       <div>
-        <label>Traffic</label>
-        <select id="trafficFilter">
-          <option value="all">all</option>
-          <option value="paid">paid</option>
-          <option value="organic">organic</option>
-          <option value="mixed">mixed</option>
-          <option value="live">live</option>
-        </select>
+        <h1 class="top-bar__title">Dashboard Experimental</h1>
+        <p class="top-bar__subtitle">
+          Backend: <code class="text-mono" id="apiBase"></code> <span class="badge badge-draft" id="status">listo</span>
+        </p>
       </div>
-      <div>
-        <label>Experimento</label>
-        <select id="experimentFilter"></select>
-      </div>
-      <div>
-        <label>Max records a cargar (performance)</label>
-        <input id="limit" type="number" value="5000" />
+      <div class="top-bar__actions">
+        <a class="btn-link" href="/" aria-label="Volver a formularios">Volver a formularios</a>
+        <a class="btn-link btn-link--accent" href="/static/stats_dashboard.html" aria-label="Analisis Estadistico">Analisis Estadistico</a>
+        <button id="btnReload" class="btn-secondary" aria-label="Recargar datos">Recargar datos</button>
       </div>
     </div>
 
-    <!-- Hypothesis Panel -->
-    <div id="hypothesisPanel" style="margin-top:16px; padding:16px; border-radius:14px; background:linear-gradient(135deg, #667eea 0%, #764ba2 100%); color:#fff; display:none;" class="fade-in">
-      <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap;">
+    <!-- Filters Card -->
+    <div class="card fade-in mt-lg">
+      <h2 class="card__title mb-lg">Filtros y Configuracion</h2>
+      <div class="grid grid-3">
+        <div class="field-group">
+          <label for="trafficFilter">Traffic</label>
+          <select id="trafficFilter">
+            <option value="all">all</option>
+            <option value="paid">paid</option>
+            <option value="organic">organic</option>
+            <option value="mixed">mixed</option>
+            <option value="live">live</option>
+          </select>
+        </div>
+        <div class="field-group">
+          <label for="experimentFilter">Experimento</label>
+          <select id="experimentFilter"></select>
+        </div>
+        <div class="field-group">
+          <label for="limit">Max records a cargar (performance)</label>
+          <input id="limit" type="number" value="5000" />
+        </div>
+      </div>
+
+      <!-- Hypothesis Panel -->
+      <div id="hypothesisPanel" class="hypothesis-panel fade-in mt-lg hidden">
         <div style="flex:1;">
-          <div style="font-size:12px; opacity:0.9; margin-bottom:6px; font-weight:500;">HIPOTESIS DEL EXPERIMENTO</div>
-          <div id="hypothesisText" style="font-size:15px; line-height:1.5; font-weight:400;"></div>
-          <div id="hypothesisProject" style="margin-top:8px; font-size:13px; opacity:0.85; font-style:italic;"></div>
+          <div class="hypothesis-panel__label">HIPOTESIS DEL EXPERIMENTO</div>
+          <div id="hypothesisText" class="hypothesis-panel__text"></div>
+          <div id="hypothesisProject" class="hypothesis-panel__meta"></div>
         </div>
-        <div id="hypothesisMeta" style="text-align:right; min-width:200px;"></div>
+        <div id="hypothesisMeta" class="hypothesis-panel__sidebar"></div>
       </div>
-    </div>
 
-    <!-- Evaluation Panel -->
-    <div id="evalPanel" class="eval-panel fade-in" style="display:none;">
-      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
-        <h3 style="margin:0;">Evaluacion de Hipotesis</h3>
-        <div style="display:flex; gap:8px;">
-          <button id="btnEvaluate" class="secondary" style="max-width:200px;">Evaluar</button>
-          <button id="btnAiAnalysis" class="secondary" style="max-width:200px;">ANALISIS IA</button>
-          <button id="btnApplyEval" style="max-width:200px; background:var(--success); box-shadow: 0 4px 12px rgba(16,185,129,0.3);">Aplicar Resultado</button>
-        </div>
-      </div>
-      <div class="eval-grid" id="evalGrid"></div>
-    </div>
-
-    <div id="aiAnalysisBackdrop" class="modal-backdrop hidden">
-      <div class="modal">
-        <div class="modal-header">
-          <div>
-            <div class="modal-title">Analisis IA</div>
-            <div class="small muted" id="aiAnalysisMeta">Analizando resultados del experimento.</div>
-          </div>
-          <button id="btnCloseAiAnalysis" class="secondary" style="max-width:140px;">Cerrar</button>
-        </div>
-        <div id="aiAnalysisContent" class="modal-body"></div>
-      </div>
-    </div>
-
-    <div class="section-title" style="margin-top:12px;">
-      <h3 style="margin:0;">Records del experimento</h3>
-      <span class="tag" id="expRecordCount">0 récords</span>
-    </div>
-    <div id="expRecordsEmpty" class="small muted" style="margin-top:8px;">Selecciona un experimento para ver sus récords.</div>
-    <div id="expRecordsSection" style="display:none;">
-      <div class="records-grid">
-        <div class="record-panel">
-          <div class="small">Haz clic en un récord para ver la tarjeta.</div>
-          <div class="record-table-wrapper" style="margin-top:8px;">
-            <table>
-              <thead>
-                <tr>
-                  <th>ID</th>
-                  <th>Record</th>
-                  <th>Status</th>
-                  <th>Clicks</th>
-                  <th>Views</th>
-                  <th>Purchase</th>
-                  <th>Created</th>
-                </tr>
-              </thead>
-              <tbody id="tblExpRecords"></tbody>
-            </table>
+      <!-- Evaluation Panel -->
+      <div id="evalPanel" class="eval-panel fade-in mt-lg hidden">
+        <div class="eval-panel__header">
+          <h3>Evaluacion de Hipotesis</h3>
+          <div class="eval-panel__actions">
+            <button id="btnEvaluate" class="btn-secondary" aria-label="Evaluar hipotesis">Evaluar</button>
+            <button id="btnAiAnalysis" class="btn-secondary" aria-label="Analisis con inteligencia artificial">ANALISIS IA</button>
+            <button id="btnApplyEval" class="btn-success" aria-label="Aplicar resultado de evaluacion">Aplicar Resultado</button>
           </div>
         </div>
-        <div class="record-panel">
-          <h4 style="margin:0;">Tarjeta del récord</h4>
-          <div id="expRecordCardEmpty" class="small muted" style="margin-top:8px;">Selecciona un récord para ver su detalle.</div>
-          <div id="expRecordCard" style="display:none; margin-top:12px;">
-            <div class="grid-3">
-              <div class="stat">
-                <div class="label">Record</div>
-                <div class="value" id="expCardRecordName">—</div>
-                <div class="small muted" id="expCardRecordMeta"></div>
-              </div>
-              <div class="stat">
-                <div class="label">Experimento</div>
-                <div class="value" id="expCardExperiment">—</div>
-                <div class="small muted" id="expCardExperimentMeta"></div>
-              </div>
-              <div class="stat">
-                <div class="label">Estado</div>
-                <div class="value" id="expCardStatus">—</div>
-                <div class="small muted" id="expCardStatusMeta"></div>
-              </div>
+        <div class="eval-grid" id="evalGrid"></div>
+      </div>
+
+      <!-- AI Analysis Modal -->
+      <div id="aiAnalysisBackdrop" class="modal-backdrop hidden">
+        <div class="modal">
+          <div class="modal__header">
+            <div>
+              <div class="modal__title">Analisis IA</div>
+              <div class="text-sm text-muted" id="aiAnalysisMeta">Analizando resultados del experimento.</div>
             </div>
-            <div class="grid-3" style="margin-top:12px;">
-              <div class="stat">
-                <div class="label">Clicks / Views</div>
-                <div class="value" id="expCardTraffic">—</div>
-                <div class="small muted" id="expCardTrafficMeta"></div>
-              </div>
-              <div class="stat">
-                <div class="label">Funnel</div>
-                <div class="value" id="expCardFunnel">—</div>
-                <div class="small muted" id="expCardFunnelMeta"></div>
-              </div>
-              <div class="stat">
-                <div class="label">Creative</div>
-                <div class="value" id="expCardCreative">—</div>
-                <div class="small muted" id="expCardCreativeMeta"></div>
-              </div>
+            <button id="btnCloseAiAnalysis" class="btn-secondary" aria-label="Cerrar modal de analisis">Cerrar</button>
+          </div>
+          <div id="aiAnalysisContent" class="modal__body"></div>
+        </div>
+      </div>
+
+      <!-- Experiment Records Section -->
+      <div class="section-header mt-lg">
+        <h3>Records del experimento</h3>
+        <span class="tag" id="expRecordCount">0 récords</span>
+      </div>
+      <div id="expRecordsEmpty" class="text-sm text-muted">Selecciona un experimento para ver sus récords.</div>
+      <div id="expRecordsSection" class="hidden">
+        <div class="grid grid-2 mt-md">
+          <div class="card">
+            <p class="text-sm text-muted mb-lg">Haz clic en un récord para ver la tarjeta.</p>
+            <div class="table-wrapper">
+              <table>
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Record</th>
+                    <th>Status</th>
+                    <th>Clicks</th>
+                    <th>Views</th>
+                    <th>Purchase</th>
+                    <th>Created</th>
+                  </tr>
+                </thead>
+                <tbody id="tblExpRecords"></tbody>
+              </table>
             </div>
-            <div class="grid-3" style="margin-top:12px;">
-              <div class="stat">
-                <div class="label">Video</div>
-                <div class="value" id="expCardVideo">—</div>
-                <div class="small muted" id="expCardVideoMeta"></div>
+          </div>
+          <div class="card">
+            <h4>Tarjeta del récord</h4>
+            <div id="expRecordCardEmpty" class="text-sm text-muted mt-md">Selecciona un récord para ver su detalle.</div>
+            <div id="expRecordCard" class="hidden mt-lg">
+              <div class="grid grid-3">
+                <div class="stat-chip">
+                  <div class="stat-chip__label">Record</div>
+                  <div class="stat-chip__value" id="expCardRecordName">—</div>
+                  <div class="stat-chip__meta" id="expCardRecordMeta"></div>
+                </div>
+                <div class="stat-chip">
+                  <div class="stat-chip__label">Experimento</div>
+                  <div class="stat-chip__value" id="expCardExperiment">—</div>
+                  <div class="stat-chip__meta" id="expCardExperimentMeta"></div>
+                </div>
+                <div class="stat-chip">
+                  <div class="stat-chip__label">Estado</div>
+                  <div class="stat-chip__value" id="expCardStatus">—</div>
+                  <div class="stat-chip__meta" id="expCardStatusMeta"></div>
+                </div>
               </div>
-              <div class="stat">
-                <div class="label">Live</div>
-                <div class="value" id="expCardLive">—</div>
-                <div class="small muted" id="expCardLiveMeta"></div>
+              <div class="grid grid-3 mt-md">
+                <div class="stat-chip">
+                  <div class="stat-chip__label">Clicks / Views</div>
+                  <div class="stat-chip__value" id="expCardTraffic">—</div>
+                  <div class="stat-chip__meta" id="expCardTrafficMeta"></div>
+                </div>
+                <div class="stat-chip">
+                  <div class="stat-chip__label">Funnel</div>
+                  <div class="stat-chip__value" id="expCardFunnel">—</div>
+                  <div class="stat-chip__meta" id="expCardFunnelMeta"></div>
+                </div>
+                <div class="stat-chip">
+                  <div class="stat-chip__label">Creative</div>
+                  <div class="stat-chip__value" id="expCardCreative">—</div>
+                  <div class="stat-chip__meta" id="expCardCreativeMeta"></div>
+                </div>
               </div>
-              <div class="stat">
-                <div class="label">IDs campaña</div>
-                <div class="value" id="expCardCampaign">—</div>
-                <div class="small muted" id="expCardCampaignMeta"></div>
+              <div class="grid grid-3 mt-md">
+                <div class="stat-chip">
+                  <div class="stat-chip__label">Video</div>
+                  <div class="stat-chip__value" id="expCardVideo">—</div>
+                  <div class="stat-chip__meta" id="expCardVideoMeta"></div>
+                </div>
+                <div class="stat-chip">
+                  <div class="stat-chip__label">Live</div>
+                  <div class="stat-chip__value" id="expCardLive">—</div>
+                  <div class="stat-chip__meta" id="expCardLiveMeta"></div>
+                </div>
+                <div class="stat-chip">
+                  <div class="stat-chip__label">IDs campaña</div>
+                  <div class="stat-chip__value" id="expCardCampaign">—</div>
+                  <div class="stat-chip__meta" id="expCardCampaignMeta"></div>
+                </div>
               </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
 
-    <div class="section-title" style="margin-top:12px;">
-      <h2 style="margin:0;">Vista 1 — Aprendizaje Validado</h2>
-      <span class="tag">Orden: validated → pivot_candidate → running → invalidated</span>
-    </div>
-    <div style="overflow-x:auto;">
-      <table>
-        <thead>
-          <tr>
-            <th>Proyecto</th>
-            <th>Tipo</th>
-            <th>Variable X</th>
-            <th>Métrica Y (real)</th>
-            <th>Umbral</th>
-            <th>Estado</th>
-            <th>Score</th>
-            <th>Canal</th>
-          </tr>
-        </thead>
-        <tbody id="tblValidated"></tbody>
-      </table>
-    </div>
-  </div>
-
-  <div class="row">
-    <div class="card fade-in">
-      <div class="section-title">
-        <h2 style="margin:0;">Vista 2 — Hipótesis Vivas vs Muertas</h2>
-        <span class="tag">Agrupado por hypothesis_type</span>
+      <!-- Vista 1 -->
+      <div class="section-header mt-xl">
+        <h2>Vista 1 — Aprendizaje Validado</h2>
+        <span class="tag">Orden: validated → pivot_candidate → running → invalidated</span>
       </div>
-      <div style="overflow-x:auto;">
+      <div class="table-wrapper">
         <table>
           <thead>
             <tr>
+              <th>Proyecto</th>
               <th>Tipo</th>
-              <th>Vivas</th>
-              <th>Muertas</th>
-              <th>% Vivas</th>
-              <th>% Muertas</th>
+              <th>Variable X</th>
+              <th>Métrica Y (real)</th>
+              <th>Umbral</th>
+              <th>Estado</th>
+              <th>Score</th>
+              <th>Canal</th>
             </tr>
           </thead>
-          <tbody id="tblAliveDead"></tbody>
+          <tbody id="tblValidated"></tbody>
         </table>
       </div>
     </div>
 
-    <div class="card fade-in">
-      <div class="section-title">
-        <h2 style="margin:0;">Vista 3 — Aprendizaje Acumulado</h2>
-        <span class="tag">Patrones por tipo y canal</span>
-      </div>
-      <div style="overflow-x:auto;">
-        <table>
-          <thead>
-            <tr>
-              <th>Tipo</th>
-              <th>Paid</th>
-              <th>Organic</th>
-              <th>Live</th>
-              <th>Mixed</th>
-            </tr>
-          </thead>
-          <tbody id="tblPatterns"></tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-
-  <div class="card fade-in" style="margin-top:16px;">
-    <div class="section-title">
-      <h2 style="margin:0;">Vista 4 — Detalle de Hipótesis</h2>
-      <span class="tag">Timeline + señales de decisión</span>
-    </div>
-    <div id="detailEmpty" class="small muted" style="margin-top:8px;">Selecciona un experimento para ver el detalle.</div>
-    <div id="detailPanel" style="display:none; margin-top:12px;">
-      <div class="grid-4">
-        <div class="stat">
-          <div class="label">Métrica Y agregada</div>
-          <div class="value" id="detailMetric">—</div>
-          <div class="small muted" id="detailMetricMeta"></div>
+    <!-- Vista 2 & 3 -->
+    <div class="grid grid-2 mt-lg">
+      <div class="card fade-in">
+        <div class="section-header">
+          <h2>Vista 2 — Hipótesis Vivas vs Muertas</h2>
+          <span class="tag">Agrupado por hypothesis_type</span>
         </div>
-        <div class="stat">
-          <div class="label">Umbral aplicado</div>
-          <div class="value" id="detailThreshold">—</div>
-          <div class="small muted" id="detailThresholdMeta"></div>
-        </div>
-        <div class="stat">
-          <div class="label">Volumen</div>
-          <div class="value" id="detailVolume">—</div>
-          <div class="small muted" id="detailVolumeMeta"></div>
-        </div>
-        <div class="stat">
-          <div class="label">Hypothesis Score</div>
-          <div class="value" id="detailScore">—</div>
-          <div class="small muted" id="detailScoreMeta"></div>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Tipo</th>
+                <th>Vivas</th>
+                <th>Muertas</th>
+                <th>% Vivas</th>
+                <th>% Muertas</th>
+              </tr>
+            </thead>
+            <tbody id="tblAliveDead"></tbody>
+          </table>
         </div>
       </div>
 
-      <div class="grid-2" style="margin-top:12px;">
-        <div class="stat">
-          <div class="label">Estado</div>
-          <div class="value" id="detailStatus">—</div>
-          <div class="small muted" id="detailSignals"></div>
+      <div class="card fade-in">
+        <div class="section-header">
+          <h2>Vista 3 — Aprendizaje Acumulado</h2>
+          <span class="tag">Patrones por tipo y canal</span>
         </div>
-        <div class="stat">
-          <div class="label">Canal</div>
-          <div class="value" id="detailChannel">—</div>
-          <div class="small muted" id="detailRecordsMeta"></div>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Tipo</th>
+                <th>Paid</th>
+                <th>Organic</th>
+                <th>Live</th>
+                <th>Mixed</th>
+              </tr>
+            </thead>
+            <tbody id="tblPatterns"></tbody>
+          </table>
         </div>
       </div>
-
-      <div class="divider"></div>
-      <div class="section-title">
-        <h3 style="margin:0;">Timeline de Records</h3>
-        <span class="tag" id="detailTimelineCount">0 ejecuciones</span>
-      </div>
-      <div class="timeline" id="detailTimeline"></div>
     </div>
-  </div>
+
+    <!-- Vista 4 -->
+    <div class="card fade-in mt-lg">
+      <div class="section-header">
+        <h2>Vista 4 — Detalle de Hipótesis</h2>
+        <span class="tag">Timeline + señales de decisión</span>
+      </div>
+      <div id="detailEmpty" class="text-sm text-muted">Selecciona un experimento para ver el detalle.</div>
+      <div id="detailPanel" class="hidden">
+        <div class="grid grid-4">
+          <div class="stat-chip">
+            <div class="stat-chip__label">Métrica Y agregada</div>
+            <div class="stat-chip__value" id="detailMetric">—</div>
+            <div class="stat-chip__meta" id="detailMetricMeta"></div>
+          </div>
+          <div class="stat-chip">
+            <div class="stat-chip__label">Umbral aplicado</div>
+            <div class="stat-chip__value" id="detailThreshold">—</div>
+            <div class="stat-chip__meta" id="detailThresholdMeta"></div>
+          </div>
+          <div class="stat-chip">
+            <div class="stat-chip__label">Volumen</div>
+            <div class="stat-chip__value" id="detailVolume">—</div>
+            <div class="stat-chip__meta" id="detailVolumeMeta"></div>
+          </div>
+          <div class="stat-chip">
+            <div class="stat-chip__label">Hypothesis Score</div>
+            <div class="stat-chip__value" id="detailScore">—</div>
+            <div class="stat-chip__meta" id="detailScoreMeta"></div>
+          </div>
+        </div>
+
+        <div class="grid grid-2 mt-md">
+          <div class="stat-chip">
+            <div class="stat-chip__label">Estado</div>
+            <div class="stat-chip__value" id="detailStatus">—</div>
+            <div class="stat-chip__meta" id="detailSignals"></div>
+          </div>
+          <div class="stat-chip">
+            <div class="stat-chip__label">Canal</div>
+            <div class="stat-chip__value" id="detailChannel">—</div>
+            <div class="stat-chip__meta" id="detailRecordsMeta"></div>
+          </div>
+        </div>
+
+        <hr class="divider" />
+        <div class="section-header">
+          <h3>Timeline de Records</h3>
+          <span class="tag" id="detailTimelineCount">0 ejecuciones</span>
+        </div>
+        <div class="timeline" id="detailTimeline"></div>
+      </div>
+    </div>
+
+  </div><!-- end app-container -->
+
+  <div class="toast-container" id="toastContainer"></div>
 
 <script>
   const API_BASE = "";
@@ -376,10 +309,18 @@
 
   $("apiBase").textContent = location.origin;
 
+  function showToast(message, type = 'success') {
+    const container = document.getElementById('toastContainer');
+    const toast = document.createElement('div');
+    toast.className = `toast toast--${type}`;
+    toast.textContent = message;
+    container.appendChild(toast);
+    setTimeout(() => toast.remove(), 3000);
+  }
+
   function setStatus(msg, isError=false){
     statusEl.textContent = msg;
-    statusEl.style.borderColor = isError ? "#ef4444" : "#e5e5e5";
-    statusEl.style.color = isError ? "#b91c1c" : "#6b7280";
+    statusEl.className = isError ? "badge badge-danger" : "badge badge-draft";
   }
 
   function openAiModal() {
@@ -844,7 +785,7 @@
         <td>${escapeHtml(exp.independent_variable || "—")}</td>
         <td>${formatMetricValue(exp.primary_metric, row.metricValue)}</td>
         <td>${formatThreshold(exp)}</td>
-        <td><span class="pill ${statusClass}">${statusClass}</span></td>
+        <td><span class="badge badge-${statusClass}">${statusClass}</span></td>
         <td>${row.computedStatus ? row.score : "—"}</td>
         <td>${escapeHtml(getExperimentChannel(exp))}</td>
       `;
@@ -951,7 +892,7 @@
     $("detailVolumeMeta").textContent = exp.volume_unit ? `Unidad: ${exp.volume_unit}` : "Sin unidad";
 
     const statusClass = evaluation.status || exp.experiment_status || "draft";
-    $("detailStatus").innerHTML = `<span class="pill ${statusClass}">${statusClass}</span>`;
+    $("detailStatus").innerHTML = `<span class="badge badge-${statusClass}">${statusClass}</span>`;
     $("detailScore").textContent = evaluation.score !== null && evaluation.score !== undefined ? `${evaluation.score}` : "—";
     if (evaluation.breakdown) {
       const parts = [
@@ -984,12 +925,12 @@
       const status = r.record_status || "collecting";
       item.innerHTML = `
         <div>
-          <strong>${escapeHtml(r.record_name || r.session_id)}</strong>
-          <div class="timeline-meta">Record #${r.id} · ${escapeHtml(r.created_at || "")}</div>
+          <div class="timeline-item__name">${escapeHtml(r.record_name || r.session_id)}</div>
+          <div class="timeline-item__meta">Record #${r.id} · ${escapeHtml(r.created_at || "")}</div>
         </div>
         <div>
-          <span class="pill ${status}">${status}</span>
-          <div class="timeline-meta">${escapeHtml(getExperimentChannel(exp))}</div>
+          <span class="badge badge-${status}">${status}</span>
+          <div class="timeline-item__meta">${escapeHtml(getExperimentChannel(exp))}</div>
         </div>
       `;
       timeline.appendChild(item);
@@ -1013,7 +954,7 @@
     $("expCardExperimentMeta").textContent = exp ? `Hypótesis: ${exp.hypothesis_type || "—"} · Y: ${exp.primary_metric || "—"}` : "—";
 
     const status = record.record_status || "collecting";
-    $("expCardStatus").innerHTML = `<span class="pill ${status}">${status}</span>`;
+    $("expCardStatus").innerHTML = `<span class="badge badge-${status}">${status}</span>`;
     $("expCardStatusMeta").textContent = `Execution: ${record.execution_type || "—"}`;
 
     $("expCardTraffic").textContent = `${fmt(record.clicks)} / ${fmt(record.views)}`;
@@ -1061,11 +1002,11 @@
       const tr = document.createElement("tr");
       tr.style.cursor = "pointer";
       const statusClass = r.record_status || "collecting";
-      if (selectedRecordId === r.id) tr.classList.add("record-row-active");
+      if (selectedRecordId === r.id) tr.classList.add("row-active");
       tr.innerHTML = `
         <td>${r.id}</td>
         <td>${escapeHtml(r.record_name || r.session_id)}</td>
-        <td><span class="pill ${statusClass}">${statusClass}</span></td>
+        <td><span class="badge badge-${statusClass}">${statusClass}</span></td>
         <td>${fmt(r.clicks)}</td>
         <td>${fmt(r.views)}</td>
         <td>${fmt(r.purchase)}</td>
@@ -1073,8 +1014,8 @@
       `;
       tr.onclick = () => {
         selectedRecordId = r.id;
-        [...tbody.querySelectorAll("tr")].forEach(row => row.classList.remove("record-row-active"));
-        tr.classList.add("record-row-active");
+        [...tbody.querySelectorAll("tr")].forEach(row => row.classList.remove("row-active"));
+        tr.classList.add("row-active");
         renderExperimentRecordCard(exp, r);
       };
       tbody.appendChild(tr);
@@ -1085,7 +1026,7 @@
       selectedRecordId = current.id;
       const rows = tbody.querySelectorAll("tr");
       if (rows.length){
-        rows[sorted.indexOf(current)].classList.add("record-row-active");
+        rows[sorted.indexOf(current)].classList.add("row-active");
       }
       renderExperimentRecordCard(exp, current);
     } else {
@@ -1097,7 +1038,7 @@
   async function loadAll(){
     try{
       setStatus("cargando...");
-      $("tblValidated").innerHTML = '<tr><td colspan="8" class="loading">Cargando datos</td></tr>';
+      $("tblValidated").innerHTML = '<tr><td colspan="8"><div class="state-loading"><div class="state-loading__spinner"></div>Cargando datos</div></td></tr>';
 
       experiments = await apiGet("/experiments/");
       fillExperimentsSelect();
@@ -1109,7 +1050,7 @@
       setStatus(`listo | ${records.length} records cargados`);
     } catch(e){
       setStatus("error", true);
-      alert(String(e));
+      showToast(String(e), 'error');
     }
   }
 
@@ -1122,8 +1063,10 @@
     const metaEl = $("hypothesisMeta");
 
     if (!expIdStr){
-      panel.style.display = "none";
-      evalPanel.style.display = "none";
+      panel.classList.add("hidden");
+      panel.style.display = "";
+      evalPanel.classList.add("hidden");
+      evalPanel.style.display = "";
       return;
     }
 
@@ -1131,8 +1074,10 @@
     const exp = experiments.find(e => e.id === expId);
 
     if (!exp){
-      panel.style.display = "none";
-      evalPanel.style.display = "none";
+      panel.classList.add("hidden");
+      panel.style.display = "";
+      evalPanel.classList.add("hidden");
+      evalPanel.style.display = "";
       return;
     }
 
@@ -1143,32 +1088,35 @@
     let metaHtml = "";
     const computed = computeSuggestedStatus(exp, records.filter(r => r.experiment_id === exp.id));
     if (computed.status) {
-      metaHtml += `<span class="pill ${computed.status}" style="color:white; border-color:rgba(255,255,255,0.5);">${computed.status}</span><br/>`;
+      metaHtml += `<span class="badge badge-${computed.status}">${computed.status}</span><br/>`;
     }
     if (exp.hypothesis_type) {
-      metaHtml += `<div style="font-size:12px; opacity:0.9; margin-top:6px;">Tipo: ${exp.hypothesis_type}</div>`;
+      metaHtml += `<div class="hypothesis-panel__detail">Tipo: ${exp.hypothesis_type}</div>`;
     }
     if (exp.independent_variable) {
-      metaHtml += `<div style="font-size:12px; opacity:0.9; margin-top:4px;">X: ${escapeHtml(exp.independent_variable)}</div>`;
+      metaHtml += `<div class="hypothesis-panel__detail">X: ${escapeHtml(exp.independent_variable)}</div>`;
     }
     if (exp.primary_metric) {
-      metaHtml += `<div style="font-size:12px; opacity:0.9; margin-top:4px;">Y: ${exp.primary_metric}</div>`;
+      metaHtml += `<div class="hypothesis-panel__detail">Y: ${exp.primary_metric}</div>`;
     }
     if (exp.threshold_operator && exp.threshold_value !== null && exp.threshold_type) {
       const typeLabel = exp.threshold_type === "percentage" ? "%" : exp.threshold_type;
-      metaHtml += `<div style="font-size:12px; opacity:0.9; margin-top:4px;">Umbral: ${exp.threshold_operator} ${exp.threshold_value} ${typeLabel}</div>`;
+      metaHtml += `<div class="hypothesis-panel__detail">Umbral: ${exp.threshold_operator} ${exp.threshold_value} ${typeLabel}</div>`;
     }
     if (exp.volume_min_value !== null && exp.volume_unit) {
-      metaHtml += `<div style="font-size:12px; opacity:0.9; margin-top:4px;">Volumen minimo: ${exp.volume_min_value} ${exp.volume_unit}</div>`;
+      metaHtml += `<div class="hypothesis-panel__detail">Volumen minimo: ${exp.volume_min_value} ${exp.volume_unit}</div>`;
     }
     metaEl.innerHTML = metaHtml;
-    panel.style.display = "block";
+    panel.classList.remove("hidden");
+    panel.style.display = "";
 
     // Show evaluation panel if experiment has lean fields
     if (exp.primary_metric || exp.threshold_operator || exp.volume_min_value) {
-      evalPanel.style.display = "block";
+      evalPanel.classList.remove("hidden");
+      evalPanel.style.display = "";
     } else {
-      evalPanel.style.display = "none";
+      evalPanel.classList.add("hidden");
+      evalPanel.style.display = "";
     }
   }
 
@@ -1203,19 +1151,18 @@
       for (const [label, value] of items) {
         const div = document.createElement("div");
         div.className = "eval-item";
-        let valueColor = "";
-        if (value === "validated") valueColor = "color: #065f46;";
-        else if (value === "invalidated") valueColor = "color: #991b1b;";
-        else if (value === "SI") valueColor = "color: #065f46;";
-        else if (value === "NO") valueColor = "color: #991b1b;";
-        div.innerHTML = `<div class="label">${escapeHtml(label)}</div><div class="value" style="${valueColor}">${escapeHtml(value)}</div>`;
+        let valueClass = "";
+        if (value === "validated" || value === "SI") valueClass = "color: var(--success-text);";
+        else if (value === "invalidated" || value === "NO") valueClass = "color: var(--danger-text);";
+        div.innerHTML = `<div class="eval-item__label">${escapeHtml(label)}</div><div class="eval-item__value" style="${valueClass}">${escapeHtml(value)}</div>`;
         grid.appendChild(div);
       }
 
+      showToast("Evaluacion completada", "success");
       setStatus("evaluacion completada");
     } catch(e) {
       setStatus("error", true);
-      alert(String(e));
+      showToast(String(e), 'error');
     }
   };
 
@@ -1225,6 +1172,7 @@
       if (!expIdStr) throw new Error("Selecciona un experimento.");
 
       const result = await apiPost(`/experiments/${expIdStr}/evaluate/apply`);
+      showToast(`Estado aplicado: ${result.experiment_status}`, 'success');
       setStatus(`estado aplicado: ${result.experiment_status}`);
 
       // Reload experiments to reflect new status
@@ -1234,7 +1182,7 @@
       updateHypothesisPanel();
     } catch(e) {
       setStatus("error", true);
-      alert(String(e));
+      showToast(String(e), 'error');
     }
   };
 
@@ -1244,7 +1192,7 @@
       if (!expIdStr) throw new Error("Selecciona un experimento.");
       openAiModal();
       aiMeta.textContent = "Generando analisis con ChatGPT basado en la evaluacion y los récords.";
-      aiContent.innerHTML = `<div class="loading">Generando analisis con ChatGPT</div>`;
+      aiContent.innerHTML = `<div class="state-loading"><div class="state-loading__spinner"></div>Generando analisis con ChatGPT</div>`;
 
       const result = await apiGet(`/experiments/${expIdStr}/analysis`);
       aiMeta.textContent = `Experimento #${expIdStr} • ${new Date().toLocaleString()}`;
