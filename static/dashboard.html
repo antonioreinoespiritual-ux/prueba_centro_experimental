@@ -44,7 +44,8 @@
     .stat .label { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px; }
     .stat .value { font-size:18px; font-weight:650; }
     .grid-3 { display:grid; grid-template-columns: repeat(3,1fr); gap:12px; }
-    @media (max-width: 980px){ .grid-3{ grid-template-columns: 1fr; } }
+    .grid-4 { display:grid; grid-template-columns: repeat(4,1fr); gap:12px; }
+    @media (max-width: 980px){ .grid-3, .grid-4{ grid-template-columns: 1fr; } }
     .grid-2 { display:grid; grid-template-columns: repeat(2,1fr); gap:12px; }
     @media (max-width: 980px){ .grid-2{ grid-template-columns: 1fr; } }
     .timeline { display:flex; flex-direction:column; gap:10px; margin-top:12px; }
@@ -149,6 +150,7 @@
             <th>Métrica Y (real)</th>
             <th>Umbral</th>
             <th>Estado</th>
+            <th>Score</th>
             <th>Canal</th>
           </tr>
         </thead>
@@ -208,7 +210,7 @@
     </div>
     <div id="detailEmpty" class="small muted" style="margin-top:8px;">Selecciona un experimento para ver el detalle.</div>
     <div id="detailPanel" style="display:none; margin-top:12px;">
-      <div class="grid-3">
+      <div class="grid-4">
         <div class="stat">
           <div class="label">Métrica Y agregada</div>
           <div class="value" id="detailMetric">—</div>
@@ -223,6 +225,11 @@
           <div class="label">Volumen</div>
           <div class="value" id="detailVolume">—</div>
           <div class="small muted" id="detailVolumeMeta"></div>
+        </div>
+        <div class="stat">
+          <div class="label">Hypothesis Score</div>
+          <div class="value" id="detailScore">—</div>
+          <div class="small muted" id="detailScoreMeta"></div>
         </div>
       </div>
 
@@ -406,6 +413,26 @@
     return { value: total, volume: count };
   }
 
+  function computeMetricForRecord(record, metric){
+    if (!metric) return null;
+    if (rateDefinitions[metric]){
+      const [numField, denField] = rateDefinitions[metric];
+      const num = record[numField] || 0;
+      const den = record[denField] || 0;
+      if (!den) return null;
+      return (num / den) * 100;
+    }
+    if (metric === "cpc"){
+      return record.cpc !== null && record.cpc !== undefined ? Number(record.cpc) || 0 : null;
+    }
+    if (averageMetrics.has(metric)){
+      const v = record[metric];
+      return v !== null && v !== undefined ? Number(v) || 0 : null;
+    }
+    const v = record[metric];
+    return v !== null && v !== undefined ? Number(v) || 0 : null;
+  }
+
   function computeVolumeTotal(recordsForExp, volumeUnit){
     if (!volumeUnit) return 0;
     const volumeFieldMap = {
@@ -491,42 +518,160 @@
     const collectingCount = recordsForExp.filter(r => r.record_status === "collecting").length;
     const allClosed = collectingCount === 0 && recordsForExp.length > 0;
 
-    if (!volumeOk || !allClosed) return { status: "running", aggregated: agg.value, volumeTotal };
+    if (!volumeOk || !allClosed) return { status: "running", aggregated: agg.value, volumeTotal, score: 0 };
     if (!exp.threshold_operator || exp.threshold_value === null || !exp.threshold_type || !exp.primary_metric) {
-      return { status: "running", aggregated: agg.value, volumeTotal };
+      return { status: "running", aggregated: agg.value, volumeTotal, score: 0 };
     }
 
+    const scoreResult = computeHypothesisScore(exp, recordsForExp, agg.value, volumeTotal);
+    return {
+      status: scoreResult.status,
+      aggregated: agg.value,
+      volumeTotal,
+      score: scoreResult.score,
+      breakdown: scoreResult.breakdown,
+    };
+  }
+
+  function computeHypothesisScore(exp, recordsForExp, aggregatedValue, volumeTotal){
+    const volumeMin = exp.volume_min_value || 0;
+    if (!volumeMin || volumeTotal < volumeMin) {
+      return { score: 0, status: "running", breakdown: null };
+    }
+
+    const thresholdScore = computeThresholdScore(exp, aggregatedValue, volumeTotal);
+    const consistencyScore = computeConsistencyScore(exp, recordsForExp);
+    const repeatabilityScore = computeRepeatabilityScore(exp, recordsForExp);
+    const volumeScore = computeVolumeScore(volumeTotal, volumeMin);
+
+    const score = thresholdScore + consistencyScore + repeatabilityScore + volumeScore;
+    let status = "pivot_candidate";
+    if (score < 40) status = "invalidated";
+    else if (score >= 70) status = "validated";
+
+    return {
+      score,
+      status,
+      breakdown: {
+        thresholdScore,
+        consistencyScore,
+        repeatabilityScore,
+        volumeScore,
+      },
+    };
+  }
+
+  function computeThresholdScore(exp, aggregatedValue, volumeTotal){
+    if (!exp.threshold_operator || exp.threshold_value === null || !exp.threshold_type) return 0;
+    if (aggregatedValue === null || aggregatedValue === undefined) return 0;
     let compareValue = null;
+
     if (exp.threshold_type === "percentage"){
       if (isRateMetric(exp.primary_metric) || exp.primary_metric === "views_finish_pct" || exp.primary_metric === "retention_pct"){
-        compareValue = agg.value;
+        compareValue = aggregatedValue;
       } else if (isCountMetric(exp.primary_metric)){
         if (volumeTotal > 0){
-          compareValue = (agg.value / volumeTotal) * 100;
+          compareValue = (aggregatedValue / volumeTotal) * 100;
         }
       }
     } else if (exp.threshold_type === "absolute"){
       if (isCountMetric(exp.primary_metric)){
-        compareValue = agg.value;
+        compareValue = aggregatedValue;
       }
     } else if (exp.threshold_type === "decimal"){
       if (!isRateMetric(exp.primary_metric) && !isPercentageMetric(exp.primary_metric)){
-        compareValue = agg.value;
+        compareValue = aggregatedValue;
       }
     }
 
-    if (compareValue === null || compareValue === undefined) {
-      return { status: "running", aggregated: agg.value, volumeTotal };
-    }
-
-    const op = exp.threshold_operator;
+    if (compareValue === null || compareValue === undefined) return 0;
     const target = exp.threshold_value;
-    let validated = false;
-    if (op === ">=") validated = compareValue >= target;
-    if (op === ">") validated = compareValue > target;
-    if (op === "<=") validated = compareValue <= target;
-    if (op === "<") validated = compareValue < target;
-    return { status: validated ? "validated" : "invalidated", aggregated: agg.value, volumeTotal };
+    const op = exp.threshold_operator;
+    let meets = false;
+    if (op === ">=") meets = compareValue >= target;
+    if (op === ">") meets = compareValue > target;
+    if (op === "<=") meets = compareValue <= target;
+    if (op === "<") meets = compareValue < target;
+    if (!meets) return 0;
+
+    let margin = 0;
+    const denom = Math.max(Math.abs(target), 1);
+    if (op === ">=" || op === ">") margin = (compareValue - target) / denom;
+    else margin = (target - compareValue) / denom;
+
+    if (margin >= 0.2) return 40;
+    if (margin >= 0.05) return 25;
+    return 15;
+  }
+
+  function computeConsistencyScore(exp, recordsForExp){
+    if (!recordsForExp || recordsForExp.length < 2) return 5;
+    const values = [];
+    for (const r of recordsForExp){
+      const v = computeMetricForRecord(r, exp.primary_metric);
+      if (v !== null && v !== undefined) values.push(v);
+    }
+    if (values.length < 2) return 5;
+    const mean = values.reduce((a,b)=>a+b,0) / values.length;
+    const variance = values.reduce((acc, v)=> acc + Math.pow(v-mean,2),0) / values.length;
+    const std = Math.sqrt(variance);
+    const cv = std / Math.max(Math.abs(mean), 1);
+    if (cv <= 0.15) return 25;
+    if (cv <= 0.30) return 18;
+    if (cv <= 0.50) return 10;
+    return 5;
+  }
+
+  function meetsThreshold(exp, aggregatedValue, volumeTotal){
+    const target = exp.threshold_value;
+    if (!exp.threshold_operator || target === null || !exp.threshold_type) return false;
+    let compareValue = null;
+    if (exp.threshold_type === "percentage"){
+      if (isRateMetric(exp.primary_metric) || exp.primary_metric === "views_finish_pct" || exp.primary_metric === "retention_pct"){
+        compareValue = aggregatedValue;
+      } else if (isCountMetric(exp.primary_metric)){
+        if (volumeTotal > 0){
+          compareValue = (aggregatedValue / volumeTotal) * 100;
+        }
+      }
+    } else if (exp.threshold_type === "absolute"){
+      if (isCountMetric(exp.primary_metric)) compareValue = aggregatedValue;
+    } else if (exp.threshold_type === "decimal"){
+      if (!isRateMetric(exp.primary_metric) && !isPercentageMetric(exp.primary_metric)) compareValue = aggregatedValue;
+    }
+    if (compareValue === null || compareValue === undefined) return false;
+    const op = exp.threshold_operator;
+    if (op === ">=") return compareValue >= target;
+    if (op === ">") return compareValue > target;
+    if (op === "<=") return compareValue <= target;
+    if (op === "<") return compareValue < target;
+    return false;
+  }
+
+  function computeRepeatabilityScore(exp, recordsForExp){
+    const channels = new Map();
+    for (const r of recordsForExp){
+      const channel = exp.traffic_type || "mixed";
+      if (!channels.has(channel)) channels.set(channel, []);
+      channels.get(channel).push(r);
+    }
+    let validatedChannels = 0;
+    for (const [channel, recs] of channels.entries()){
+      const agg = computeAggregatedMetric(recs, exp.primary_metric);
+      const volumeTotal = computeVolumeTotal(recs, exp.volume_unit);
+      if (meetsThreshold(exp, agg.value, volumeTotal)) validatedChannels += 1;
+    }
+    if (validatedChannels >= 2) return 20;
+    if (validatedChannels === 1) return 10;
+    return 0;
+  }
+
+  function computeVolumeScore(volumeTotal, volumeMin){
+    const ratio = volumeMin > 0 ? volumeTotal / volumeMin : 0;
+    if (ratio >= 2.0) return 15;
+    if (ratio >= 1.3) return 10;
+    if (ratio >= 1.0) return 5;
+    return 0;
   }
 
   function getExperimentChannel(exp){
@@ -544,6 +689,7 @@
         exp,
         metricValue: evaluation.aggregated,
         computedStatus: evaluation.status,
+        score: evaluation.score ?? 0,
       };
     });
 
@@ -565,6 +711,7 @@
         <td>${formatMetricValue(exp.primary_metric, row.metricValue)}</td>
         <td>${formatThreshold(exp)}</td>
         <td><span class="pill ${statusClass}">${statusClass}</span></td>
+        <td>${row.computedStatus ? row.score : "—"}</td>
         <td>${escapeHtml(getExperimentChannel(exp))}</td>
       `;
       tbody.appendChild(tr);
@@ -671,6 +818,18 @@
 
     const statusClass = evaluation.status || exp.experiment_status || "draft";
     $("detailStatus").innerHTML = `<span class="pill ${statusClass}">${statusClass}</span>`;
+    $("detailScore").textContent = evaluation.score !== null && evaluation.score !== undefined ? `${evaluation.score}` : "—";
+    if (evaluation.breakdown) {
+      const parts = [
+        `Umbral ${evaluation.breakdown.thresholdScore}/40`,
+        `Consistencia ${evaluation.breakdown.consistencyScore}/25`,
+        `Repetibilidad ${evaluation.breakdown.repeatabilityScore}/20`,
+        `Volumen ${evaluation.breakdown.volumeScore}/15`,
+      ];
+      $("detailScoreMeta").textContent = parts.join(" · ");
+    } else {
+      $("detailScoreMeta").textContent = "Score sin calcular";
+    }
 
     const signals = [];
     signals.push(volumeOk ? "Volumen suficiente" : "Volumen insuficiente");
@@ -706,7 +865,7 @@
   async function loadAll(){
     try{
       setStatus("cargando...");
-      $("tblValidated").innerHTML = '<tr><td colspan="7" class="loading">Cargando datos</td></tr>';
+      $("tblValidated").innerHTML = '<tr><td colspan="8" class="loading">Cargando datos</td></tr>';
 
       experiments = await apiGet("/experiments/");
       fillExperimentsSelect();
