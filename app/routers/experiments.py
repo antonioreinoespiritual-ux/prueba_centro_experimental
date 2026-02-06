@@ -90,5 +90,5 @@ def analyze_experiment(experiment_id: int, db: Session = Depends(get_db)):
     except ValueError as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
     except ai.DeepSeekError as exc:
-        raise HTTPException(status_code=502, detail=str(exc)) from exc
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     return schemas.ExperimentAnalysis(experiment_id=experiment_id, analysis=analysis)

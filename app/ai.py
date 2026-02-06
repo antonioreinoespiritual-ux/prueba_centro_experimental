@@ -10,7 +10,23 @@ from .schemas import ExperimentEvaluation
 
 
 class DeepSeekError(RuntimeError):
-    pass
+    def __init__(self, message: str, status_code: int = 502) -> None:
+        super().__init__(message)
+        self.status_code = status_code
+
+
+def _extract_error_message(body: str) -> str | None:
+    try:
+        payload = json.loads(body)
+    except json.JSONDecodeError:
+        return None
+    error = payload.get("error")
+    if not isinstance(error, dict):
+        return None
+    message = error.get("message")
+    if isinstance(message, str):
+        return message
+    return None
 
 
 def _record_to_payload(record: ExperimentRecord) -> dict:
@@ -152,6 +168,14 @@ def generate_experiment_analysis(
             body = response.read().decode("utf-8")
     except urllib.error.HTTPError as exc:
         error_body = exc.read().decode("utf-8") if exc.fp else ""
+        error_message = _extract_error_message(error_body)
+        if exc.code == 402:
+            raise DeepSeekError(
+                "DeepSeek sin saldo. Agrega creditos o actualiza la API key.",
+                status_code=402,
+            ) from exc
+        if error_message:
+            raise DeepSeekError(f"DeepSeek error: {error_message}") from exc
         raise DeepSeekError(f"DeepSeek HTTP error {exc.code}: {error_body}") from exc
     except urllib.error.URLError as exc:
         raise DeepSeekError(f"DeepSeek connection error: {exc.reason}") from exc
