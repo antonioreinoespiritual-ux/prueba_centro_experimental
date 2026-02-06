@@ -77,6 +77,12 @@
     .record-panel { border:1px solid var(--border); border-radius:14px; padding:14px; background:#fff; }
     .record-table-wrapper { max-height: 320px; overflow:auto; border:1px solid var(--border); border-radius:12px; }
     .record-row-active { background:#eef2ff !important; }
+    .modal-backdrop { position:fixed; inset:0; background:rgba(15, 23, 42, 0.6); display:flex; align-items:center; justify-content:center; z-index:2000; padding:24px; }
+    .modal { background:#fff; border-radius:16px; padding:20px; width:100%; max-width:900px; max-height:85vh; overflow:auto; box-shadow: 0 20px 50px rgba(0,0,0,0.25); }
+    .modal-header { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; }
+    .modal-title { font-size:18px; font-weight:700; }
+    .modal-body { margin-top:12px; white-space:pre-wrap; line-height:1.6; font-size:14px; }
+    .hidden { display:none; }
   </style>
 </head>
 <body>
@@ -135,10 +141,24 @@
         <h3 style="margin:0;">Evaluacion de Hipotesis</h3>
         <div style="display:flex; gap:8px;">
           <button id="btnEvaluate" class="secondary" style="max-width:200px;">Evaluar</button>
+          <button id="btnAiAnalysis" class="secondary" style="max-width:200px;">ANALISIS IA</button>
           <button id="btnApplyEval" style="max-width:200px; background:var(--success); box-shadow: 0 4px 12px rgba(16,185,129,0.3);">Aplicar Resultado</button>
         </div>
       </div>
       <div class="eval-grid" id="evalGrid"></div>
+    </div>
+
+    <div id="aiAnalysisBackdrop" class="modal-backdrop hidden">
+      <div class="modal">
+        <div class="modal-header">
+          <div>
+            <div class="modal-title">Analisis IA</div>
+            <div class="small muted" id="aiAnalysisMeta">Analizando resultados del experimento.</div>
+          </div>
+          <button id="btnCloseAiAnalysis" class="secondary" style="max-width:140px;">Cerrar</button>
+        </div>
+        <div id="aiAnalysisContent" class="modal-body"></div>
+      </div>
     </div>
 
     <div class="section-title" style="margin-top:12px;">
@@ -350,6 +370,9 @@
   const API_BASE = "";
   const $ = (id) => document.getElementById(id);
   const statusEl = $("status");
+  const aiBackdrop = $("aiAnalysisBackdrop");
+  const aiContent = $("aiAnalysisContent");
+  const aiMeta = $("aiAnalysisMeta");
 
   $("apiBase").textContent = location.origin;
 
@@ -357,6 +380,14 @@
     statusEl.textContent = msg;
     statusEl.style.borderColor = isError ? "#ef4444" : "#e5e5e5";
     statusEl.style.color = isError ? "#b91c1c" : "#6b7280";
+  }
+
+  function openAiModal() {
+    aiBackdrop.classList.remove("hidden");
+  }
+
+  function closeAiModal() {
+    aiBackdrop.classList.add("hidden");
   }
 
   async function apiGet(path) {
@@ -1195,6 +1226,32 @@
       alert(String(e));
     }
   };
+
+  $("btnAiAnalysis").onclick = async () => {
+    try {
+      const expIdStr = $("experimentFilter").value;
+      if (!expIdStr) throw new Error("Selecciona un experimento.");
+      openAiModal();
+      aiMeta.textContent = "Generando analisis basado en la evaluacion y los récords.";
+      aiContent.innerHTML = `<div class="loading">Generando analisis IA</div>`;
+
+      const result = await apiGet(`/experiments/${expIdStr}/analysis`);
+      aiMeta.textContent = `Experimento #${expIdStr} • ${new Date().toLocaleString()}`;
+      aiContent.textContent = result.analysis || "No se recibio analisis.";
+      setStatus("analisis IA completado");
+    } catch (e) {
+      setStatus("error", true);
+      aiContent.textContent = `Error al generar analisis IA: ${String(e)}`;
+      openAiModal();
+    }
+  };
+
+  $("btnCloseAiAnalysis").onclick = () => closeAiModal();
+  aiBackdrop.addEventListener("click", (event) => {
+    if (event.target === aiBackdrop) {
+      closeAiModal();
+    }
+  });
 
   async function refreshView(){
     const traffic = $("trafficFilter").value;

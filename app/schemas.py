@@ -174,6 +174,11 @@ class ExperimentEvaluation(BaseModel):
     records_closed: int = 0
 
 
+class ExperimentAnalysis(BaseModel):
+    experiment_id: int
+    analysis: str
+
+
 # ---------- Records ----------
 class RecordCreate(BaseModel):
     experiment_id: int
