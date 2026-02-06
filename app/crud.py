@@ -394,7 +394,7 @@ def evaluate_experiment(db: Session, experiment_id: int) -> schemas.ExperimentEv
                     if base_total > 0:
                         compare_value = (aggregated_value / base_total) * 100
             elif threshold_type == "absolute":
-                if _is_count_metric(metric):
+                if not _is_rate_metric(metric) and not _is_percentage_metric(metric):
                     compare_value = aggregated_value
             elif threshold_type == "decimal":
                 if not _is_rate_metric(metric) and not _is_percentage_metric(metric):

@@ -575,7 +575,7 @@
         }
       }
     } else if (exp.threshold_type === "absolute"){
-      if (isCountMetric(exp.primary_metric)){
+      if (!isRateMetric(exp.primary_metric) && !isPercentageMetric(exp.primary_metric)){
         compareValue = aggregatedValue;
       }
     } else if (exp.threshold_type === "decimal"){
@@ -635,7 +635,7 @@
         }
       }
     } else if (exp.threshold_type === "absolute"){
-      if (isCountMetric(exp.primary_metric)) compareValue = aggregatedValue;
+      if (!isRateMetric(exp.primary_metric) && !isPercentageMetric(exp.primary_metric)) compareValue = aggregatedValue;
     } else if (exp.threshold_type === "decimal"){
       if (!isRateMetric(exp.primary_metric) && !isPercentageMetric(exp.primary_metric)) compareValue = aggregatedValue;
     }
