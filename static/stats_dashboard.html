@@ -46,16 +46,16 @@
       </div>
 
       <!-- Hypothesis panels -->
-      <div id="hypothesisPanels" class="mt-lg hidden">
+      <div id="hypothesisPanels" class="mt-lg" style="display:none;">
         <div class="grid grid-2">
-          <div id="hypothesisPanelA" class="hypothesis-panel fade-in hidden">
+          <div id="hypothesisPanelA" class="hypothesis-panel fade-in" style="display:none;">
             <div>
               <div class="hypothesis-panel__label">HIPÓTESIS - EXPERIMENTO A</div>
               <div id="hypothesisTextA" class="hypothesis-panel__text"></div>
               <div id="hypothesisProjectA" class="hypothesis-panel__meta"></div>
             </div>
           </div>
-          <div id="hypothesisPanelB" class="hypothesis-panel fade-in hidden">
+          <div id="hypothesisPanelB" class="hypothesis-panel fade-in" style="display:none;">
             <div>
               <div class="hypothesis-panel__label">HIPÓTESIS - EXPERIMENTO B</div>
               <div id="hypothesisTextB" class="hypothesis-panel__text"></div>
@@ -67,7 +67,7 @@
     </div>
 
     <!-- Resultados del análisis -->
-    <div id="resultsSection" class="hidden">
+    <div id="resultsSection" style="display:none;">
       <!-- Resumen estadístico -->
       <div class="card fade-in">
         <h2>Resumen Estadístico</h2>
@@ -125,7 +125,7 @@
       </div>
 
       <!-- Análisis de funnel (solo para paid) -->
-      <div class="card fade-in hidden" id="funnelAnalysis">
+      <div class="card fade-in" id="funnelAnalysis" style="display:none;">
         <h2>Análisis de Embudo (Paid)</h2>
         <div class="chart-wrap">
           <svg id="funnelComparisonChart" viewBox="0 0 800 300" preserveAspectRatio="none"></svg>
@@ -135,7 +135,7 @@
     </div>
 
     <!-- Loading state -->
-    <div id="loadingState" class="card hidden">
+    <div id="loadingState" class="card" style="display:none;">
       <div class="state-loading">
         <div class="state-loading__spinner"></div>
         Analizando experimentos y calculando estadísticas
