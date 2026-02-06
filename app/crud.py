@@ -1,8 +1,8 @@
 # app/crud.py
 from __future__ import annotations
 
-import re
 from datetime import datetime
+import re
 
 from sqlalchemy.orm import Session
 from sqlalchemy import select, desc
@@ -23,8 +23,13 @@ def create_experiment(db: Session, data: schemas.ExperimentCreate):
         independent_variable=(data.independent_variable or "").strip() or None,
         primary_metric=data.primary_metric,
         validation_threshold=(data.validation_threshold or "").strip() or None,
+        threshold_value=data.threshold_value,
+        threshold_type=data.threshold_type,
+        threshold_operator=data.threshold_operator,
         experiment_status=data.experiment_status or "draft",
         min_volume=data.min_volume,
+        volume_min_value=data.volume_min_value,
+        volume_unit=data.volume_unit,
     )
     db.add(obj)
     db.commit()
@@ -116,6 +121,7 @@ def create_record(db: Session, data: schemas.RecordCreate):
 
         # creative / execution
         execution_type=data.execution_type,
+        record_name=(data.record_name or "").strip() or None,
         hook_text=hook_text,
         hook_type=data.hook_type,
         cta_text=cta_text,
@@ -191,20 +197,6 @@ def get_records(
 #  HYPOTHESIS EVALUATION
 # ------------------------------------------------------------------ #
 
-def _parse_threshold(raw: str | None) -> tuple[str | None, float | None]:
-    """Parse threshold like '>= 3%' into (operator, value).
-    Supports: >= X, > X, <= X, < X, = X
-    Strips trailing % sign.
-    """
-    if not raw:
-        return None, None
-    raw = raw.strip().rstrip("%").strip()
-    match = re.match(r"(>=|<=|>|<|=)\s*([\d.]+)", raw)
-    if not match:
-        return None, None
-    return match.group(1), float(match.group(2))
-
-
 def _compute_aggregated_metric(records: list[models.ExperimentRecord], metric: str) -> tuple[float | None, int]:
     """Compute an aggregated metric across all records.
 
@@ -275,6 +267,88 @@ def _compute_aggregated_metric(records: list[models.ExperimentRecord], metric: s
     return float(total), count
 
 
+def _parse_threshold(raw: str | None) -> tuple[str | None, float | None, bool]:
+    """Parse threshold like '>= 3%' into (operator, value, is_percent)."""
+    if not raw:
+        return None, None, False
+    raw = raw.strip()
+    is_percent = raw.endswith("%")
+    raw = raw.rstrip("%").strip()
+    match = re.match(r"(>=|<=|>|<|=)\s*([\d.]+)", raw)
+    if not match:
+        return None, None, is_percent
+    return match.group(1), float(match.group(2)), is_percent
+
+
+def _infer_threshold_type(metric: str | None, is_percent: bool) -> str | None:
+    if not metric:
+        return "percentage" if is_percent else None
+    if is_percent:
+        return "percentage"
+    if _is_count_metric(metric):
+        return "absolute"
+    return "decimal"
+
+
+def _compute_volume_total(records: list[models.ExperimentRecord], volume_unit: str | None) -> int:
+    if not volume_unit:
+        return 0
+    volume_field_map = {
+        "clicks": "clicks",
+        "ctr": "views",
+        "cpc": "clicks",
+        "initiate_checkout_rate": "views",
+        "view_content_rate": "views",
+        "lead_rate": "views",
+        "purchase_rate": "views",
+        "views": "views",
+        "likes": "likes",
+        "comments": "comments",
+        "shares": "shares",
+        "saves": "saves",
+        "views_finish_pct": "views",
+        "retention_pct": "views",
+        "avg_watch_time": "views",
+        "live_viewers_peak": "live_viewers_peak",
+        "live_avg_viewers": "live_avg_viewers",
+        "live_new_followers": "live_new_followers",
+    }
+    field = volume_field_map.get(volume_unit)
+    if not field:
+        return 0
+    total = 0
+    for r in records:
+        total += getattr(r, field, None) or 0
+    return total
+
+
+def _is_rate_metric(metric: str) -> bool:
+    return metric.endswith("_rate") or metric in {"ctr"}
+
+
+def _is_percentage_metric(metric: str) -> bool:
+    return metric in {"views_finish_pct", "retention_pct"}
+
+
+def _is_average_metric(metric: str) -> bool:
+    return metric in {"avg_watch_time"}
+
+
+def _is_count_metric(metric: str) -> bool:
+    if _is_rate_metric(metric) or _is_percentage_metric(metric) or _is_average_metric(metric):
+        return False
+    return metric in {
+        "views",
+        "likes",
+        "comments",
+        "shares",
+        "saves",
+        "live_viewers_peak",
+        "live_avg_viewers",
+        "live_new_followers",
+    }
+
+
 def evaluate_experiment(db: Session, experiment_id: int) -> schemas.ExperimentEvaluation:
     """Evaluate a hypothesis by aggregating all its records and comparing to threshold."""
     exp = get_experiment(db, experiment_id)
@@ -288,40 +362,68 @@ def evaluate_experiment(db: Session, experiment_id: int) -> schemas.ExperimentEv
     all_closed = records_collecting == 0 and len(records) > 0
 
     aggregated_value = None
-    total_volume = 0
 
     if exp.primary_metric and records:
-        aggregated_value, total_volume = _compute_aggregated_metric(records, exp.primary_metric)
+        aggregated_value, _ = _compute_aggregated_metric(records, exp.primary_metric)
 
-    min_vol = exp.min_volume or 0
-    volume_sufficient = total_volume >= min_vol if min_vol > 0 else (total_volume > 0)
+    volume_total = _compute_volume_total(records, exp.volume_unit)
+    min_vol = exp.volume_min_value
+    volume_sufficient = bool(min_vol and volume_total >= min_vol)
 
     ready = volume_sufficient and all_closed
 
     suggested_status = None
-    if ready and aggregated_value is not None and exp.validation_threshold:
-        op, threshold_val = _parse_threshold(exp.validation_threshold)
-        if op and threshold_val is not None:
-            if op == ">=" and aggregated_value >= threshold_val:
-                suggested_status = "validated"
-            elif op == ">" and aggregated_value > threshold_val:
-                suggested_status = "validated"
-            elif op == "<=" and aggregated_value <= threshold_val:
-                suggested_status = "validated"
-            elif op == "<" and aggregated_value < threshold_val:
-                suggested_status = "validated"
-            elif op == "=" and abs(aggregated_value - threshold_val) < 0.001:
-                suggested_status = "validated"
-            else:
-                suggested_status = "invalidated"
+    op = exp.threshold_operator
+    threshold_val = exp.threshold_value
+    threshold_type = exp.threshold_type
+    if (not op or threshold_val is None or not threshold_type) and exp.validation_threshold:
+        parsed_op, parsed_val, parsed_percent = _parse_threshold(exp.validation_threshold)
+        op = op or parsed_op
+        threshold_val = threshold_val if threshold_val is not None else parsed_val
+        threshold_type = threshold_type or _infer_threshold_type(exp.primary_metric, parsed_percent)
+
+    if ready and aggregated_value is not None:
+        metric = exp.primary_metric
+        if op and threshold_val is not None and threshold_type and metric:
+            compare_value = None
+            if threshold_type == "percentage":
+                if _is_rate_metric(metric) or _is_percentage_metric(metric):
+                    compare_value = aggregated_value
+                elif _is_count_metric(metric):
+                    base_total = _compute_volume_total(records, exp.volume_unit)
+                    if base_total > 0:
+                        compare_value = (aggregated_value / base_total) * 100
+            elif threshold_type == "absolute":
+                if not _is_rate_metric(metric) and not _is_percentage_metric(metric):
+                    compare_value = aggregated_value
+            elif threshold_type == "decimal":
+                if not _is_rate_metric(metric) and not _is_percentage_metric(metric):
+                    compare_value = aggregated_value
+
+            if compare_value is not None:
+                if op == ">=" and compare_value >= threshold_val:
+                    suggested_status = "validated"
+                elif op == ">" and compare_value > threshold_val:
+                    suggested_status = "validated"
+                elif op == "<=" and compare_value <= threshold_val:
+                    suggested_status = "validated"
+                elif op == "<" and compare_value < threshold_val:
+                    suggested_status = "validated"
+                else:
+                    suggested_status = "invalidated"
 
     return schemas.ExperimentEvaluation(
         experiment_id=experiment_id,
         primary_metric=exp.primary_metric,
         aggregated_value=round(aggregated_value, 4) if aggregated_value is not None else None,
         threshold_raw=exp.validation_threshold,
-        total_volume=total_volume,
+        threshold_value=threshold_val,
+        threshold_type=threshold_type,
+        threshold_operator=op,
+        total_volume=volume_total,
         min_volume=exp.min_volume,
+        volume_min_value=exp.volume_min_value,
+        volume_unit=exp.volume_unit,
         volume_sufficient=volume_sufficient,
         all_records_closed=all_closed,
         ready_to_evaluate=ready,

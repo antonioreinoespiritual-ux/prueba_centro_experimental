@@ -23,8 +23,13 @@ class Experiment(Base):
     independent_variable: Mapped[str | None] = mapped_column(String(500), nullable=True)
     primary_metric: Mapped[str | None] = mapped_column(String(100), nullable=True)
     validation_threshold: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    threshold_value: Mapped[float | None] = mapped_column(Float, nullable=True)
+    threshold_type: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    threshold_operator: Mapped[str | None] = mapped_column(String(5), nullable=True)
     experiment_status: Mapped[str] = mapped_column(String(30), nullable=False, default="draft")
     min_volume: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    volume_min_value: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    volume_unit: Mapped[str | None] = mapped_column(String(30), nullable=True)
 
     records: Mapped[list["ExperimentRecord"]] = relationship(
         "ExperimentRecord",
@@ -79,6 +84,7 @@ class ExperimentRecord(Base):
 
     # --- Creative / Execution fields (new) ---
     execution_type: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    record_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
     hook_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     hook_type: Mapped[str | None] = mapped_column(String(30), nullable=True)
     cta_text: Mapped[str | None] = mapped_column(Text, nullable=True)

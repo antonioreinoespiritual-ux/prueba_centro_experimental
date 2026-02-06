@@ -5,8 +5,10 @@ from fastapi.responses import FileResponse
 from pathlib import Path
 
 from .database import Base, engine
+from .migrations import ensure_schema
 from .routers import experiments, records
 
+ensure_schema()
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Centro Experimental")

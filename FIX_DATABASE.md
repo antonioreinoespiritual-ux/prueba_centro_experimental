@@ -5,6 +5,8 @@ El error `sqlite3.OperationalError: no such column: experiment_records.views_fin
 
 ## Solución
 
+La aplicación ahora intenta agregar automáticamente columnas nuevas al iniciar. Si el error persiste, usa alguna de las opciones manuales abajo.
+
 ### Opción 1: Usar el script de reset (Recomendado)
 
 1. Detén el servidor uvicorn (presiona CTRL+C)
@@ -35,6 +37,16 @@ Este script:
    ```
 
 Al reiniciar, la aplicación creará automáticamente una nueva base de datos con el esquema correcto.
+
+### Opción 3: Migrar columnas nuevas sin borrar datos
+
+Si quieres conservar la base de datos actual, ejecuta la migración:
+
+```bash
+python migrate_lean_hypothesis.py
+```
+
+Esto agrega columnas nuevas (como `threshold_value` y `volume_unit`) sin perder datos.
 
 ## Cambios Realizados
 

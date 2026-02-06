@@ -3,7 +3,8 @@ Migration script: Add Lean Hypothesis fields to experiments and creative/executi
 
 This migration adds columns WITHOUT breaking existing data:
   - experiments: hypothesis_type, independent_variable, primary_metric,
-                 validation_threshold, experiment_status, min_volume
+                 validation_threshold, threshold_value, threshold_type, threshold_operator,
+                 experiment_status, min_volume, volume_min_value, volume_unit
   - experiment_records: execution_type, hook_text, hook_type, cta_text,
                         cta_type, creative_id, record_status, updated_at
 
@@ -36,8 +37,13 @@ def migrate():
         ("independent_variable", "VARCHAR(500)"),
         ("primary_metric", "VARCHAR(100)"),
         ("validation_threshold", "VARCHAR(200)"),
+        ("threshold_value", "FLOAT"),
+        ("threshold_type", "VARCHAR(30)"),
+        ("threshold_operator", "VARCHAR(5)"),
         ("experiment_status", "VARCHAR(30) NOT NULL DEFAULT 'draft'"),
         ("min_volume", "INTEGER"),
+        ("volume_min_value", "INTEGER"),
+        ("volume_unit", "VARCHAR(30)"),
     ]
 
     for col_name, col_type in experiment_columns:
@@ -51,6 +57,7 @@ def migrate():
     # --- ExperimentRecord table ---
     record_columns = [
         ("execution_type", "VARCHAR(30)"),
+        ("record_name", "VARCHAR(200)"),
         ("hook_text", "TEXT"),
         ("hook_type", "VARCHAR(30)"),
         ("cta_text", "TEXT"),
