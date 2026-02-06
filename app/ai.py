@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import json
-import urllib.error
-import urllib.request
+
+import requests
 
 from .config import get_groq_api_key, get_groq_api_url, get_groq_model
 from .models import Experiment, ExperimentRecord
@@ -154,35 +154,35 @@ def generate_experiment_analysis(
         "max_tokens": 900,
     }
 
-    data = json.dumps(payload).encode("utf-8")
-    request = urllib.request.Request(
-        get_groq_api_url(),
-        data=data,
-        headers={
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {api_key}",
-        },
-        method="POST",
-    )
-
     try:
-        with urllib.request.urlopen(request, timeout=45) as response:
-            body = response.read().decode("utf-8")
-    except urllib.error.HTTPError as exc:
-        error_body = exc.read().decode("utf-8") if exc.fp else ""
+        resp = requests.post(
+            get_groq_api_url(),
+            json=payload,
+            headers={
+                "Authorization": f"Bearer {api_key}",
+            },
+            timeout=45,
+        )
+    except requests.ConnectionError as exc:
+        raise GroqError(f"Groq connection error: {exc}") from exc
+    except requests.Timeout as exc:
+        raise GroqError("Groq request timed out.") from exc
+    except Exception as exc:
+        raise GroqError(f"Groq request failed: {exc}") from exc
+
+    if resp.status_code != 200:
+        error_body = resp.text
         error_message = _extract_error_message(error_body)
-        if exc.code == 402:
+        if resp.status_code == 402:
             raise GroqError(
                 "Groq sin saldo. Agrega creditos o actualiza la API key.",
                 status_code=402,
-            ) from exc
+            )
         if error_message:
-            raise GroqError(f"Groq error: {error_message}") from exc
-        raise GroqError(f"Groq HTTP error {exc.code}: {error_body}") from exc
-    except urllib.error.URLError as exc:
-        raise GroqError(f"Groq connection error: {exc.reason}") from exc
-    except Exception as exc:
-        raise GroqError(f"Groq request failed: {exc}") from exc
+            raise GroqError(f"Groq error: {error_message}")
+        raise GroqError(f"Groq HTTP error {resp.status_code}: {error_body}")
+
+    body = resp.text
 
     try:
         response_data = json.loads(body)
