@@ -867,12 +867,14 @@
     const panel = $("detailPanel");
     if (!exp){
       empty.style.display = "block";
-      panel.style.display = "none";
+      panel.classList.add("hidden");
+      panel.style.display = "";
       return;
     }
 
     empty.style.display = "none";
-    panel.style.display = "block";
+    panel.classList.remove("hidden");
+    panel.style.display = "";
 
     const evaluation = computeSuggestedStatus(exp, recordsForExp);
     const agg = computeAggregatedMetric(recordsForExp, exp.primary_metric);
