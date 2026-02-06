@@ -281,6 +281,13 @@
     return experiments.find(e => e.id === id);
   }
 
+  function parseNumberField(id){
+    const raw = $(id).value.trim();
+    if (!raw) return null;
+    const parsed = Number(raw);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
   function applyFilters(){
     let filtered = records.slice();
 
@@ -291,12 +298,12 @@
     const exec = $("f_execution").value;
     const from = $("f_from").value;
     const to = $("f_to").value;
-    const clicksMin = Number($("f_clicks_min").value);
-    const clicksMax = Number($("f_clicks_max").value);
-    const viewsMin = Number($("f_views_min").value);
-    const viewsMax = Number($("f_views_max").value);
-    const purchaseMin = Number($("f_purchase_min").value);
-    const purchaseMax = Number($("f_purchase_max").value);
+    const clicksMin = parseNumberField("f_clicks_min");
+    const clicksMax = parseNumberField("f_clicks_max");
+    const viewsMin = parseNumberField("f_views_min");
+    const viewsMax = parseNumberField("f_views_max");
+    const purchaseMin = parseNumberField("f_purchase_min");
+    const purchaseMax = parseNumberField("f_purchase_max");
     const sort = $("f_sort").value;
     const limit = Math.max(1, Number($("f_limit").value) || 5000);
 
@@ -331,22 +338,22 @@
       });
     }
 
-    if (!Number.isNaN(clicksMin)){
+    if (clicksMin !== null){
       filtered = filtered.filter(r => (r.clicks || 0) >= clicksMin);
     }
-    if (!Number.isNaN(clicksMax)){
+    if (clicksMax !== null){
       filtered = filtered.filter(r => (r.clicks || 0) <= clicksMax);
     }
-    if (!Number.isNaN(viewsMin)){
+    if (viewsMin !== null){
       filtered = filtered.filter(r => (r.views || 0) >= viewsMin);
     }
-    if (!Number.isNaN(viewsMax)){
+    if (viewsMax !== null){
       filtered = filtered.filter(r => (r.views || 0) <= viewsMax);
     }
-    if (!Number.isNaN(purchaseMin)){
+    if (purchaseMin !== null){
       filtered = filtered.filter(r => (r.purchase || 0) >= purchaseMin);
     }
-    if (!Number.isNaN(purchaseMax)){
+    if (purchaseMax !== null){
       filtered = filtered.filter(r => (r.purchase || 0) <= purchaseMax);
     }
 
