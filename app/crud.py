@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+import re
 
 from sqlalchemy.orm import Session
 from sqlalchemy import select, desc
@@ -266,6 +267,29 @@ def _compute_aggregated_metric(records: list[models.ExperimentRecord], metric: s
     return float(total), count
 
 
+def _parse_threshold(raw: str | None) -> tuple[str | None, float | None, bool]:
+    """Parse threshold like '>= 3%' into (operator, value, is_percent)."""
+    if not raw:
+        return None, None, False
+    raw = raw.strip()
+    is_percent = raw.endswith("%")
+    raw = raw.rstrip("%").strip()
+    match = re.match(r"(>=|<=|>|<|=)\s*([\d.]+)", raw)
+    if not match:
+        return None, None, is_percent
+    return match.group(1), float(match.group(2)), is_percent
+
+
+def _infer_threshold_type(metric: str | None, is_percent: bool) -> str | None:
+    if not metric:
+        return "percentage" if is_percent else None
+    if is_percent:
+        return "percentage"
+    if _is_count_metric(metric):
+        return "absolute"
+    return "decimal"
+
+
 def _compute_volume_total(records: list[models.ExperimentRecord], volume_unit: str | None) -> int:
     if not volume_unit:
         return 0
@@ -349,10 +373,16 @@ def evaluate_experiment(db: Session, experiment_id: int) -> schemas.ExperimentEv
     ready = volume_sufficient and all_closed
 
     suggested_status = None
+    op = exp.threshold_operator
+    threshold_val = exp.threshold_value
+    threshold_type = exp.threshold_type
+    if (not op or threshold_val is None or not threshold_type) and exp.validation_threshold:
+        parsed_op, parsed_val, parsed_percent = _parse_threshold(exp.validation_threshold)
+        op = op or parsed_op
+        threshold_val = threshold_val if threshold_val is not None else parsed_val
+        threshold_type = threshold_type or _infer_threshold_type(exp.primary_metric, parsed_percent)
+
     if ready and aggregated_value is not None:
-        op = exp.threshold_operator
-        threshold_val = exp.threshold_value
-        threshold_type = exp.threshold_type
         metric = exp.primary_metric
         if op and threshold_val is not None and threshold_type and metric:
             compare_value = None
@@ -387,9 +417,9 @@ def evaluate_experiment(db: Session, experiment_id: int) -> schemas.ExperimentEv
         primary_metric=exp.primary_metric,
         aggregated_value=round(aggregated_value, 4) if aggregated_value is not None else None,
         threshold_raw=exp.validation_threshold,
-        threshold_value=exp.threshold_value,
-        threshold_type=exp.threshold_type,
-        threshold_operator=exp.threshold_operator,
+        threshold_value=threshold_val,
+        threshold_type=threshold_type,
+        threshold_operator=op,
         total_volume=volume_total,
         min_volume=exp.min_volume,
         volume_min_value=exp.volume_min_value,
