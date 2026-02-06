@@ -30,4 +30,4 @@ def get_groq_api_url() -> str:
 
 
 def get_groq_model() -> str:
-    return os.getenv("GROQ_MODEL", "llama-3.1-70b-versatile").strip()
+    return os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile").strip()
