@@ -129,11 +129,36 @@
       <div class="grid3">
         <div>
           <label>Umbral de Validacion</label>
-          <input id="validation_threshold" placeholder=">= 3%" />
+          <div class="grid3" style="margin-top:6px;">
+            <select id="threshold_operator">
+              <option value="">-- operador --</option>
+              <option value=">=">>=</option>
+              <option value="<="><=</option>
+              <option value=">">></option>
+              <option value="<"><</option>
+            </select>
+            <input id="threshold_value" type="number" step="0.01" placeholder="3" />
+            <select id="threshold_type">
+              <option value="">-- tipo --</option>
+              <option value="percentage">%</option>
+              <option value="absolute">entero</option>
+              <option value="decimal">decimal</option>
+            </select>
+          </div>
         </div>
         <div>
           <label>Volumen Minimo</label>
-          <input id="min_volume" type="number" placeholder="500" />
+          <div class="grid2" style="margin-top:6px;">
+            <input id="volume_min_value" type="number" placeholder="500" />
+            <select id="volume_unit">
+              <option value="">-- unidad --</option>
+              <option value="clicks">clicks</option>
+              <option value="views">views</option>
+              <option value="purchases">purchases</option>
+              <option value="leads">leads</option>
+              <option value="live_viewers">live viewers</option>
+            </select>
+          </div>
         </div>
         <div>
           <label>Canal Principal</label>
@@ -340,6 +365,25 @@
         </div>
       </div>
 
+      <div class="grid4">
+        <div>
+          <label>Initiate checkouts</label>
+          <input id="organic_initiate_checkouts" type="number" placeholder="3" />
+        </div>
+        <div>
+          <label>View content</label>
+          <input id="organic_view_content" type="number" placeholder="40" />
+        </div>
+        <div>
+          <label>Formulario lead</label>
+          <input id="organic_lead_form" type="number" placeholder="10" />
+        </div>
+        <div>
+          <label>Purchase</label>
+          <input id="organic_purchase" type="number" placeholder="1" />
+        </div>
+      </div>
+
       <label>Organic piece type</label>
       <input id="organic_piece_type" placeholder="tiktok_video, reel, story..." />
 
@@ -504,26 +548,28 @@
     </div>
     <p class="small">Los records viven y se actualizan. Selecciona un record, actualiza sus metricas, o cierralo cuando ya no reciba trafico.</p>
 
-    <div class="grid3">
-      <div>
-        <label>Experimento</label>
-        <select id="upd_experiment_id">
-          <option value="">-- seleccionar --</option>
-        </select>
-      </div>
-      <div>
-        <label>Record ID</label>
-        <input id="upd_record_id" type="number" placeholder="ID del record" />
-      </div>
-      <div>
-        <label>Accion</label>
-        <div style="display:flex; gap:8px; margin-top:6px;">
-          <button id="btnLoadRecord" class="secondary" style="flex:1;">Cargar</button>
-          <button id="btnCloseRecord" style="flex:1; background:var(--warn); box-shadow: 0 4px 12px rgba(245,158,11,0.3);">Cerrar Record</button>
-          <button id="btnReopenRecord" class="secondary" style="flex:1;">Reabrir</button>
+      <div class="grid3">
+        <div>
+          <label>Experimento</label>
+          <select id="upd_experiment_id">
+            <option value="">-- seleccionar --</option>
+          </select>
+        </div>
+        <div>
+          <label>Record ID</label>
+          <select id="upd_record_id">
+            <option value="">-- seleccionar --</option>
+          </select>
+        </div>
+        <div>
+          <label>Accion</label>
+          <div style="display:flex; gap:8px; margin-top:6px;">
+            <button id="btnLoadRecord" class="secondary" style="flex:1;">Cargar</button>
+            <button id="btnCloseRecord" style="flex:1; background:var(--warn); box-shadow: 0 4px 12px rgba(245,158,11,0.3);">Cerrar Record</button>
+            <button id="btnReopenRecord" class="secondary" style="flex:1;">Reabrir</button>
+          </div>
         </div>
       </div>
-    </div>
 
     <div id="updRecordInfo" style="display:none; margin-top:12px; padding:12px; border-radius:12px; background:#f9fafb; border:1px solid var(--border);">
       <p class="small" style="margin:0;" id="updRecordMeta"></p>
@@ -726,6 +772,7 @@
     setStatus("cargando...");
     experimentsCache = await apiGet("/experiments/");
     syncFormSelects();
+    refreshRecordList().catch(e => { setStatus("error", true); alert(String(e)); });
     setStatus("listo");
   }
 
@@ -745,16 +792,22 @@
         hypothesis_type: $("hypothesis_type").value || null,
         independent_variable: $("independent_variable").value.trim() || null,
         primary_metric: $("primary_metric").value || null,
-        validation_threshold: $("validation_threshold").value.trim() || null,
-        min_volume: asIntOrNull($("min_volume").value),
+        threshold_operator: $("threshold_operator").value || null,
+        threshold_value: asFloatOrNull($("threshold_value").value),
+        threshold_type: $("threshold_type").value || null,
+        volume_min_value: asIntOrNull($("volume_min_value").value),
+        volume_unit: $("volume_unit").value || null,
         experiment_status: "draft",
       };
       if (!body.project_name || !body.hypothesis) throw new Error("project_name y hypothesis son obligatorios.");
       await apiPost("/experiments/", body);
       await refreshAll();
-      ["project_name","hypothesis","independent_variable","validation_threshold","min_volume"].forEach(id => $(id).value = "");
+      ["project_name","hypothesis","independent_variable","threshold_value","volume_min_value"].forEach(id => $(id).value = "");
       $("hypothesis_type").value = "";
       $("primary_metric").value = "";
+      $("threshold_operator").value = "";
+      $("threshold_type").value = "";
+      $("volume_unit").value = "";
       $("traffic_type").value = "paid";
     } catch(e){
       setStatus("error", true);
@@ -773,6 +826,10 @@
         session_id: $("organic_session_id").value.trim(),
         clicks: asIntOrNull($("organic_clicks").value),
         views: asIntOrNull($("organic_views").value),
+        initiate_checkouts: asIntOrNull($("organic_initiate_checkouts").value),
+        view_content: asIntOrNull($("organic_view_content").value),
+        lead_form: asIntOrNull($("organic_lead_form").value),
+        purchase: asIntOrNull($("organic_purchase").value),
         organic_piece_type: $("organic_piece_type").value.trim() || null,
         likes: asIntOrNull($("organic_likes").value),
         comments: asIntOrNull($("organic_comments").value),
@@ -794,7 +851,8 @@
 
       await apiPost("/records/", body);
 
-      ["organic_session_id","organic_clicks","organic_views","organic_piece_type",
+      ["organic_session_id","organic_clicks","organic_views","organic_initiate_checkouts",
+       "organic_view_content","organic_lead_form","organic_purchase","organic_piece_type",
        "organic_likes","organic_comments","organic_shares","organic_saves",
        "organic_video_url","organic_views_finish_pct","organic_retention_pct",
        "organic_avg_watch_time","organic_video_duration",
@@ -910,6 +968,31 @@
   };
 
   // ==================== UPDATE RECORD ====================
+
+  async function refreshRecordList() {
+    const expId = Number($("upd_experiment_id").value);
+    const recordSelect = $("upd_record_id");
+    recordSelect.innerHTML = '<option value="">-- seleccionar --</option>';
+    if (!expId) return;
+    const records = await apiGet(`/records/?experiment_id=${expId}&limit=5000`);
+    for (const rec of records) {
+      const opt = document.createElement("option");
+      opt.value = String(rec.id);
+      const statusTag = rec.record_status ? ` [${rec.record_status}]` : "";
+      opt.textContent = `${rec.id} — ${rec.session_id}${statusTag}`;
+      recordSelect.appendChild(opt);
+    }
+  }
+
+  $("upd_experiment_id").onchange = () => {
+    refreshRecordList().catch(e => { setStatus("error", true); alert(String(e)); });
+  };
+
+  $("upd_record_id").onchange = () => {
+    if ($("upd_record_id").value) {
+      $("btnLoadRecord").click();
+    }
+  };
 
   $("btnLoadRecord").onclick = async () => {
     try {

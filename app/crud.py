@@ -1,7 +1,6 @@
 # app/crud.py
 from __future__ import annotations
 
-import re
 from datetime import datetime
 
 from sqlalchemy.orm import Session
@@ -23,8 +22,13 @@ def create_experiment(db: Session, data: schemas.ExperimentCreate):
         independent_variable=(data.independent_variable or "").strip() or None,
         primary_metric=data.primary_metric,
         validation_threshold=(data.validation_threshold or "").strip() or None,
+        threshold_value=data.threshold_value,
+        threshold_type=data.threshold_type,
+        threshold_operator=data.threshold_operator,
         experiment_status=data.experiment_status or "draft",
         min_volume=data.min_volume,
+        volume_min_value=data.volume_min_value,
+        volume_unit=data.volume_unit,
     )
     db.add(obj)
     db.commit()
@@ -191,20 +195,6 @@ def get_records(
 #  HYPOTHESIS EVALUATION
 # ------------------------------------------------------------------ #
 
-def _parse_threshold(raw: str | None) -> tuple[str | None, float | None]:
-    """Parse threshold like '>= 3%' into (operator, value).
-    Supports: >= X, > X, <= X, < X, = X
-    Strips trailing % sign.
-    """
-    if not raw:
-        return None, None
-    raw = raw.strip().rstrip("%").strip()
-    match = re.match(r"(>=|<=|>|<|=)\s*([\d.]+)", raw)
-    if not match:
-        return None, None
-    return match.group(1), float(match.group(2))
-
-
 def _compute_aggregated_metric(records: list[models.ExperimentRecord], metric: str) -> tuple[float | None, int]:
     """Compute an aggregated metric across all records.
 
@@ -275,6 +265,25 @@ def _compute_aggregated_metric(records: list[models.ExperimentRecord], metric: s
     return float(total), count
 
 
+def _compute_volume_total(records: list[models.ExperimentRecord], volume_unit: str | None) -> int:
+    if not volume_unit:
+        return 0
+    volume_field_map = {
+        "clicks": "clicks",
+        "views": "views",
+        "purchases": "purchase",
+        "leads": "lead_form",
+        "live_viewers": "live_viewers_peak",
+    }
+    field = volume_field_map.get(volume_unit)
+    if not field:
+        return 0
+    total = 0
+    for r in records:
+        total += getattr(r, field, None) or 0
+    return total
+
+
 def evaluate_experiment(db: Session, experiment_id: int) -> schemas.ExperimentEvaluation:
     """Evaluate a hypothesis by aggregating all its records and comparing to threshold."""
     exp = get_experiment(db, experiment_id)
@@ -288,20 +297,22 @@ def evaluate_experiment(db: Session, experiment_id: int) -> schemas.ExperimentEv
     all_closed = records_collecting == 0 and len(records) > 0
 
     aggregated_value = None
-    total_volume = 0
 
     if exp.primary_metric and records:
-        aggregated_value, total_volume = _compute_aggregated_metric(records, exp.primary_metric)
+        aggregated_value, _ = _compute_aggregated_metric(records, exp.primary_metric)
 
-    min_vol = exp.min_volume or 0
-    volume_sufficient = total_volume >= min_vol if min_vol > 0 else (total_volume > 0)
+    volume_total = _compute_volume_total(records, exp.volume_unit)
+    min_vol = exp.volume_min_value
+    volume_sufficient = bool(min_vol and volume_total >= min_vol)
 
     ready = volume_sufficient and all_closed
 
     suggested_status = None
-    if ready and aggregated_value is not None and exp.validation_threshold:
-        op, threshold_val = _parse_threshold(exp.validation_threshold)
-        if op and threshold_val is not None:
+    if ready and aggregated_value is not None:
+        op = exp.threshold_operator
+        threshold_val = exp.threshold_value
+        threshold_type = exp.threshold_type
+        if op and threshold_val is not None and threshold_type:
             if op == ">=" and aggregated_value >= threshold_val:
                 suggested_status = "validated"
             elif op == ">" and aggregated_value > threshold_val:
@@ -309,8 +320,6 @@ def evaluate_experiment(db: Session, experiment_id: int) -> schemas.ExperimentEv
             elif op == "<=" and aggregated_value <= threshold_val:
                 suggested_status = "validated"
             elif op == "<" and aggregated_value < threshold_val:
-                suggested_status = "validated"
-            elif op == "=" and abs(aggregated_value - threshold_val) < 0.001:
                 suggested_status = "validated"
             else:
                 suggested_status = "invalidated"
@@ -320,8 +329,13 @@ def evaluate_experiment(db: Session, experiment_id: int) -> schemas.ExperimentEv
         primary_metric=exp.primary_metric,
         aggregated_value=round(aggregated_value, 4) if aggregated_value is not None else None,
         threshold_raw=exp.validation_threshold,
-        total_volume=total_volume,
+        threshold_value=exp.threshold_value,
+        threshold_type=exp.threshold_type,
+        threshold_operator=exp.threshold_operator,
+        total_volume=volume_total,
         min_volume=exp.min_volume,
+        volume_min_value=exp.volume_min_value,
+        volume_unit=exp.volume_unit,
         volume_sufficient=volume_sufficient,
         all_records_closed=all_closed,
         ready_to_evaluate=ready,

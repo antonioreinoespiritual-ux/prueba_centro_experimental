@@ -700,14 +700,18 @@
     if (exp.primary_metric) {
       metaHtml += `<div style="font-size:12px; opacity:0.9; margin-top:4px;">Y: ${exp.primary_metric}</div>`;
     }
-    if (exp.validation_threshold) {
-      metaHtml += `<div style="font-size:12px; opacity:0.9; margin-top:4px;">Umbral: ${escapeHtml(exp.validation_threshold)}</div>`;
+    if (exp.threshold_operator && exp.threshold_value !== null && exp.threshold_type) {
+      const typeLabel = exp.threshold_type === "percentage" ? "%" : exp.threshold_type;
+      metaHtml += `<div style="font-size:12px; opacity:0.9; margin-top:4px;">Umbral: ${exp.threshold_operator} ${exp.threshold_value} ${typeLabel}</div>`;
+    }
+    if (exp.volume_min_value !== null && exp.volume_unit) {
+      metaHtml += `<div style="font-size:12px; opacity:0.9; margin-top:4px;">Volumen minimo: ${exp.volume_min_value} ${exp.volume_unit}</div>`;
     }
     metaEl.innerHTML = metaHtml;
     panel.style.display = "block";
 
     // Show evaluation panel if experiment has lean fields
-    if (exp.primary_metric || exp.validation_threshold) {
+    if (exp.primary_metric || exp.threshold_operator || exp.volume_min_value) {
       evalPanel.style.display = "block";
     } else {
       evalPanel.style.display = "none";
@@ -727,9 +731,13 @@
       const items = [
         ["Metrica", ev.primary_metric || "—"],
         ["Valor Agregado", ev.aggregated_value !== null ? ev.aggregated_value.toFixed(4) : "—"],
-        ["Umbral", ev.threshold_raw || "—"],
+        ["Umbral", ev.threshold_operator && ev.threshold_value !== null && ev.threshold_type
+          ? `${ev.threshold_operator} ${ev.threshold_value} ${ev.threshold_type === "percentage" ? "%" : ev.threshold_type}`
+          : "—"],
         ["Volumen Total", String(ev.total_volume)],
-        ["Volumen Minimo", ev.min_volume !== null ? String(ev.min_volume) : "—"],
+        ["Volumen Minimo", ev.volume_min_value !== null && ev.volume_unit
+          ? `${ev.volume_min_value} ${ev.volume_unit}`
+          : "—"],
         ["Volumen Suficiente", ev.volume_sufficient ? "SI" : "NO"],
         ["Records Collecting", String(ev.records_collecting)],
         ["Records Closed", String(ev.records_closed)],

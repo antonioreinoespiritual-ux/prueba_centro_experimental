@@ -50,6 +50,12 @@ PrimaryMetric = Literal[
     "live_new_followers",
 ]
 
+VolumeUnit = Literal["clicks", "views", "purchases", "leads", "live_viewers"]
+
+ThresholdType = Literal["percentage", "absolute", "decimal"]
+
+ThresholdOperator = Literal[">=", "<=", ">", "<"]
+
 ExecutionType = Literal["organic_video", "paid_ad", "live_session"]
 
 HookType = Literal[
@@ -82,8 +88,13 @@ class ExperimentCreate(BaseModel):
     independent_variable: Optional[str] = Field(default=None, max_length=500)
     primary_metric: Optional[PrimaryMetric] = None
     validation_threshold: Optional[str] = Field(default=None, max_length=200)
+    threshold_value: Optional[float] = Field(default=None, ge=0)
+    threshold_type: Optional[ThresholdType] = None
+    threshold_operator: Optional[ThresholdOperator] = None
     experiment_status: ExperimentStatus = "draft"
     min_volume: Optional[int] = Field(default=None, ge=1)
+    volume_min_value: Optional[int] = Field(default=None, ge=1)
+    volume_unit: Optional[VolumeUnit] = None
 
 
 class ExperimentUpdate(BaseModel):
@@ -92,8 +103,13 @@ class ExperimentUpdate(BaseModel):
     independent_variable: Optional[str] = Field(default=None, max_length=500)
     primary_metric: Optional[PrimaryMetric] = None
     validation_threshold: Optional[str] = Field(default=None, max_length=200)
+    threshold_value: Optional[float] = Field(default=None, ge=0)
+    threshold_type: Optional[ThresholdType] = None
+    threshold_operator: Optional[ThresholdOperator] = None
     experiment_status: Optional[ExperimentStatus] = None
     min_volume: Optional[int] = Field(default=None, ge=1)
+    volume_min_value: Optional[int] = Field(default=None, ge=1)
+    volume_unit: Optional[VolumeUnit] = None
 
 
 class ExperimentOut(BaseModel):
@@ -109,8 +125,13 @@ class ExperimentOut(BaseModel):
     independent_variable: Optional[str] = None
     primary_metric: Optional[str] = None
     validation_threshold: Optional[str] = None
+    threshold_value: Optional[float] = None
+    threshold_type: Optional[str] = None
+    threshold_operator: Optional[str] = None
     experiment_status: str = "draft"
     min_volume: Optional[int] = None
+    volume_min_value: Optional[int] = None
+    volume_unit: Optional[str] = None
 
 
 class ExperimentEvaluation(BaseModel):
@@ -118,8 +139,13 @@ class ExperimentEvaluation(BaseModel):
     primary_metric: Optional[str] = None
     aggregated_value: Optional[float] = None
     threshold_raw: Optional[str] = None
+    threshold_value: Optional[float] = None
+    threshold_type: Optional[str] = None
+    threshold_operator: Optional[str] = None
     total_volume: int = 0
     min_volume: Optional[int] = None
+    volume_min_value: Optional[int] = None
+    volume_unit: Optional[str] = None
     volume_sufficient: bool = False
     all_records_closed: bool = False
     ready_to_evaluate: bool = False
