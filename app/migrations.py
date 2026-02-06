@@ -30,6 +30,7 @@ def ensure_schema() -> None:
         ("threshold_value", "FLOAT"),
         ("threshold_type", "VARCHAR(30)"),
         ("threshold_operator", "VARCHAR(5)"),
+        ("rate_base_unit", "VARCHAR(30)"),
         ("experiment_status", "VARCHAR(30) NOT NULL DEFAULT 'draft'"),
         ("min_volume", "INTEGER"),
         ("volume_min_value", "INTEGER"),
@@ -42,6 +43,7 @@ def ensure_schema() -> None:
 
     record_columns = [
         ("execution_type", "VARCHAR(30)"),
+        ("record_name", "VARCHAR(200)"),
         ("hook_text", "TEXT"),
         ("hook_type", "VARCHAR(30)"),
         ("cta_text", "TEXT"),

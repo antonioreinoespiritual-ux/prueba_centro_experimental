@@ -145,6 +145,27 @@
               <option value="decimal">decimal</option>
             </select>
           </div>
+          <label>Base % (denominador)</label>
+          <select id="rate_base_unit">
+            <option value="">-- usar volumen minimo --</option>
+            <option value="ctr">CTR</option>
+            <option value="cpc">CPC</option>
+            <option value="initiate_checkout_rate">Initiate Checkout Rate</option>
+            <option value="view_content_rate">View Content Rate</option>
+            <option value="lead_rate">Lead Rate</option>
+            <option value="purchase_rate">Purchase Rate</option>
+            <option value="views">Views</option>
+            <option value="likes">Likes</option>
+            <option value="comments">Comments</option>
+            <option value="shares">Shares</option>
+            <option value="saves">Saves</option>
+            <option value="views_finish_pct">Views Finish %</option>
+            <option value="retention_pct">Retention %</option>
+            <option value="avg_watch_time">Avg Watch Time</option>
+            <option value="live_viewers_peak">Live Peak Viewers</option>
+            <option value="live_avg_viewers">Live Avg Viewers</option>
+            <option value="live_new_followers">Live New Followers</option>
+          </select>
         </div>
         <div>
           <label>Volumen Minimo</label>
@@ -228,6 +249,8 @@
 
       <label>Session id / Live id</label>
       <input id="live_session_id" placeholder="l-001" />
+      <label>Nombre del record</label>
+      <input id="live_record_name" placeholder="Live A / Variante 1" />
 
       <hr class="divider">
       <p class="small" style="margin:0 0 6px 0; font-weight:600;">CREATIVE / EJECUCION</p>
@@ -324,6 +347,8 @@
 
       <label>Session id / Video id</label>
       <input id="organic_session_id" placeholder="s-001" />
+      <label>Nombre del record</label>
+      <input id="organic_record_name" placeholder="Orgánico A / Variante 1" />
 
       <hr class="divider">
       <p class="small" style="margin:0 0 6px 0; font-weight:600;">CREATIVE / EJECUCION</p>
@@ -445,6 +470,8 @@
 
       <label>Session id / Ad id</label>
       <input id="paid_session_id" placeholder="p-001" />
+      <label>Nombre del record</label>
+      <input id="paid_record_name" placeholder="Paid A / Variante 1" />
 
       <hr class="divider">
       <p class="small" style="margin:0 0 6px 0; font-weight:600;">CREATIVE / EJECUCION</p>
@@ -589,6 +616,10 @@
 
     <div id="updFields" style="display:none; margin-top:12px;">
       <div class="grid4">
+        <div>
+          <label>Nombre del record</label>
+          <input id="upd_record_name" type="text" />
+        </div>
         <div>
           <label>Clicks</label>
           <input id="upd_clicks" type="number" />
@@ -807,6 +838,7 @@
         threshold_operator: $("threshold_operator").value || null,
         threshold_value: asFloatOrNull($("threshold_value").value),
         threshold_type: $("threshold_type").value || null,
+        rate_base_unit: $("rate_base_unit").value || null,
         volume_min_value: asIntOrNull($("volume_min_value").value),
         volume_unit: $("volume_unit").value || null,
         experiment_status: "draft",
@@ -819,6 +851,7 @@
       $("primary_metric").value = "";
       $("threshold_operator").value = "";
       $("threshold_type").value = "";
+      $("rate_base_unit").value = "";
       $("volume_unit").value = "";
       $("traffic_type").value = "paid";
     } catch(e){
@@ -836,6 +869,7 @@
       const body = {
         experiment_id: expId,
         session_id: $("organic_session_id").value.trim(),
+        record_name: $("organic_record_name").value.trim() || null,
         clicks: asIntOrNull($("organic_clicks").value),
         views: asIntOrNull($("organic_views").value),
         initiate_checkouts: asIntOrNull($("organic_initiate_checkouts").value),
@@ -863,7 +897,7 @@
 
       await apiPost("/records/", body);
 
-      ["organic_session_id","organic_clicks","organic_views","organic_initiate_checkouts",
+      ["organic_session_id","organic_record_name","organic_clicks","organic_views","organic_initiate_checkouts",
        "organic_view_content","organic_lead_form","organic_purchase","organic_piece_type",
        "organic_likes","organic_comments","organic_shares","organic_saves",
        "organic_video_url","organic_views_finish_pct","organic_retention_pct",
@@ -890,6 +924,7 @@
       const body = {
         experiment_id: expId,
         session_id: $("live_session_id").value.trim(),
+        record_name: $("live_record_name").value.trim() || null,
         clicks: asIntOrNull($("live_clicks").value),
         views: asIntOrNull($("live_views").value),
         live_viewers_peak: asIntOrNull($("live_viewers_peak").value),
@@ -913,7 +948,7 @@
 
       await apiPost("/records/", body);
 
-      ["live_session_id","live_clicks","live_views","live_viewers_peak",
+      ["live_session_id","live_record_name","live_clicks","live_views","live_viewers_peak",
        "live_avg_viewers","live_duration","live_new_followers",
        "live_likes","live_comments","live_shares","live_saves",
        "live_hook_text","live_cta_text","live_creative_id"
@@ -938,6 +973,7 @@
       const body = {
         experiment_id: expId,
         session_id: $("paid_session_id").value.trim(),
+        record_name: $("paid_record_name").value.trim() || null,
         clicks: asIntOrNull($("paid_clicks").value),
         views: asIntOrNull($("paid_views").value),
         initiate_checkouts: asIntOrNull($("paid_initiate_checkouts").value),
@@ -963,7 +999,7 @@
 
       await apiPost("/records/", body);
 
-      ["paid_session_id","paid_clicks","paid_views","paid_initiate_checkouts",
+      ["paid_session_id","paid_record_name","paid_clicks","paid_views","paid_initiate_checkouts",
        "paid_view_content","paid_lead","paid_purchase","paid_cpc","paid_ctr",
        "paid_video_duration","paid_campaign_id","paid_ad_set_id","paid_ad_id",
        "paid_hook_text","paid_cta_text","paid_creative_id"
@@ -1017,6 +1053,7 @@
       const statusClass = rec.record_status === "closed" ? "color:#991b1b;" : "color:#065f46;";
       $("updRecordMeta").innerHTML =
         `<strong>Record #${rec.id}</strong> | Session: ${rec.session_id} | ` +
+        (rec.record_name ? `Nombre: "${rec.record_name}" | ` : "") +
         `Status: <span style="${statusClass}font-weight:600;">${rec.record_status}</span> | ` +
         `Experiment: ${rec.experiment_id} | ` +
         (rec.hook_text ? `Hook: "${rec.hook_text}" | ` : "") +
@@ -1026,7 +1063,7 @@
 
       // Fill fields with current values
       const fields = [
-        "clicks","views","initiate_checkouts","view_content","lead_form","purchase",
+        "record_name","clicks","views","initiate_checkouts","view_content","lead_form","purchase",
         "likes","comments","shares","saves",
         "live_viewers_peak","live_avg_viewers","live_duration","live_new_followers",
         "ctr","cpc","views_finish_pct","retention_pct","avg_watch_time","video_duration"
@@ -1050,6 +1087,7 @@
 
       const body = {};
       const fields = [
+        ["record_name", (v) => v.trim() || null],
         ["clicks", asIntOrNull], ["views", asIntOrNull],
         ["initiate_checkouts", asIntOrNull], ["view_content", asIntOrNull],
         ["lead_form", asIntOrNull], ["purchase", asIntOrNull],

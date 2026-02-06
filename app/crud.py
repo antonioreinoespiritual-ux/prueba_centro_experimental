@@ -25,6 +25,7 @@ def create_experiment(db: Session, data: schemas.ExperimentCreate):
         threshold_value=data.threshold_value,
         threshold_type=data.threshold_type,
         threshold_operator=data.threshold_operator,
+        rate_base_unit=data.rate_base_unit,
         experiment_status=data.experiment_status or "draft",
         min_volume=data.min_volume,
         volume_min_value=data.volume_min_value,
@@ -120,6 +121,7 @@ def create_record(db: Session, data: schemas.RecordCreate):
 
         # creative / execution
         execution_type=data.execution_type,
+        record_name=(data.record_name or "").strip() or None,
         hook_text=hook_text,
         hook_type=data.hook_type,
         cta_text=cta_text,
@@ -296,6 +298,33 @@ def _compute_volume_total(records: list[models.ExperimentRecord], volume_unit: s
     return total
 
 
+def _is_rate_metric(metric: str) -> bool:
+    return metric.endswith("_rate") or metric in {"ctr"}
+
+
+def _is_percentage_metric(metric: str) -> bool:
+    return metric in {"views_finish_pct", "retention_pct"}
+
+
+def _is_average_metric(metric: str) -> bool:
+    return metric in {"avg_watch_time"}
+
+
+def _is_count_metric(metric: str) -> bool:
+    if _is_rate_metric(metric) or _is_percentage_metric(metric) or _is_average_metric(metric):
+        return False
+    return metric in {
+        "views",
+        "likes",
+        "comments",
+        "shares",
+        "saves",
+        "live_viewers_peak",
+        "live_avg_viewers",
+        "live_new_followers",
+    }
+
+
 def evaluate_experiment(db: Session, experiment_id: int) -> schemas.ExperimentEvaluation:
     """Evaluate a hypothesis by aggregating all its records and comparing to threshold."""
     exp = get_experiment(db, experiment_id)
@@ -324,17 +353,35 @@ def evaluate_experiment(db: Session, experiment_id: int) -> schemas.ExperimentEv
         op = exp.threshold_operator
         threshold_val = exp.threshold_value
         threshold_type = exp.threshold_type
-        if op and threshold_val is not None and threshold_type:
-            if op == ">=" and aggregated_value >= threshold_val:
-                suggested_status = "validated"
-            elif op == ">" and aggregated_value > threshold_val:
-                suggested_status = "validated"
-            elif op == "<=" and aggregated_value <= threshold_val:
-                suggested_status = "validated"
-            elif op == "<" and aggregated_value < threshold_val:
-                suggested_status = "validated"
-            else:
-                suggested_status = "invalidated"
+        metric = exp.primary_metric
+        if op and threshold_val is not None and threshold_type and metric:
+            compare_value = None
+            if threshold_type == "percentage":
+                if _is_rate_metric(metric) or _is_percentage_metric(metric):
+                    compare_value = aggregated_value
+                elif _is_count_metric(metric):
+                    base_unit = exp.rate_base_unit or exp.volume_unit
+                    base_total = _compute_volume_total(records, base_unit)
+                    if base_total > 0:
+                        compare_value = (aggregated_value / base_total) * 100
+            elif threshold_type == "absolute":
+                if _is_count_metric(metric):
+                    compare_value = aggregated_value
+            elif threshold_type == "decimal":
+                if not _is_rate_metric(metric) and not _is_percentage_metric(metric):
+                    compare_value = aggregated_value
+
+            if compare_value is not None:
+                if op == ">=" and compare_value >= threshold_val:
+                    suggested_status = "validated"
+                elif op == ">" and compare_value > threshold_val:
+                    suggested_status = "validated"
+                elif op == "<=" and compare_value <= threshold_val:
+                    suggested_status = "validated"
+                elif op == "<" and compare_value < threshold_val:
+                    suggested_status = "validated"
+                else:
+                    suggested_status = "invalidated"
 
     return schemas.ExperimentEvaluation(
         experiment_id=experiment_id,
@@ -344,6 +391,7 @@ def evaluate_experiment(db: Session, experiment_id: int) -> schemas.ExperimentEv
         threshold_value=exp.threshold_value,
         threshold_type=exp.threshold_type,
         threshold_operator=exp.threshold_operator,
+        rate_base_unit=exp.rate_base_unit,
         total_volume=volume_total,
         min_volume=exp.min_volume,
         volume_min_value=exp.volume_min_value,

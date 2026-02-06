@@ -56,6 +56,8 @@ ThresholdType = Literal["percentage", "absolute", "decimal"]
 
 ThresholdOperator = Literal[">=", "<=", ">", "<"]
 
+RateBaseUnit = PrimaryMetric
+
 ExecutionType = Literal["organic_video", "paid_ad", "live_session"]
 
 HookType = Literal[
@@ -91,6 +93,7 @@ class ExperimentCreate(BaseModel):
     threshold_value: Optional[float] = Field(default=None, ge=0)
     threshold_type: Optional[ThresholdType] = None
     threshold_operator: Optional[ThresholdOperator] = None
+    rate_base_unit: Optional[RateBaseUnit] = None
     experiment_status: ExperimentStatus = "draft"
     min_volume: Optional[int] = Field(default=None, ge=1)
     volume_min_value: Optional[int] = Field(default=None, ge=1)
@@ -106,6 +109,7 @@ class ExperimentUpdate(BaseModel):
     threshold_value: Optional[float] = Field(default=None, ge=0)
     threshold_type: Optional[ThresholdType] = None
     threshold_operator: Optional[ThresholdOperator] = None
+    rate_base_unit: Optional[RateBaseUnit] = None
     experiment_status: Optional[ExperimentStatus] = None
     min_volume: Optional[int] = Field(default=None, ge=1)
     volume_min_value: Optional[int] = Field(default=None, ge=1)
@@ -128,6 +132,7 @@ class ExperimentOut(BaseModel):
     threshold_value: Optional[float] = None
     threshold_type: Optional[str] = None
     threshold_operator: Optional[str] = None
+    rate_base_unit: Optional[str] = None
     experiment_status: str = "draft"
     min_volume: Optional[int] = None
     volume_min_value: Optional[int] = None
@@ -142,6 +147,7 @@ class ExperimentEvaluation(BaseModel):
     threshold_value: Optional[float] = None
     threshold_type: Optional[str] = None
     threshold_operator: Optional[str] = None
+    rate_base_unit: Optional[str] = None
     total_volume: int = 0
     min_volume: Optional[int] = None
     volume_min_value: Optional[int] = None
@@ -199,6 +205,7 @@ class RecordCreate(BaseModel):
 
     # creative / execution fields (new)
     execution_type: Optional[ExecutionType] = None
+    record_name: Optional[str] = Field(default=None, max_length=200)
     hook_text: Optional[str] = Field(default=None, max_length=2000)
     hook_type: Optional[HookType] = None
     cta_text: Optional[str] = Field(default=None, max_length=500)
@@ -234,6 +241,7 @@ class RecordUpdate(BaseModel):
     live_new_followers: Optional[int] = Field(default=None, ge=0)
 
     hook_text: Optional[str] = Field(default=None, max_length=2000)
+    record_name: Optional[str] = Field(default=None, max_length=200)
     hook_type: Optional[HookType] = None
     cta_text: Optional[str] = Field(default=None, max_length=500)
     cta_type: Optional[CtaType] = None
@@ -280,6 +288,7 @@ class RecordOut(BaseModel):
 
     # creative / execution fields (new)
     execution_type: Optional[str] = None
+    record_name: Optional[str] = None
     hook_text: Optional[str] = None
     hook_type: Optional[str] = None
     cta_text: Optional[str] = None
