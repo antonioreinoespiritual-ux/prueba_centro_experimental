@@ -1,0 +1,466 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Lista de récords — Centro Experimental</title>
+  <style>
+    :root { --border:#e5e5e5; --muted:#6b7280; --primary:#111; --accent:#3b82f6; --success:#10b981; --warn:#f59e0b; --danger:#ef4444; --gradient-1:linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+    * { transition: all 0.2s ease; }
+    body { font-family: system-ui, -apple-system, Arial; margin: 24px; max-width: 1400px; background: linear-gradient(to bottom, #fafafa, #ffffff); min-height: 100vh; }
+    .top { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap; }
+    .card { border: 2px solid var(--border); padding: 24px; border-radius: 20px; background: #fff; box-shadow: 0 4px 20px rgba(0,0,0,0.06); }
+    .card:hover { box-shadow: 0 8px 30px rgba(0,0,0,0.1); border-color: var(--accent); }
+    .small { font-size: 12px; color: var(--muted); }
+    .filters { display:grid; grid-template-columns: repeat(4,1fr); gap: 12px; }
+    @media (max-width: 980px){ .filters{ grid-template-columns: 1fr; } }
+    label { display:block; font-size: 12px; color: var(--muted); margin-top: 10px; }
+    select, input, button { width:100%; padding:12px; margin-top:6px; box-sizing:border-box; border: 2px solid var(--border); border-radius: 12px; font-size: 14px; }
+    select:focus, input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 4px rgba(59,130,246,0.1); }
+    button { cursor:pointer; background: var(--gradient-1); color:#fff; font-weight: 600; border: none; box-shadow: 0 4px 12px rgba(102,126,234,0.3); }
+    button.secondary { background:#fff; color:#111; border: 2px solid var(--border); box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+    button.secondary:hover { background:#f7f7f7; border-color: var(--accent); }
+    .pill { display:inline-block; padding: 2px 8px; border:1px solid var(--border); border-radius: 999px; font-size: 12px; color: var(--muted); }
+    .pill.collecting { background: #dbeafe; border-color: #93c5fd; color: #1e40af; }
+    .pill.closed { background: #e5e7eb; border-color: #9ca3af; color: #4b5563; }
+    .pill.paid { background: #dbeafe; border-color: #93c5fd; color: #1e40af; }
+    .pill.organic { background: #d1fae5; border-color: #6ee7b7; color: #065f46; }
+    .pill.live { background: #fce7f3; border-color: #f9a8d4; color: #831843; }
+    .pill.mixed { background: #fef3c7; border-color: #fcd34d; color: #92400e; }
+    table { width:100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { border-bottom: 1px solid #ddd; padding: 8px; text-align: left; font-size: 13px; vertical-align: top; }
+    th { font-size: 12px; color: var(--muted); font-weight: 600; background: #f9fafb; position: sticky; top: 0; }
+    tr:hover { background: #f9fafb; }
+    .row { display:grid; grid-template-columns: 1.1fr 0.9fr; gap: 16px; margin-top: 16px; }
+    @media (max-width: 1100px){ .row{ grid-template-columns: 1fr; } }
+    .stat { display:flex; flex-direction:column; gap:4px; padding:12px; border-radius:12px; border:1px solid var(--border); background:#fff; }
+    .stat .label { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px; }
+    .stat .value { font-size:16px; font-weight:650; }
+    .grid-3 { display:grid; grid-template-columns: repeat(3,1fr); gap:12px; }
+    @media (max-width: 980px){ .grid-3{ grid-template-columns: 1fr; } }
+    a.btnlink{ display:inline-block; padding:10px 12px; border-radius:10px; border:1px solid var(--border); text-decoration:none; color:#111; background:#fff; font-weight: 500; }
+    a.btnlink:hover{ background:#f7f7f7; transform: translateY(-1px); box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+  </style>
+</head>
+<body>
+  <div class="top">
+    <div>
+      <h1 style="margin:0; background: var(--gradient-1); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">Lista de récords</h1>
+      <p class="small" style="margin:6px 0 0 0;">
+        Backend: <code id="apiBase"></code>
+      </p>
+    </div>
+    <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+      <a class="btnlink" href="/">Volver a formularios</a>
+      <a class="btnlink" href="/static/dashboard.html">Dashboard</a>
+      <button id="btnReload" class="secondary" style="max-width:220px;">Recargar</button>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:14px;">
+    <h2 style="margin:0;">Filtros completos</h2>
+    <div class="filters">
+      <div>
+        <label>Buscar (session, record name, hook, cta)</label>
+        <input id="f_search" placeholder="texto libre..." />
+      </div>
+      <div>
+        <label>Experimento</label>
+        <select id="f_experiment"></select>
+      </div>
+      <div>
+        <label>Canal</label>
+        <select id="f_traffic">
+          <option value="">todos</option>
+          <option value="paid">paid</option>
+          <option value="organic">organic</option>
+          <option value="live">live</option>
+          <option value="mixed">mixed</option>
+        </select>
+      </div>
+      <div>
+        <label>Status record</label>
+        <select id="f_status">
+          <option value="">todos</option>
+          <option value="collecting">collecting</option>
+          <option value="closed">closed</option>
+        </select>
+      </div>
+      <div>
+        <label>Execution type</label>
+        <select id="f_execution">
+          <option value="">todos</option>
+          <option value="organic_video">organic_video</option>
+          <option value="paid_ad">paid_ad</option>
+          <option value="live_session">live_session</option>
+        </select>
+      </div>
+      <div>
+        <label>Rango fecha (desde)</label>
+        <input id="f_from" type="date" />
+      </div>
+      <div>
+        <label>Rango fecha (hasta)</label>
+        <input id="f_to" type="date" />
+      </div>
+      <div>
+        <label>Min clicks</label>
+        <input id="f_clicks_min" type="number" />
+      </div>
+      <div>
+        <label>Max clicks</label>
+        <input id="f_clicks_max" type="number" />
+      </div>
+      <div>
+        <label>Min views</label>
+        <input id="f_views_min" type="number" />
+      </div>
+      <div>
+        <label>Max views</label>
+        <input id="f_views_max" type="number" />
+      </div>
+      <div>
+        <label>Min purchase</label>
+        <input id="f_purchase_min" type="number" />
+      </div>
+      <div>
+        <label>Max purchase</label>
+        <input id="f_purchase_max" type="number" />
+      </div>
+      <div>
+        <label>Orden</label>
+        <select id="f_sort">
+          <option value="created_desc">Created ↓</option>
+          <option value="created_asc">Created ↑</option>
+          <option value="clicks_desc">Clicks ↓</option>
+          <option value="views_desc">Views ↓</option>
+          <option value="purchase_desc">Purchase ↓</option>
+        </select>
+      </div>
+      <div>
+        <label>Limite</label>
+        <input id="f_limit" type="number" value="5000" />
+      </div>
+    </div>
+    <div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap;">
+      <button id="btnApplyFilters" style="max-width:200px;">Aplicar filtros</button>
+      <button id="btnClearFilters" class="secondary" style="max-width:200px;">Limpiar</button>
+      <span class="small" id="resultCount"></span>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="card">
+      <h2 style="margin:0;">Tabla de récords</h2>
+      <div class="small">Haz clic en un récord para ver el detalle.</div>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Experimento</th>
+              <th>Record</th>
+              <th>Status</th>
+              <th>Canal</th>
+              <th>Clicks</th>
+              <th>Views</th>
+              <th>Purchase</th>
+              <th>Created</th>
+            </tr>
+          </thead>
+          <tbody id="tblRecords"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2 style="margin:0;">Tarjeta del récord</h2>
+      <div id="recordEmpty" class="small" style="margin-top:8px;">Selecciona un récord para ver el detalle completo.</div>
+      <div id="recordCard" style="display:none; margin-top:12px;">
+        <div class="grid-3">
+          <div class="stat">
+            <div class="label">Record</div>
+            <div class="value" id="cardRecordName">—</div>
+            <div class="small" id="cardRecordMeta"></div>
+          </div>
+          <div class="stat">
+            <div class="label">Experimento</div>
+            <div class="value" id="cardExperiment">—</div>
+            <div class="small" id="cardExperimentMeta"></div>
+          </div>
+          <div class="stat">
+            <div class="label">Estado</div>
+            <div class="value" id="cardStatus">—</div>
+            <div class="small" id="cardStatusMeta"></div>
+          </div>
+        </div>
+        <div class="grid-3" style="margin-top:12px;">
+          <div class="stat">
+            <div class="label">Clicks / Views</div>
+            <div class="value" id="cardTraffic">—</div>
+            <div class="small" id="cardTrafficMeta"></div>
+          </div>
+          <div class="stat">
+            <div class="label">Funnel</div>
+            <div class="value" id="cardFunnel">—</div>
+            <div class="small" id="cardFunnelMeta"></div>
+          </div>
+          <div class="stat">
+            <div class="label">Creative</div>
+            <div class="value" id="cardCreative">—</div>
+            <div class="small" id="cardCreativeMeta"></div>
+          </div>
+        </div>
+        <div class="grid-3" style="margin-top:12px;">
+          <div class="stat">
+            <div class="label">Video</div>
+            <div class="value" id="cardVideo">—</div>
+            <div class="small" id="cardVideoMeta"></div>
+          </div>
+          <div class="stat">
+            <div class="label">Live</div>
+            <div class="value" id="cardLive">—</div>
+            <div class="small" id="cardLiveMeta"></div>
+          </div>
+          <div class="stat">
+            <div class="label">IDs campaña</div>
+            <div class="value" id="cardCampaign">—</div>
+            <div class="small" id="cardCampaignMeta"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+  const API_BASE = "";
+  const $ = (id) => document.getElementById(id);
+  $("apiBase").textContent = location.origin;
+
+  let experiments = [];
+  let records = [];
+
+  function escapeHtml(s) {
+    return String(s)
+      .replaceAll("&","&amp;").replaceAll("<","&lt;")
+      .replaceAll(">","&gt;").replaceAll('"',"&quot;");
+  }
+
+  function fmt(n){
+    if (n === null || n === undefined) return "—";
+    const x = Number(n);
+    if (!Number.isFinite(x)) return "—";
+    return Math.abs(x) >= 1000 ? x.toLocaleString("es-ES") : String(x);
+  }
+
+  function toDateOnly(dt){
+    if (!dt) return null;
+    const d = new Date(dt);
+    if (Number.isNaN(d.getTime())) return null;
+    return d.toISOString().slice(0,10);
+  }
+
+  async function apiGet(path) {
+    const r = await fetch(API_BASE + path);
+    if (!r.ok) throw new Error(await r.text());
+    return r.json();
+  }
+
+  function fillExperimentFilter(){
+    const sel = $("f_experiment");
+    sel.innerHTML = '<option value="">todos</option>';
+    for (const e of experiments){
+      const opt = document.createElement("option");
+      opt.value = String(e.id);
+      opt.textContent = `${e.id} — ${e.project_name}`;
+      sel.appendChild(opt);
+    }
+  }
+
+  function getExperimentById(id){
+    return experiments.find(e => e.id === id);
+  }
+
+  function applyFilters(){
+    let filtered = records.slice();
+
+    const search = $("f_search").value.trim().toLowerCase();
+    const expId = $("f_experiment").value;
+    const traffic = $("f_traffic").value;
+    const status = $("f_status").value;
+    const exec = $("f_execution").value;
+    const from = $("f_from").value;
+    const to = $("f_to").value;
+    const clicksMin = Number($("f_clicks_min").value);
+    const clicksMax = Number($("f_clicks_max").value);
+    const viewsMin = Number($("f_views_min").value);
+    const viewsMax = Number($("f_views_max").value);
+    const purchaseMin = Number($("f_purchase_min").value);
+    const purchaseMax = Number($("f_purchase_max").value);
+    const sort = $("f_sort").value;
+    const limit = Math.max(1, Number($("f_limit").value) || 5000);
+
+    if (expId){
+      const expIdNum = Number(expId);
+      filtered = filtered.filter(r => r.experiment_id === expIdNum);
+    }
+
+    if (traffic){
+      filtered = filtered.filter(r => (getExperimentById(r.experiment_id)?.traffic_type || "") === traffic);
+    }
+
+    if (status){
+      filtered = filtered.filter(r => r.record_status === status);
+    }
+
+    if (exec){
+      filtered = filtered.filter(r => r.execution_type === exec);
+    }
+
+    if (from){
+      filtered = filtered.filter(r => {
+        const d = toDateOnly(r.created_at);
+        return d && d >= from;
+      });
+    }
+
+    if (to){
+      filtered = filtered.filter(r => {
+        const d = toDateOnly(r.created_at);
+        return d && d <= to;
+      });
+    }
+
+    if (!Number.isNaN(clicksMin)){
+      filtered = filtered.filter(r => (r.clicks || 0) >= clicksMin);
+    }
+    if (!Number.isNaN(clicksMax)){
+      filtered = filtered.filter(r => (r.clicks || 0) <= clicksMax);
+    }
+    if (!Number.isNaN(viewsMin)){
+      filtered = filtered.filter(r => (r.views || 0) >= viewsMin);
+    }
+    if (!Number.isNaN(viewsMax)){
+      filtered = filtered.filter(r => (r.views || 0) <= viewsMax);
+    }
+    if (!Number.isNaN(purchaseMin)){
+      filtered = filtered.filter(r => (r.purchase || 0) >= purchaseMin);
+    }
+    if (!Number.isNaN(purchaseMax)){
+      filtered = filtered.filter(r => (r.purchase || 0) <= purchaseMax);
+    }
+
+    if (search){
+      filtered = filtered.filter(r => {
+        const hay = [
+          r.session_id,
+          r.record_name,
+          r.hook_text,
+          r.cta_text,
+          r.organic_piece_type,
+          r.video_url,
+        ].filter(Boolean).join(" ").toLowerCase();
+        return hay.includes(search);
+      });
+    }
+
+    filtered.sort((a,b) => {
+      if (sort === "created_asc") return String(a.created_at).localeCompare(String(b.created_at));
+      if (sort === "clicks_desc") return (b.clicks || 0) - (a.clicks || 0);
+      if (sort === "views_desc") return (b.views || 0) - (a.views || 0);
+      if (sort === "purchase_desc") return (b.purchase || 0) - (a.purchase || 0);
+      return String(b.created_at).localeCompare(String(a.created_at));
+    });
+
+    return filtered.slice(0, limit);
+  }
+
+  function renderTable(list){
+    const tbody = $("tblRecords");
+    tbody.innerHTML = "";
+    for (const r of list){
+      const exp = getExperimentById(r.experiment_id);
+      const tr = document.createElement("tr");
+      tr.style.cursor = "pointer";
+      const statusClass = r.record_status || "collecting";
+      const traffic = exp?.traffic_type || "mixed";
+      tr.innerHTML = `
+        <td>${r.id}</td>
+        <td>${r.experiment_id}</td>
+        <td>${escapeHtml(r.record_name || r.session_id)}</td>
+        <td><span class="pill ${statusClass}">${statusClass}</span></td>
+        <td><span class="pill ${traffic}">${traffic}</span></td>
+        <td>${fmt(r.clicks)}</td>
+        <td>${fmt(r.views)}</td>
+        <td>${fmt(r.purchase)}</td>
+        <td>${escapeHtml(r.created_at || "")}</td>
+      `;
+      tr.onclick = () => renderCard(r);
+      tbody.appendChild(tr);
+    }
+    $("resultCount").textContent = `${list.length} récords`;
+  }
+
+  function renderCard(r){
+    const exp = getExperimentById(r.experiment_id);
+    $("recordEmpty").style.display = "none";
+    $("recordCard").style.display = "block";
+
+    $("cardRecordName").textContent = r.record_name || r.session_id || "—";
+    $("cardRecordMeta").textContent = `Record #${r.id} · ${r.created_at || "—"}`;
+
+    $("cardExperiment").textContent = exp ? `${exp.project_name}` : "—";
+    $("cardExperimentMeta").textContent = exp ? `Hypótesis: ${exp.hypothesis_type || "—"} · Y: ${exp.primary_metric || "—"}` : "—";
+
+    const status = r.record_status || "collecting";
+    $("cardStatus").innerHTML = `<span class="pill ${status}">${status}</span>`;
+    $("cardStatusMeta").textContent = `Execution: ${r.execution_type || "—"}`;
+
+    $("cardTraffic").textContent = `${fmt(r.clicks)} / ${fmt(r.views)}`;
+    $("cardTrafficMeta").textContent = `CTR: ${r.ctr ?? "—"} · CPC: ${r.cpc ?? "—"}`;
+
+    $("cardFunnel").textContent = `${fmt(r.view_content)} / ${fmt(r.lead_form)} / ${fmt(r.initiate_checkouts)} / ${fmt(r.purchase)}`;
+    $("cardFunnelMeta").textContent = "VC / Lead / IC / Purchase";
+
+    $("cardCreative").textContent = `${r.hook_type || "—"} / ${r.cta_type || "—"}`;
+    $("cardCreativeMeta").textContent = `Hook: ${r.hook_text || "—"} · CTA: ${r.cta_text || "—"}`;
+
+    $("cardVideo").textContent = `${r.views_finish_pct ?? "—"}% / ${r.retention_pct ?? "—"}%`;
+    $("cardVideoMeta").textContent = `Avg watch: ${r.avg_watch_time ?? "—"} · Duración: ${r.video_duration ?? "—"}`;
+
+    $("cardLive").textContent = `${fmt(r.live_viewers_peak)} / ${fmt(r.live_avg_viewers)} / ${fmt(r.live_new_followers)}`;
+    $("cardLiveMeta").textContent = "Peak / Avg / New followers";
+
+    $("cardCampaign").textContent = `${r.campaign_id || "—"} / ${r.ad_set_id || "—"}`;
+    $("cardCampaignMeta").textContent = `Ad: ${r.ad_id || "—"}`;
+  }
+
+  function clearFilters(){
+    ["f_search","f_experiment","f_traffic","f_status","f_execution","f_from","f_to",
+     "f_clicks_min","f_clicks_max","f_views_min","f_views_max","f_purchase_min","f_purchase_max"
+    ].forEach(id => $(id).value = "");
+    $("f_sort").value = "created_desc";
+    $("f_limit").value = "5000";
+  }
+
+  function refresh(){
+    const filtered = applyFilters();
+    renderTable(filtered);
+  }
+
+  async function loadAll(){
+    experiments = await apiGet("/experiments/");
+    fillExperimentFilter();
+    const limit = Math.max(1, Number($("f_limit").value) || 5000);
+    records = await apiGet(`/records/?limit=${encodeURIComponent(limit)}`);
+    refresh();
+  }
+
+  $("btnApplyFilters").onclick = refresh;
+  $("btnClearFilters").onclick = () => { clearFilters(); refresh(); };
+  $("btnReload").onclick = loadAll;
+
+  loadAll().catch(err => alert(String(err)));
+</script>
+</body>
+</html>
