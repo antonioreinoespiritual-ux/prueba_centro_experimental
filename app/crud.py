@@ -269,11 +269,23 @@ def _compute_volume_total(records: list[models.ExperimentRecord], volume_unit: s
     if not volume_unit:
         return 0
     volume_field_map = {
-        "clicks": "clicks",
+        "ctr": "views",
+        "cpc": "clicks",
+        "initiate_checkout_rate": "views",
+        "view_content_rate": "views",
+        "lead_rate": "views",
+        "purchase_rate": "views",
         "views": "views",
-        "purchases": "purchase",
-        "leads": "lead_form",
-        "live_viewers": "live_viewers_peak",
+        "likes": "likes",
+        "comments": "comments",
+        "shares": "shares",
+        "saves": "saves",
+        "views_finish_pct": "views",
+        "retention_pct": "views",
+        "avg_watch_time": "views",
+        "live_viewers_peak": "live_viewers_peak",
+        "live_avg_viewers": "live_avg_viewers",
+        "live_new_followers": "live_new_followers",
     }
     field = volume_field_map.get(volume_unit)
     if not field:

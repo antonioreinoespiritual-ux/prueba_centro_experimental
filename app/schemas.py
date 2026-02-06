@@ -50,7 +50,7 @@ PrimaryMetric = Literal[
     "live_new_followers",
 ]
 
-VolumeUnit = Literal["clicks", "views", "purchases", "leads", "live_viewers"]
+VolumeUnit = PrimaryMetric
 
 ThresholdType = Literal["percentage", "absolute", "decimal"]
 

@@ -36,6 +36,16 @@ Este script:
 
 Al reiniciar, la aplicación creará automáticamente una nueva base de datos con el esquema correcto.
 
+### Opción 3: Migrar columnas nuevas sin borrar datos
+
+Si quieres conservar la base de datos actual, ejecuta la migración:
+
+```bash
+python migrate_lean_hypothesis.py
+```
+
+Esto agrega columnas nuevas (como `threshold_value` y `volume_unit`) sin perder datos.
+
 ## Cambios Realizados
 
 1. **Script de reset** (`reset_database.py`): Permite recrear la base de datos de forma segura
