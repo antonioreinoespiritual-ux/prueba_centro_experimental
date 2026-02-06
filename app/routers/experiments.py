@@ -4,7 +4,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from .. import crud, schemas
+from .. import ai, crud, schemas
 from ..database import SessionLocal
 
 router = APIRouter()
@@ -74,3 +74,21 @@ def apply_evaluation(experiment_id: int, db: Session = Depends(get_db)):
         )
     update_data = schemas.ExperimentUpdate(experiment_status=evaluation.suggested_status)
     return crud.update_experiment(db, experiment_id, update_data)
+
+
+@router.get("/{experiment_id}/analysis", response_model=schemas.ExperimentAnalysis)
+def analyze_experiment(experiment_id: int, db: Session = Depends(get_db)):
+    exp = crud.get_experiment(db, experiment_id)
+    if not exp:
+        raise HTTPException(status_code=404, detail="Experiment not found")
+    evaluation = crud.evaluate_experiment(db, experiment_id)
+    if evaluation is None:
+        raise HTTPException(status_code=404, detail="Experiment not found")
+    records = crud.get_records(db, experiment_id=experiment_id, limit=50000)
+    try:
+        analysis = ai.generate_experiment_analysis(exp, evaluation, records)
+    except ValueError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    except ai.DeepSeekError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    return schemas.ExperimentAnalysis(experiment_id=experiment_id, analysis=analysis)

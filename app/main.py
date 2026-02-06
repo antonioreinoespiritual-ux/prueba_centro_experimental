@@ -4,10 +4,12 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pathlib import Path
 
+from .config import load_env
 from .database import Base, engine
 from .migrations import ensure_schema
 from .routers import experiments, records
 
+load_env()
 ensure_schema()
 Base.metadata.create_all(bind=engine)
 
