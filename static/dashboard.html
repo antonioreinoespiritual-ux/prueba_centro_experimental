@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Dashboard — Centro Experimental</title>
   <style>
-    :root { --border:#e5e5e5; --muted:#6b7280; --bg:#ffffff; --primary:#111; --accent:#3b82f6; --gradient-1:linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+    :root { --border:#e5e5e5; --muted:#6b7280; --bg:#ffffff; --primary:#111; --accent:#3b82f6; --success:#10b981; --warn:#f59e0b; --danger:#ef4444; --gradient-1:linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
     * { transition: all 0.2s ease; }
     body { font-family: system-ui, -apple-system, Arial; margin: 24px; max-width: 1400px; background: linear-gradient(to bottom, #fafafa, #ffffff); min-height: 100vh; }
     .top { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap; }
@@ -30,6 +30,14 @@
     .kpi .t { font-size: 12px; color: var(--muted); }
     .kpi .v { font-size: 22px; font-weight: 650; margin-top: 4px; color: var(--primary); }
     .pill { display:inline-block; padding: 2px 8px; border:1px solid var(--border); border-radius: 999px; font-size: 12px; color: var(--muted); }
+    .pill.draft { background: #f3f4f6; border-color: #d1d5db; color: #6b7280; }
+    .pill.running { background: #dbeafe; border-color: #93c5fd; color: #1e40af; }
+    .pill.validated { background: #d1fae5; border-color: #6ee7b7; color: #065f46; }
+    .pill.invalidated { background: #fee2e2; border-color: #fca5a5; color: #991b1b; }
+    .pill.pivot_candidate { background: #fef3c7; border-color: #fcd34d; color: #92400e; }
+    .pill.archived { background: #e5e7eb; border-color: #9ca3af; color: #4b5563; }
+    .pill.collecting { background: #dbeafe; border-color: #93c5fd; color: #1e40af; }
+    .pill.closed { background: #e5e7eb; border-color: #9ca3af; color: #4b5563; }
     .chartWrap { border: 1px solid var(--border); border-radius: 14px; padding: 12px; position: relative; background: #fff; }
     .chartWrap:hover { border-color: var(--accent); }
     svg { width: 100%; height: 260px; display:block; }
@@ -49,25 +57,32 @@
     @keyframes dots { 0%, 20% { content: '.'; } 40% { content: '..'; } 60%, 100% { content: '...'; } }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     .fade-in { animation: fadeIn 0.3s ease; }
+    .eval-panel { margin-top:16px; padding:20px; border-radius:14px; border:2px solid var(--border); }
+    .eval-grid { display:grid; grid-template-columns: repeat(4,1fr); gap:12px; margin-top:12px; }
+    @media (max-width: 980px){ .eval-grid{ grid-template-columns: repeat(2,1fr); } }
+    .eval-item { padding:10px; border-radius:10px; background:#f9fafb; border:1px solid var(--border); }
+    .eval-item .label { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px; }
+    .eval-item .value { font-size:18px; font-weight:650; margin-top:4px; }
+    .divider { border: none; border-top: 2px solid var(--border); margin: 16px 0; }
   </style>
 </head>
 <body>
   <div class="top">
     <div>
-      <h1 style="margin:0; background: var(--gradient-1); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">📊 Dashboard Experimental</h1>
+      <h1 style="margin:0; background: var(--gradient-1); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">Dashboard Experimental</h1>
       <p class="small" style="margin:6px 0 0 0;">
         Backend: <code id="apiBase"></code> <span class="pill" id="status">listo</span>
       </p>
     </div>
     <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
       <a class="btnlink" href="/">Volver a formularios</a>
-      <a class="btnlink primary" href="/static/stats_dashboard.html">📊 Análisis Estadístico</a>
+      <a class="btnlink primary" href="/static/stats_dashboard.html">Analisis Estadistico</a>
       <button id="btnReload" class="secondary" style="max-width:220px;">Recargar datos</button>
     </div>
   </div>
 
   <div class="card fade-in" style="margin-top:14px;">
-    <h2 style="margin:0;">🔍 Filtros y Configuración</h2>
+    <h2 style="margin:0;">Filtros y Configuracion</h2>
     <div class="filters">
       <div>
         <label>Traffic</label>
@@ -84,19 +99,33 @@
         <select id="experimentFilter"></select>
       </div>
       <div>
-        <label>Máx records a cargar (performance)</label>
+        <label>Max records a cargar (performance)</label>
         <input id="limit" type="number" value="5000" />
       </div>
     </div>
 
+    <!-- Hypothesis Panel -->
     <div id="hypothesisPanel" style="margin-top:16px; padding:16px; border-radius:14px; background:linear-gradient(135deg, #667eea 0%, #764ba2 100%); color:#fff; display:none;" class="fade-in">
-      <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px;">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap;">
         <div style="flex:1;">
-          <div style="font-size:12px; opacity:0.9; margin-bottom:6px; font-weight:500;">💡 HIPÓTESIS DEL EXPERIMENTO</div>
+          <div style="font-size:12px; opacity:0.9; margin-bottom:6px; font-weight:500;">HIPOTESIS DEL EXPERIMENTO</div>
           <div id="hypothesisText" style="font-size:15px; line-height:1.5; font-weight:400;"></div>
           <div id="hypothesisProject" style="margin-top:8px; font-size:13px; opacity:0.85; font-style:italic;"></div>
         </div>
+        <div id="hypothesisMeta" style="text-align:right; min-width:200px;"></div>
       </div>
+    </div>
+
+    <!-- Evaluation Panel -->
+    <div id="evalPanel" class="eval-panel fade-in" style="display:none;">
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+        <h3 style="margin:0;">Evaluacion de Hipotesis</h3>
+        <div style="display:flex; gap:8px;">
+          <button id="btnEvaluate" class="secondary" style="max-width:200px;">Evaluar</button>
+          <button id="btnApplyEval" style="max-width:200px; background:var(--success); box-shadow: 0 4px 12px rgba(16,185,129,0.3);">Aplicar Resultado</button>
+        </div>
+      </div>
+      <div class="eval-grid" id="evalGrid"></div>
     </div>
 
     <div class="kpis" id="kpis"></div>
@@ -105,42 +134,44 @@
   <div class="row">
     <div class="chartWrap">
       <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
-        <strong>Clicks por día</strong>
+        <strong>Clicks por dia</strong>
         <span class="pill" id="rangeClicks">—</span>
       </div>
       <svg id="chartClicks" viewBox="0 0 800 260" preserveAspectRatio="none"></svg>
-      <div class="small muted">Agrupa por fecha de creación del record.</div>
+      <div class="small muted">Agrupa por fecha de creacion del record.</div>
     </div>
 
     <div class="chartWrap">
       <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
-        <strong>Embudo paid por día (VC → Lead → IC → Purchase)</strong>
+        <strong>Embudo paid por dia (VC - Lead - IC - Purchase)</strong>
         <span class="pill" id="rangeFunnel">—</span>
       </div>
       <svg id="chartFunnel" viewBox="0 0 800 260" preserveAspectRatio="none"></svg>
-      <div class="small muted">Solo suma campos paid si existen (si no, se verán en cero).</div>
+      <div class="small muted">Solo suma campos paid si existen (si no, se veran en cero).</div>
     </div>
   </div>
 
   <div class="card fade-in" style="margin-top:16px;">
     <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
-      <h2 style="margin:0;">📝 Últimos records</h2>
+      <h2 style="margin:0;">Ultimos records</h2>
       <span class="small">Muestra hasta 100 del filtro actual</span>
     </div>
+    <div style="overflow-x:auto;">
     <table>
       <thead>
         <tr>
-          <th>ID</th><th>Experiment</th><th>Traffic</th><th>Session</th><th>Clicks</th><th>Views</th>
+          <th>ID</th><th>Exp</th><th>Status</th><th>Session</th><th>Hook</th><th>CTA</th>
+          <th>Clicks</th><th>Views</th>
           <th>CTR</th><th>CPC</th><th>VC</th><th>Lead</th><th>IC</th><th>Purchase</th>
-          <th>Organic Type</th><th>Likes</th><th>Comments</th><th>Shares</th><th>Saves</th>
-          <th>Video URL</th><th>Views Finish %</th><th>Retention %</th><th>Avg Watch</th><th>Duration</th>
-          <th>Campaign ID</th><th>Ad Set ID</th><th>Ad ID</th>
+          <th>Likes</th><th>Comments</th><th>Shares</th><th>Saves</th>
+          <th>Views Finish %</th><th>Retention %</th><th>Avg Watch</th>
           <th>Live Peak</th><th>Live Avg</th><th>Live Followers</th>
-          <th>Created</th>
+          <th>Created</th><th>Updated</th>
         </tr>
       </thead>
       <tbody id="tblBody"></tbody>
     </table>
+    </div>
   </div>
 
 <script>
@@ -158,6 +189,16 @@
 
   async function apiGet(path) {
     const r = await fetch(API_BASE + path);
+    if (!r.ok) throw new Error(await r.text());
+    return r.json();
+  }
+
+  async function apiPost(path, body) {
+    const r = await fetch(API_BASE + path, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body || {}),
+    });
     if (!r.ok) throw new Error(await r.text());
     return r.json();
   }
@@ -207,7 +248,9 @@
     for (const e of filtered) {
       const opt = document.createElement("option");
       opt.value = String(e.id);
-      opt.textContent = `${e.id} — ${e.project_name} (${e.traffic_type})`;
+      const statusTag = e.experiment_status ? ` [${e.experiment_status}]` : "";
+      const varX = e.independent_variable ? ` | X: ${e.independent_variable}` : "";
+      opt.textContent = `${e.id} — ${e.project_name}${statusTag}${varX}`;
       sel.appendChild(opt);
     }
 
@@ -223,12 +266,10 @@
     let cpcSum=0, cpcN=0;
     let ctrSum=0, ctrN=0;
 
-    // Video metrics
     let viewsFinishSum=0, viewsFinishN=0;
     let retentionSum=0, retentionN=0;
     let avgWatchTimeSum=0, avgWatchTimeN=0;
 
-    // Live metrics
     let liveViewersPeakSum=0, liveViewersPeakN=0;
     let liveAvgViewersSum=0, liveAvgViewersN=0;
     let liveFollowersSum=0, liveFollowersN=0;
@@ -250,12 +291,10 @@
       if (r.cpc !== null && r.cpc !== undefined){ cpcSum += Number(r.cpc) || 0; cpcN++; }
       if (r.ctr !== null && r.ctr !== undefined){ ctrSum += Number(r.ctr) || 0; ctrN++; }
 
-      // Video metrics
       if (r.views_finish_pct !== null && r.views_finish_pct !== undefined){ viewsFinishSum += Number(r.views_finish_pct) || 0; viewsFinishN++; }
       if (r.retention_pct !== null && r.retention_pct !== undefined){ retentionSum += Number(r.retention_pct) || 0; retentionN++; }
       if (r.avg_watch_time !== null && r.avg_watch_time !== undefined){ avgWatchTimeSum += Number(r.avg_watch_time) || 0; avgWatchTimeN++; }
 
-      // Live metrics
       if (r.live_viewers_peak !== null && r.live_viewers_peak !== undefined){ liveViewersPeakSum += Number(r.live_viewers_peak) || 0; liveViewersPeakN++; }
       if (r.live_avg_viewers !== null && r.live_avg_viewers !== undefined){ liveAvgViewersSum += Number(r.live_avg_viewers) || 0; liveAvgViewersN++; }
       if (r.live_new_followers !== null && r.live_new_followers !== undefined){ liveFollowersSum += Number(r.live_new_followers) || 0; liveFollowersN++; }
@@ -263,11 +302,9 @@
 
     const ctrAvg = ctrN ? (ctrSum/ctrN) : null;
     const cpcAvg = cpcN ? (cpcSum/cpcN) : null;
-
     const viewsFinishAvg = viewsFinishN ? (viewsFinishSum/viewsFinishN) : null;
     const retentionAvg = retentionN ? (retentionSum/retentionN) : null;
     const avgWatchTimeAvg = avgWatchTimeN ? (avgWatchTimeSum/avgWatchTimeN) : null;
-
     const liveViewersPeakAvg = liveViewersPeakN ? (liveViewersPeakSum/liveViewersPeakN) : null;
     const liveAvgViewersAvg = liveAvgViewersN ? (liveAvgViewersSum/liveAvgViewersN) : null;
     const liveFollowersTotal = liveFollowersSum;
@@ -288,32 +325,32 @@
     el.innerHTML = "";
 
     const items = [
-      ["Records", fmt(k.records), "📊"],
-      ["Clicks", fmt(k.clicks), "👆"],
-      ["Views", fmt(k.views), "👁️"],
-      ["CTR avg", k.ctrAvg===null ? "" : fmtFloat(k.ctrAvg, 4), "📈"],
-      ["CPC avg", k.cpcAvg===null ? "" : fmtFloat(k.cpcAvg, 4), "💰"],
-      ["View Content", fmt(k.vc), "📱"],
-      ["Lead Form", fmt(k.lead), "📝"],
-      ["Initiate Checkouts", fmt(k.ic), "🛒"],
-      ["Purchase", fmt(k.purchase), "✅"],
-      ["Likes", fmt(k.likes), "❤️"],
-      ["Comments", fmt(k.comments), "💬"],
-      ["Shares", fmt(k.shares), "🔄"],
-      ["Saves", fmt(k.saves), "🔖"],
-      ["Views Finish %", k.viewsFinishAvg===null ? "" : fmtFloat(k.viewsFinishAvg, 2) + "%", "🎬"],
-      ["Retention %", k.retentionAvg===null ? "" : fmtFloat(k.retentionAvg, 2) + "%", "⏱️"],
-      ["Avg Watch Time", k.avgWatchTimeAvg===null ? "" : fmtFloat(k.avgWatchTimeAvg, 1) + "s", "⏳"],
-      ["Live Peak Viewers", k.liveViewersPeakAvg===null ? "" : fmt(Math.round(k.liveViewersPeakAvg)), "🔴"],
-      ["Live Avg Viewers", k.liveAvgViewersAvg===null ? "" : fmt(Math.round(k.liveAvgViewersAvg)), "👥"],
-      ["Live New Followers", fmt(k.liveFollowersTotal), "🌟"],
+      ["Records", fmt(k.records)],
+      ["Clicks", fmt(k.clicks)],
+      ["Views", fmt(k.views)],
+      ["CTR avg", k.ctrAvg===null ? "" : fmtFloat(k.ctrAvg, 4)],
+      ["CPC avg", k.cpcAvg===null ? "" : fmtFloat(k.cpcAvg, 4)],
+      ["View Content", fmt(k.vc)],
+      ["Lead Form", fmt(k.lead)],
+      ["Initiate Checkouts", fmt(k.ic)],
+      ["Purchase", fmt(k.purchase)],
+      ["Likes", fmt(k.likes)],
+      ["Comments", fmt(k.comments)],
+      ["Shares", fmt(k.shares)],
+      ["Saves", fmt(k.saves)],
+      ["Views Finish %", k.viewsFinishAvg===null ? "" : fmtFloat(k.viewsFinishAvg, 2) + "%"],
+      ["Retention %", k.retentionAvg===null ? "" : fmtFloat(k.retentionAvg, 2) + "%"],
+      ["Avg Watch Time", k.avgWatchTimeAvg===null ? "" : fmtFloat(k.avgWatchTimeAvg, 1) + "s"],
+      ["Live Peak Viewers", k.liveViewersPeakAvg===null ? "" : fmt(Math.round(k.liveViewersPeakAvg))],
+      ["Live Avg Viewers", k.liveAvgViewersAvg===null ? "" : fmt(Math.round(k.liveAvgViewersAvg))],
+      ["Live New Followers", fmt(k.liveFollowersTotal)],
     ];
 
-    for (const [t,v,emoji] of items){
-      if (!v || v === "—") continue; // Skip empty KPIs
+    for (const [t,v] of items){
+      if (!v || v === "—") continue;
       const d = document.createElement("div");
       d.className = "kpi fade-in";
-      d.innerHTML = `<div class="t">${emoji} ${escapeHtml(t)}</div><div class="v">${escapeHtml(v || "—")}</div>`;
+      d.innerHTML = `<div class="t">${escapeHtml(t)}</div><div class="v">${escapeHtml(v || "—")}</div>`;
       d.setAttribute('title', `${t}: ${v || "Sin datos"}`);
       el.appendChild(d);
     }
@@ -322,7 +359,6 @@
   function isoDay(dt){
     const d = new Date(dt);
     if (Number.isNaN(d.getTime())) return null;
-    // YYYY-MM-DD
     const y = d.getFullYear();
     const m = String(d.getMonth()+1).padStart(2,"0");
     const da = String(d.getDate()).padStart(2,"0");
@@ -368,7 +404,7 @@
       return;
     }
 
-    $(labelElId).textContent = `${series[0].day} → ${series[series.length-1].day}`;
+    $(labelElId).textContent = `${series[0].day} - ${series[series.length-1].day}`;
 
     const W = 800, H = 260;
     const padL=44, padR=10, padT=10, padB=28;
@@ -378,12 +414,10 @@
     const maxV = Math.max(...series.map(s=>s.val), 1);
     const barW = innerW / series.length;
 
-    // Create tooltip
     const tooltip = document.createElement('div');
     tooltip.className = 'tooltip';
     svg.parentElement.appendChild(tooltip);
 
-    // axis baseline
     const base = document.createElementNS("http://www.w3.org/2000/svg","line");
     base.setAttribute("x1", padL);
     base.setAttribute("y1", padT+innerH);
@@ -392,7 +426,6 @@
     base.setAttribute("stroke", "#ddd");
     svg.appendChild(base);
 
-    // bars with hover effect
     for (let i=0;i<series.length;i++){
       const v = series[i].val;
       const h = (v/maxV) * innerH;
@@ -407,7 +440,6 @@
       rect.setAttribute("fill", "#111");
       rect.style.cursor = "pointer";
 
-      // Interactive hover
       rect.addEventListener("mouseenter", (e) => {
         rect.setAttribute("fill", "#3b82f6");
         tooltip.textContent = `${series[i].day}: ${fmt(v)} clicks`;
@@ -428,37 +460,27 @@
       svg.appendChild(rect);
     }
 
-    // y labels (min + max)
     const tMax = document.createElementNS("http://www.w3.org/2000/svg","text");
-    tMax.setAttribute("x", 6);
-    tMax.setAttribute("y", 18);
-    tMax.setAttribute("font-size", "12");
-    tMax.setAttribute("fill", "#6b7280");
+    tMax.setAttribute("x", 6); tMax.setAttribute("y", 18);
+    tMax.setAttribute("font-size", "12"); tMax.setAttribute("fill", "#6b7280");
     tMax.textContent = String(maxV);
     svg.appendChild(tMax);
 
     const tMin = document.createElementNS("http://www.w3.org/2000/svg","text");
-    tMin.setAttribute("x", 6);
-    tMin.setAttribute("y", padT+innerH);
-    tMin.setAttribute("font-size", "12");
-    tMin.setAttribute("fill", "#6b7280");
+    tMin.setAttribute("x", 6); tMin.setAttribute("y", padT+innerH);
+    tMin.setAttribute("font-size", "12"); tMin.setAttribute("fill", "#6b7280");
     tMin.textContent = "0";
     svg.appendChild(tMin);
 
-    // x labels (first/last)
     const t1 = document.createElementNS("http://www.w3.org/2000/svg","text");
-    t1.setAttribute("x", padL);
-    t1.setAttribute("y", H-8);
-    t1.setAttribute("font-size", "12");
-    t1.setAttribute("fill", "#6b7280");
+    t1.setAttribute("x", padL); t1.setAttribute("y", H-8);
+    t1.setAttribute("font-size", "12"); t1.setAttribute("fill", "#6b7280");
     t1.textContent = series[0].day;
     svg.appendChild(t1);
 
     const t2 = document.createElementNS("http://www.w3.org/2000/svg","text");
-    t2.setAttribute("x", padL+innerW-120);
-    t2.setAttribute("y", H-8);
-    t2.setAttribute("font-size", "12");
-    t2.setAttribute("fill", "#6b7280");
+    t2.setAttribute("x", padL+innerW-120); t2.setAttribute("y", H-8);
+    t2.setAttribute("font-size", "12"); t2.setAttribute("fill", "#6b7280");
     t2.textContent = series[series.length-1].day;
     svg.appendChild(t2);
   }
@@ -472,7 +494,7 @@
       return;
     }
 
-    $(labelElId).textContent = `${multi[0].day} → ${multi[multi.length-1].day}`;
+    $(labelElId).textContent = `${multi[0].day} - ${multi[multi.length-1].day}`;
 
     const fields = ["view_content", "lead_form", "initiate_checkouts", "purchase"];
     const colors = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444"];
@@ -480,22 +502,15 @@
     const W=800,H=260,padL=44,padR=10,padT=10,padB=28;
     const innerW=W-padL-padR, innerH=H-padT-padB;
 
-    const maxV = Math.max(
-      1,
-      ...multi.flatMap(d => fields.map(f => d[f] || 0))
-    );
+    const maxV = Math.max(1, ...multi.flatMap(d => fields.map(f => d[f] || 0)));
 
-    // Create tooltip
     const tooltip = document.createElement('div');
     tooltip.className = 'tooltip';
     svg.parentElement.appendChild(tooltip);
 
-    // axis baseline
     const base = document.createElementNS("http://www.w3.org/2000/svg","line");
-    base.setAttribute("x1", padL);
-    base.setAttribute("y1", padT+innerH);
-    base.setAttribute("x2", padL+innerW);
-    base.setAttribute("y2", padT+innerH);
+    base.setAttribute("x1", padL); base.setAttribute("y1", padT+innerH);
+    base.setAttribute("x2", padL+innerW); base.setAttribute("y2", padT+innerH);
     base.setAttribute("stroke", "#ddd");
     svg.appendChild(base);
 
@@ -512,7 +527,6 @@
       return d;
     }
 
-    // Draw lines
     for (let fi=0; fi<fields.length; fi++){
       const p = document.createElementNS("http://www.w3.org/2000/svg","path");
       p.setAttribute("d", pathFor(fields[fi]));
@@ -520,19 +534,11 @@
       p.setAttribute("stroke", colors[fi]);
       p.setAttribute("stroke-width", "2");
       p.style.cursor = "pointer";
-
-      p.addEventListener("mouseenter", () => {
-        p.setAttribute("stroke-width", "4");
-      });
-
-      p.addEventListener("mouseleave", () => {
-        p.setAttribute("stroke-width", "2");
-      });
-
+      p.addEventListener("mouseenter", () => { p.setAttribute("stroke-width", "4"); });
+      p.addEventListener("mouseleave", () => { p.setAttribute("stroke-width", "2"); });
       svg.appendChild(p);
     }
 
-    // Add interactive data points
     for (let fi=0; fi<fields.length; fi++){
       for (let i=0;i<multi.length;i++){
         const x = padL + i*stepX;
@@ -540,10 +546,8 @@
         const y = padT + (innerH - (v/maxV)*innerH);
 
         const circle = document.createElementNS("http://www.w3.org/2000/svg","circle");
-        circle.setAttribute("cx", x);
-        circle.setAttribute("cy", y);
-        circle.setAttribute("r", "4");
-        circle.setAttribute("fill", colors[fi]);
+        circle.setAttribute("cx", x); circle.setAttribute("cy", y);
+        circle.setAttribute("r", "4"); circle.setAttribute("fill", colors[fi]);
         circle.style.cursor = "pointer";
 
         circle.addEventListener("mouseenter", (e) => {
@@ -551,62 +555,44 @@
           tooltip.textContent = `${multi[i].day} - ${labels[fi]}: ${fmt(v)}`;
           tooltip.classList.add('show');
         });
-
         circle.addEventListener("mousemove", (e) => {
           const bounds = svg.getBoundingClientRect();
           tooltip.style.left = (e.clientX - bounds.left + 10) + 'px';
           tooltip.style.top = (e.clientY - bounds.top - 30) + 'px';
         });
-
         circle.addEventListener("mouseleave", () => {
           circle.setAttribute("r", "4");
           tooltip.classList.remove('show');
         });
-
         svg.appendChild(circle);
       }
     }
 
-    // legend with better colors
-    const legend = [
-      ["VC", colors[0]],
-      ["Lead", colors[1]],
-      ["IC", colors[2]],
-      ["Purchase", colors[3]],
-    ];
+    const legend = [["VC", colors[0]], ["Lead", colors[1]], ["IC", colors[2]], ["Purchase", colors[3]]];
     for (let i=0;i<legend.length;i++){
       const y = 18 + i*16;
       const dot = document.createElementNS("http://www.w3.org/2000/svg","circle");
-      dot.setAttribute("cx", padL+5);
-      dot.setAttribute("cy", y-5);
-      dot.setAttribute("r", 5);
-      dot.setAttribute("fill", legend[i][1]);
+      dot.setAttribute("cx", padL+5); dot.setAttribute("cy", y-5);
+      dot.setAttribute("r", 5); dot.setAttribute("fill", legend[i][1]);
       svg.appendChild(dot);
 
       const tx = document.createElementNS("http://www.w3.org/2000/svg","text");
-      tx.setAttribute("x", padL+16);
-      tx.setAttribute("y", y);
-      tx.setAttribute("font-size", "12");
-      tx.setAttribute("fill", "#374151");
+      tx.setAttribute("x", padL+16); tx.setAttribute("y", y);
+      tx.setAttribute("font-size", "12"); tx.setAttribute("fill", "#374151");
       tx.setAttribute("font-weight", "500");
       tx.textContent = legend[i][0];
       svg.appendChild(tx);
     }
 
-    // y labels
     const tMax = document.createElementNS("http://www.w3.org/2000/svg","text");
-    tMax.setAttribute("x", 6);
-    tMax.setAttribute("y", 18);
-    tMax.setAttribute("font-size", "12");
-    tMax.setAttribute("fill", "#6b7280");
+    tMax.setAttribute("x", 6); tMax.setAttribute("y", 18);
+    tMax.setAttribute("font-size", "12"); tMax.setAttribute("fill", "#6b7280");
     tMax.textContent = String(maxV);
     svg.appendChild(tMax);
 
     const tMin = document.createElementNS("http://www.w3.org/2000/svg","text");
-    tMin.setAttribute("x", 6);
-    tMin.setAttribute("y", padT+innerH);
-    tMin.setAttribute("font-size", "12");
-    tMin.setAttribute("fill", "#6b7280");
+    tMin.setAttribute("x", 6); tMin.setAttribute("y", padT+innerH);
+    tMin.setAttribute("font-size", "12"); tMin.setAttribute("fill", "#6b7280");
     tMin.textContent = "0";
     svg.appendChild(tMin);
   }
@@ -621,41 +607,35 @@
 
     for (const r of view){
       const exp = expMap.get(r.experiment_id);
-      const traffic = exp ? exp.traffic_type : "";
       const tr = document.createElement("tr");
+      const statusClass = r.record_status || "collecting";
       tr.innerHTML = `
         <td>${r.id}</td>
         <td>${r.experiment_id}</td>
-        <td>${escapeHtml(traffic)}</td>
+        <td><span class="pill ${statusClass}">${statusClass}</span></td>
         <td>${escapeHtml(r.session_id)}</td>
+        <td title="${escapeHtml(r.hook_text || '')}">${r.hook_type ? escapeHtml(r.hook_type) : ""}</td>
+        <td title="${escapeHtml(r.cta_text || '')}">${r.cta_type ? escapeHtml(r.cta_type) : ""}</td>
         <td>${fmt(r.clicks)}</td>
         <td>${fmt(r.views)}</td>
-
         <td>${r.ctr==null?"":fmtFloat(r.ctr,4)}</td>
         <td>${r.cpc==null?"":fmtFloat(r.cpc,4)}</td>
-
         <td>${fmt(r.view_content)}</td>
         <td>${fmt(r.lead_form)}</td>
         <td>${fmt(r.initiate_checkouts)}</td>
         <td>${fmt(r.purchase)}</td>
-
-        <td>${escapeHtml(r.organic_piece_type || "")}</td>
         <td>${fmt(r.likes)}</td>
         <td>${fmt(r.comments)}</td>
         <td>${fmt(r.shares)}</td>
         <td>${fmt(r.saves)}</td>
-        <td>${r.video_url ? '<a href="'+escapeHtml(r.video_url)+'" target="_blank">🔗</a>' : ""}</td>
         <td>${fmtFloat(r.views_finish_pct, 2)}</td>
         <td>${fmtFloat(r.retention_pct, 2)}</td>
         <td>${fmtFloat(r.avg_watch_time, 1)}</td>
-        <td>${fmtFloat(r.video_duration, 1)}</td>
-        <td>${escapeHtml(r.campaign_id || "")}</td>
-        <td>${escapeHtml(r.ad_set_id || "")}</td>
-        <td>${escapeHtml(r.ad_id || "")}</td>
         <td>${fmt(r.live_viewers_peak)}</td>
         <td>${fmt(r.live_avg_viewers)}</td>
         <td>${fmt(r.live_new_followers)}</td>
         <td>${escapeHtml(r.created_at)}</td>
+        <td>${r.updated_at ? escapeHtml(r.updated_at) : ""}</td>
       `;
       tb.appendChild(tr);
     }
@@ -664,19 +644,16 @@
   async function loadAll(){
     try{
       setStatus("cargando...");
-
-      // Show loading in KPIs area
       $("kpis").innerHTML = '<div class="loading" style="grid-column: 1/-1;">Cargando datos</div>';
 
       experiments = await apiGet("/experiments/");
       fillExperimentsSelect();
 
       const limit = Math.max(1, Number($("limit").value) || 5000);
-      // endpoint con limit
       records = await apiGet(`/records/?limit=${encodeURIComponent(limit)}`);
 
       await refreshView();
-      setStatus(`listo · ${records.length} records cargados`);
+      setStatus(`listo | ${records.length} records cargados`);
     } catch(e){
       setStatus("error", true);
       alert(String(e));
@@ -686,11 +663,14 @@
   function updateHypothesisPanel(){
     const expIdStr = $("experimentFilter").value;
     const panel = $("hypothesisPanel");
+    const evalPanel = $("evalPanel");
     const textEl = $("hypothesisText");
     const projectEl = $("hypothesisProject");
+    const metaEl = $("hypothesisMeta");
 
     if (!expIdStr){
       panel.style.display = "none";
+      evalPanel.style.display = "none";
       return;
     }
 
@@ -699,13 +679,102 @@
 
     if (!exp){
       panel.style.display = "none";
+      evalPanel.style.display = "none";
       return;
     }
 
-    textEl.textContent = exp.hypothesis || "Sin hipótesis definida";
+    textEl.textContent = exp.hypothesis || "Sin hipotesis definida";
     projectEl.textContent = `Proyecto: ${exp.project_name}`;
+
+    // Build meta info
+    let metaHtml = "";
+    if (exp.experiment_status) {
+      metaHtml += `<span class="pill ${exp.experiment_status}" style="color:white; border-color:rgba(255,255,255,0.5);">${exp.experiment_status}</span><br/>`;
+    }
+    if (exp.hypothesis_type) {
+      metaHtml += `<div style="font-size:12px; opacity:0.9; margin-top:6px;">Tipo: ${exp.hypothesis_type}</div>`;
+    }
+    if (exp.independent_variable) {
+      metaHtml += `<div style="font-size:12px; opacity:0.9; margin-top:4px;">X: ${escapeHtml(exp.independent_variable)}</div>`;
+    }
+    if (exp.primary_metric) {
+      metaHtml += `<div style="font-size:12px; opacity:0.9; margin-top:4px;">Y: ${exp.primary_metric}</div>`;
+    }
+    if (exp.validation_threshold) {
+      metaHtml += `<div style="font-size:12px; opacity:0.9; margin-top:4px;">Umbral: ${escapeHtml(exp.validation_threshold)}</div>`;
+    }
+    metaEl.innerHTML = metaHtml;
     panel.style.display = "block";
+
+    // Show evaluation panel if experiment has lean fields
+    if (exp.primary_metric || exp.validation_threshold) {
+      evalPanel.style.display = "block";
+    } else {
+      evalPanel.style.display = "none";
+    }
   }
+
+  // Evaluation
+  $("btnEvaluate").onclick = async () => {
+    try {
+      const expIdStr = $("experimentFilter").value;
+      if (!expIdStr) throw new Error("Selecciona un experimento.");
+
+      const ev = await apiGet(`/experiments/${expIdStr}/evaluate`);
+      const grid = $("evalGrid");
+      grid.innerHTML = "";
+
+      const items = [
+        ["Metrica", ev.primary_metric || "—"],
+        ["Valor Agregado", ev.aggregated_value !== null ? ev.aggregated_value.toFixed(4) : "—"],
+        ["Umbral", ev.threshold_raw || "—"],
+        ["Volumen Total", String(ev.total_volume)],
+        ["Volumen Minimo", ev.min_volume !== null ? String(ev.min_volume) : "—"],
+        ["Volumen Suficiente", ev.volume_sufficient ? "SI" : "NO"],
+        ["Records Collecting", String(ev.records_collecting)],
+        ["Records Closed", String(ev.records_closed)],
+        ["Todos Cerrados", ev.all_records_closed ? "SI" : "NO"],
+        ["Listo para Evaluar", ev.ready_to_evaluate ? "SI" : "NO"],
+        ["Estado Sugerido", ev.suggested_status || "—"],
+      ];
+
+      for (const [label, value] of items) {
+        const div = document.createElement("div");
+        div.className = "eval-item";
+        let valueColor = "";
+        if (value === "validated") valueColor = "color: #065f46;";
+        else if (value === "invalidated") valueColor = "color: #991b1b;";
+        else if (value === "SI") valueColor = "color: #065f46;";
+        else if (value === "NO") valueColor = "color: #991b1b;";
+        div.innerHTML = `<div class="label">${escapeHtml(label)}</div><div class="value" style="${valueColor}">${escapeHtml(value)}</div>`;
+        grid.appendChild(div);
+      }
+
+      setStatus("evaluacion completada");
+    } catch(e) {
+      setStatus("error", true);
+      alert(String(e));
+    }
+  };
+
+  $("btnApplyEval").onclick = async () => {
+    try {
+      const expIdStr = $("experimentFilter").value;
+      if (!expIdStr) throw new Error("Selecciona un experimento.");
+
+      const result = await apiPost(`/experiments/${expIdStr}/evaluate/apply`);
+      setStatus(`estado aplicado: ${result.experiment_status}`);
+
+      // Reload experiments to reflect new status
+      experiments = await apiGet("/experiments/");
+      fillExperimentsSelect();
+      $("experimentFilter").value = expIdStr;
+      updateHypothesisPanel();
+    } catch(e) {
+      setStatus("error", true);
+      alert(String(e));
+    }
+  };
 
   async function refreshView(){
     const traffic = $("trafficFilter").value;
@@ -713,10 +782,8 @@
 
     const expMap = new Map(experiments.map(e => [e.id, e]));
 
-    // Update hypothesis panel
     updateHypothesisPanel();
 
-    // Filtra records por experimento/traffic usando el experimento (join en frontend)
     let filtered = records;
 
     if (expIdStr){
@@ -734,7 +801,6 @@
     const clicksDay = groupByDaySum(filtered, "clicks");
     drawBarChart("chartClicks", clicksDay, "rangeClicks");
 
-    // Embudo paid: solo tiene sentido si traffic=paid, pero lo graficamos igual (si no hay datos, 0)
     const funnelDay = groupByDayMulti(filtered, ["view_content","lead_form","initiate_checkouts","purchase"]);
     drawFunnelLines("chartFunnel", funnelDay, "rangeFunnel");
 

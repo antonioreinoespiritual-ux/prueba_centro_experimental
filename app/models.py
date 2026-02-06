@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import String, Integer, DateTime, ForeignKey, Float
+from sqlalchemy import String, Integer, DateTime, ForeignKey, Float, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .database import Base
@@ -17,6 +17,14 @@ class Experiment(Base):
     hypothesis: Mapped[str] = mapped_column(String(5000), nullable=False)
     traffic_type: Mapped[str] = mapped_column(String(20), nullable=False)  # paid/organic/mixed/live
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+
+    # --- Lean Hypothesis fields (new) ---
+    hypothesis_type: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    independent_variable: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    primary_metric: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    validation_threshold: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    experiment_status: Mapped[str] = mapped_column(String(30), nullable=False, default="draft")
+    min_volume: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     records: Mapped[list["ExperimentRecord"]] = relationship(
         "ExperimentRecord",
@@ -69,6 +77,16 @@ class ExperimentRecord(Base):
     live_duration: Mapped[float | None] = mapped_column(Float, nullable=True)
     live_new_followers: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
+    # --- Creative / Execution fields (new) ---
+    execution_type: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    hook_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    hook_type: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    cta_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    cta_type: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    creative_id: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    record_status: Mapped[str] = mapped_column(String(20), nullable=False, default="collecting")
+
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, onupdate=datetime.utcnow)
 
     experiment: Mapped["Experiment"] = relationship("Experiment", back_populates="records")

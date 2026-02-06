@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Centro Experimental</title>
   <style>
-    :root { --border:#e5e5e5; --muted:#6b7280; --accent:#3b82f6; --success:#10b981; --gradient-1:linear-gradient(135deg, #667eea 0%, #764ba2 100%); --gradient-2:linear-gradient(135deg, #f093fb 0%, #f5576c 100%); --gradient-3:linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+    :root { --border:#e5e5e5; --muted:#6b7280; --accent:#3b82f6; --success:#10b981; --gradient-1:linear-gradient(135deg, #667eea 0%, #764ba2 100%); --gradient-2:linear-gradient(135deg, #f093fb 0%, #f5576c 100%); --gradient-3:linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); --warn:#f59e0b; --danger:#ef4444; }
     * { transition: all 0.2s ease; }
     body { font-family: system-ui, -apple-system, Arial; margin: 24px; max-width: 1400px; background: linear-gradient(to bottom, #fafafa, #ffffff); min-height: 100vh; }
     .row { display:grid; grid-template-columns: 1fr 1fr; gap: 24px; }
@@ -14,7 +14,7 @@
     label { display:block; font-size: 12px; color: var(--muted); margin-top: 10px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }
     input, select, textarea, button { width:100%; padding:12px; margin-top:6px; box-sizing:border-box; border: 2px solid var(--border); border-radius: 12px; font-size: 14px; }
     input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 4px rgba(59,130,246,0.1); }
-    textarea { min-height: 120px; resize: vertical; }
+    textarea { min-height: 100px; resize: vertical; }
     button { cursor:pointer; border: none; background: var(--gradient-1); color:#fff; font-weight: 600; box-shadow: 0 4px 12px rgba(102,126,234,0.3); }
     button:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(102,126,234,0.4); }
     button.secondary { background:#fff; color:#111; border: 2px solid var(--border); box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
@@ -31,6 +31,12 @@
     .pill.organic { background: #d1fae5; border-color: #6ee7b7; color: #065f46; }
     .pill.paid { background: #dbeafe; border-color: #93c5fd; color: #1e40af; }
     .pill.live { background: #fce7f3; border-color: #f9a8d4; color: #831843; }
+    .pill.draft { background: #f3f4f6; border-color: #d1d5db; color: #6b7280; }
+    .pill.running { background: #dbeafe; border-color: #93c5fd; color: #1e40af; }
+    .pill.validated { background: #d1fae5; border-color: #6ee7b7; color: #065f46; }
+    .pill.invalidated { background: #fee2e2; border-color: #fca5a5; color: #991b1b; }
+    .pill.pivot_candidate { background: #fef3c7; border-color: #fcd34d; color: #92400e; }
+    .pill.archived { background: #e5e7eb; border-color: #9ca3af; color: #4b5563; }
     .sectionTitle{ display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
     .hint{ font-size:12px; color:var(--muted); font-style: italic; }
     a.btnlink{ display:inline-block; padding:12px 20px; border-radius:12px; border:2px solid var(--border); text-decoration:none; color:#111; background:#fff; font-weight: 600; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
@@ -39,6 +45,8 @@
     h2 { color: #111; font-size: 20px; }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     .fade-in { animation: fadeIn 0.4s ease; }
+    .divider { border: none; border-top: 2px solid var(--border); margin: 16px 0; }
+    .tag { display:inline-block; padding:2px 8px; border-radius:6px; font-size:11px; font-weight:600; }
   </style>
 </head>
 <body>
@@ -55,74 +63,187 @@
     </div>
   </div>
 
+  <!-- ==================== CREAR EXPERIMENTO (HIPOTESIS) ==================== -->
   <div class="row" style="margin-top:18px;">
-    <!-- Crear experimento -->
     <div class="card fade-in">
       <div class="sectionTitle">
-        <h2 style="margin:0;">🧪 Crear experimento</h2>
-        <span class="hint">Define tu hipótesis y tipo</span>
+        <h2 style="margin:0;">Crear Experimento (Hipotesis)</h2>
+        <span class="hint">Una hipotesis falsable por experimento</span>
       </div>
 
-      <label>Project name</label>
-      <input id="project_name" placeholder="Atracción Inversa" />
+      <div class="grid2">
+        <div>
+          <label>Proyecto</label>
+          <input id="project_name" placeholder="Atraccion Inversa" />
+        </div>
+        <div>
+          <label>Tipo de Hipotesis</label>
+          <select id="hypothesis_type">
+            <option value="">-- seleccionar --</option>
+            <option value="acquisition">Acquisition</option>
+            <option value="activation">Activation</option>
+            <option value="retention">Retention</option>
+            <option value="monetization">Monetization</option>
+            <option value="trust_credibility">Trust / Credibility</option>
+            <option value="message_market_fit">Message-Market Fit</option>
+            <option value="channel_fit">Channel Fit</option>
+            <option value="pricing">Pricing</option>
+            <option value="funnel_friction">Funnel Friction</option>
+          </select>
+        </div>
+      </div>
 
-      <label>Hypothesis</label>
-      <textarea id="hypothesis" placeholder="Si X entonces Y..."></textarea>
+      <label>Hipotesis (Si X entonces Y...)</label>
+      <textarea id="hypothesis" placeholder="Si mostramos un test de elegibilidad antes del checkout, entonces aumentara el % de initiate checkout en trafico paid frio"></textarea>
 
-      <label>Traffic type</label>
-      <select id="traffic_type">
-        <option value="paid">paid</option>
-        <option value="organic">organic</option>
-        <option value="mixed">mixed</option>
-        <option value="live">live</option>
-      </select>
+      <div class="grid2">
+        <div>
+          <label>Variable Independiente (X)</label>
+          <input id="independent_variable" placeholder="Test previo, Promesa condicional, Checkout directo..." />
+        </div>
+        <div>
+          <label>Metrica Objetivo (Y)</label>
+          <select id="primary_metric">
+            <option value="">-- seleccionar --</option>
+            <option value="ctr">CTR</option>
+            <option value="cpc">CPC</option>
+            <option value="initiate_checkout_rate">Initiate Checkout Rate</option>
+            <option value="view_content_rate">View Content Rate</option>
+            <option value="lead_rate">Lead Rate</option>
+            <option value="purchase_rate">Purchase Rate</option>
+            <option value="views">Views</option>
+            <option value="likes">Likes</option>
+            <option value="comments">Comments</option>
+            <option value="shares">Shares</option>
+            <option value="saves">Saves</option>
+            <option value="views_finish_pct">Views Finish %</option>
+            <option value="retention_pct">Retention %</option>
+            <option value="avg_watch_time">Avg Watch Time</option>
+            <option value="live_viewers_peak">Live Peak Viewers</option>
+            <option value="live_avg_viewers">Live Avg Viewers</option>
+            <option value="live_new_followers">Live New Followers</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="grid3">
+        <div>
+          <label>Umbral de Validacion</label>
+          <input id="validation_threshold" placeholder=">= 3%" />
+        </div>
+        <div>
+          <label>Volumen Minimo</label>
+          <input id="min_volume" type="number" placeholder="500" />
+        </div>
+        <div>
+          <label>Canal Principal</label>
+          <select id="traffic_type">
+            <option value="paid">paid</option>
+            <option value="organic">organic</option>
+            <option value="mixed">mixed</option>
+            <option value="live">live</option>
+          </select>
+        </div>
+      </div>
 
       <div style="margin-top:12px;">
-        <button id="btnCreateExperiment">Crear experimento</button>
+        <button id="btnCreateExperiment">Crear Experimento</button>
       </div>
     </div>
 
     <!-- Ayuda -->
     <div class="card fade-in" style="background: var(--gradient-3); color: white; border: none;">
-      <h2 style="margin:0; color: white;">📋 Flujo de Trabajo</h2>
+      <h2 style="margin:0; color: white;">Modelo Conceptual Lean</h2>
       <p style="margin-top:10px; font-size: 14px; opacity: 0.95;">
-        1️⃣ Crea un experimento (paid, organic o live)<br/>
-        2️⃣ Registra datos desde el formulario correspondiente<br/>
-        3️⃣ Visualiza y analiza en el <strong>Dashboard</strong>
+        <strong>N0</strong> Vision / Dominio<br/>
+        <strong>N1</strong> Proyecto (linea estrategica)<br/>
+        <strong>N2</strong> Hipotesis = Experimento real<br/>
+        <strong>N3</strong> Ejecucion = Record (variante creativa)<br/>
+        <strong>N4</strong> Metricas (ya existen)
       </p>
-      <p style="font-size: 13px; opacity: 0.9; margin-top: 12px;">
-        💡 Tip: Actualiza las listas si no ves tus experimentos
+      <hr style="border-color: rgba(255,255,255,0.3); margin: 12px 0;">
+      <p style="font-size: 13px; opacity: 0.9;">
+        <strong>Regla:</strong> Cambiar X (variable independiente) = experimento nuevo.<br/>
+        Cambiar hook, CTA, edicion = record nuevo, misma hipotesis.
+      </p>
+      <hr style="border-color: rgba(255,255,255,0.3); margin: 12px 0;">
+      <p style="font-size: 13px; opacity: 0.9;">
+        <strong>Ciclo de vida del Record:</strong><br/>
+        1. Crear record al publicar ejecucion<br/>
+        2. Actualizar metricas sobre el MISMO record<br/>
+        3. Cerrar record cuando deja de recibir trafico<br/>
+        4. Evaluar hipotesis cuando records cerrados + volumen OK
       </p>
     </div>
   </div>
 
-  <!-- Forms separados -->
+  <!-- ==================== RECORDS ==================== -->
   <div class="row" style="margin-top:24px;">
     <!-- Crear record LIVE -->
     <div class="card fade-in" style="border-color: #f9a8d4;">
       <div class="sectionTitle">
-        <h2 style="margin:0;">🔴 Crear record (LIVE)</h2>
+        <h2 style="margin:0;">Crear record (LIVE)</h2>
         <span class="pill live">solo experiments: live</span>
       </div>
 
       <label>Experiment (live)</label>
       <select id="live_experiment_id"></select>
 
-      <label>Session id</label>
+      <label>Session id / Live id</label>
       <input id="live_session_id" placeholder="l-001" />
 
+      <hr class="divider">
+      <p class="small" style="margin:0 0 6px 0; font-weight:600;">CREATIVE / EJECUCION</p>
       <div class="grid2">
         <div>
-          <label>Clicks (opcional)</label>
+          <label>Hook (texto)</label>
+          <input id="live_hook_text" placeholder="Texto del hook..." />
+        </div>
+        <div>
+          <label>Hook tipo</label>
+          <select id="live_hook_type">
+            <option value="">-- opcional --</option>
+            <option value="dolor">Dolor</option>
+            <option value="amenaza_perdida">Amenaza / Perdida</option>
+            <option value="autoridad">Autoridad</option>
+            <option value="alivio">Alivio</option>
+            <option value="curiosidad">Curiosidad</option>
+            <option value="validacion_emocional">Validacion Emocional</option>
+          </select>
+        </div>
+      </div>
+      <div class="grid2">
+        <div>
+          <label>CTA (texto)</label>
+          <input id="live_cta_text" placeholder="Texto del CTA..." />
+        </div>
+        <div>
+          <label>CTA tipo</label>
+          <select id="live_cta_type">
+            <option value="">-- opcional --</option>
+            <option value="accion_directa">Accion Directa</option>
+            <option value="condicional">Condicional</option>
+            <option value="urgencia">Urgencia</option>
+            <option value="informativo">Informativo</option>
+          </select>
+        </div>
+      </div>
+      <label>Creative ID (opcional)</label>
+      <input id="live_creative_id" placeholder="live_2024_001" />
+
+      <hr class="divider">
+      <p class="small" style="margin:0 0 6px 0; font-weight:600;">METRICAS</p>
+      <div class="grid2">
+        <div>
+          <label>Clicks</label>
           <input id="live_clicks" type="number" placeholder="50" />
         </div>
         <div>
-          <label>Views (opcional)</label>
+          <label>Views</label>
           <input id="live_views" type="number" placeholder="500" />
         </div>
       </div>
 
-      <label>Métricas de Live (opcional)</label>
       <div class="grid4">
         <div>
           <label>Pico Viewers</label>
@@ -133,7 +254,7 @@
           <input id="live_avg_viewers" type="number" placeholder="180" />
         </div>
         <div>
-          <label>Duración (min)</label>
+          <label>Duracion (min)</label>
           <input id="live_duration" type="number" step="0.1" placeholder="45" />
         </div>
         <div>
@@ -142,7 +263,6 @@
         </div>
       </div>
 
-      <label>Engagement (opcional)</label>
       <div class="grid4">
         <input id="live_likes" type="number" placeholder="likes" />
         <input id="live_comments" type="number" placeholder="comments" />
@@ -155,34 +275,74 @@
       </div>
     </div>
 
-    <!-- Crear record ORGÁNICO -->
+    <!-- Crear record ORGANICO -->
     <div class="card fade-in" style="border-color: #6ee7b7;">
       <div class="sectionTitle">
-        <h2 style="margin:0;">🌱 Crear record (ORGÁNICO)</h2>
+        <h2 style="margin:0;">Crear record (ORGANICO)</h2>
         <span class="pill organic">solo experiments: organic</span>
       </div>
 
       <label>Experiment (organic)</label>
       <select id="organic_experiment_id"></select>
 
-      <label>Session id</label>
+      <label>Session id / Video id</label>
       <input id="organic_session_id" placeholder="s-001" />
 
+      <hr class="divider">
+      <p class="small" style="margin:0 0 6px 0; font-weight:600;">CREATIVE / EJECUCION</p>
       <div class="grid2">
         <div>
-          <label>Clicks (opcional)</label>
+          <label>Hook (texto)</label>
+          <input id="organic_hook_text" placeholder="Texto del hook..." />
+        </div>
+        <div>
+          <label>Hook tipo</label>
+          <select id="organic_hook_type">
+            <option value="">-- opcional --</option>
+            <option value="dolor">Dolor</option>
+            <option value="amenaza_perdida">Amenaza / Perdida</option>
+            <option value="autoridad">Autoridad</option>
+            <option value="alivio">Alivio</option>
+            <option value="curiosidad">Curiosidad</option>
+            <option value="validacion_emocional">Validacion Emocional</option>
+          </select>
+        </div>
+      </div>
+      <div class="grid2">
+        <div>
+          <label>CTA (texto)</label>
+          <input id="organic_cta_text" placeholder="Texto del CTA..." />
+        </div>
+        <div>
+          <label>CTA tipo</label>
+          <select id="organic_cta_type">
+            <option value="">-- opcional --</option>
+            <option value="accion_directa">Accion Directa</option>
+            <option value="condicional">Condicional</option>
+            <option value="urgencia">Urgencia</option>
+            <option value="informativo">Informativo</option>
+          </select>
+        </div>
+      </div>
+      <label>Creative ID (opcional)</label>
+      <input id="organic_creative_id" placeholder="vid_2024_001" />
+
+      <hr class="divider">
+      <p class="small" style="margin:0 0 6px 0; font-weight:600;">METRICAS</p>
+      <div class="grid2">
+        <div>
+          <label>Clicks</label>
           <input id="organic_clicks" type="number" placeholder="12" />
         </div>
         <div>
-          <label>Views (opcional)</label>
+          <label>Views</label>
           <input id="organic_views" type="number" placeholder="120" />
         </div>
       </div>
 
-      <label>Organic piece type (opcional)</label>
-      <input id="organic_piece_type" placeholder="tiktok_live" />
+      <label>Organic piece type</label>
+      <input id="organic_piece_type" placeholder="tiktok_video, reel, story..." />
 
-      <label>Likes / Comments / Shares / Saves (opcional)</label>
       <div class="grid4">
         <input id="organic_likes" type="number" placeholder="likes" />
         <input id="organic_comments" type="number" placeholder="comments" />
@@ -190,17 +350,16 @@
         <input id="organic_saves" type="number" placeholder="saves" />
       </div>
 
-      <label>URL del Video (opcional)</label>
+      <label>URL del Video</label>
       <input id="organic_video_url" placeholder="https://..." />
 
-      <label>Métricas de Video (opcional)</label>
       <div class="grid4">
         <div>
           <label>% Views Finish</label>
           <input id="organic_views_finish_pct" type="number" step="0.01" placeholder="75.5" />
         </div>
         <div>
-          <label>% Retención</label>
+          <label>% Retencion</label>
           <input id="organic_retention_pct" type="number" step="0.01" placeholder="68.2" />
         </div>
         <div>
@@ -208,73 +367,114 @@
           <input id="organic_avg_watch_time" type="number" step="0.1" placeholder="45.3" />
         </div>
         <div>
-          <label>Duración (seg)</label>
+          <label>Duracion (seg)</label>
           <input id="organic_video_duration" type="number" step="0.1" placeholder="60" />
         </div>
       </div>
 
       <div style="margin-top:12px;">
-        <button id="btnCreateOrganicRecord">Crear record orgánico</button>
+        <button id="btnCreateOrganicRecord">Crear record organico</button>
       </div>
     </div>
 
     <!-- Crear record PAID -->
     <div class="card fade-in" style="border-color: #93c5fd;">
       <div class="sectionTitle">
-        <h2 style="margin:0;">💰 Crear record (PAID)</h2>
+        <h2 style="margin:0;">Crear record (PAID)</h2>
         <span class="pill paid">solo experiments: paid</span>
       </div>
 
       <label>Experiment (paid)</label>
       <select id="paid_experiment_id"></select>
 
-      <label>Session id</label>
+      <label>Session id / Ad id</label>
       <input id="paid_session_id" placeholder="p-001" />
 
+      <hr class="divider">
+      <p class="small" style="margin:0 0 6px 0; font-weight:600;">CREATIVE / EJECUCION</p>
       <div class="grid2">
         <div>
-          <label>Clicks (opcional)</label>
+          <label>Hook (texto)</label>
+          <input id="paid_hook_text" placeholder="Texto del hook..." />
+        </div>
+        <div>
+          <label>Hook tipo</label>
+          <select id="paid_hook_type">
+            <option value="">-- opcional --</option>
+            <option value="dolor">Dolor</option>
+            <option value="amenaza_perdida">Amenaza / Perdida</option>
+            <option value="autoridad">Autoridad</option>
+            <option value="alivio">Alivio</option>
+            <option value="curiosidad">Curiosidad</option>
+            <option value="validacion_emocional">Validacion Emocional</option>
+          </select>
+        </div>
+      </div>
+      <div class="grid2">
+        <div>
+          <label>CTA (texto)</label>
+          <input id="paid_cta_text" placeholder="Texto del CTA..." />
+        </div>
+        <div>
+          <label>CTA tipo</label>
+          <select id="paid_cta_type">
+            <option value="">-- opcional --</option>
+            <option value="accion_directa">Accion Directa</option>
+            <option value="condicional">Condicional</option>
+            <option value="urgencia">Urgencia</option>
+            <option value="informativo">Informativo</option>
+          </select>
+        </div>
+      </div>
+      <label>Creative ID (opcional)</label>
+      <input id="paid_creative_id" placeholder="ad_2024_001" />
+
+      <hr class="divider">
+      <p class="small" style="margin:0 0 6px 0; font-weight:600;">METRICAS</p>
+      <div class="grid2">
+        <div>
+          <label>Clicks</label>
           <input id="paid_clicks" type="number" placeholder="280" />
         </div>
         <div>
-          <label>Views (opcional)</label>
+          <label>Views</label>
           <input id="paid_views" type="number" placeholder="1500" />
         </div>
       </div>
 
       <div class="grid3">
         <div>
-          <label>Initiate checkouts (opcional)</label>
+          <label>Initiate checkouts</label>
           <input id="paid_initiate_checkouts" type="number" placeholder="3" />
         </div>
         <div>
-          <label>View content (opcional)</label>
+          <label>View content</label>
           <input id="paid_view_content" type="number" placeholder="40" />
         </div>
         <div>
-          <label>Formulario lead (opcional)</label>
+          <label>Formulario lead</label>
           <input id="paid_lead" type="number" placeholder="10" />
         </div>
       </div>
 
       <div class="grid2">
         <div>
-          <label>Purchase (opcional)</label>
+          <label>Purchase</label>
           <input id="paid_purchase" type="number" placeholder="1" />
         </div>
         <div>
-          <label>CPC (opcional)</label>
+          <label>CPC</label>
           <input id="paid_cpc" type="number" step="0.0001" placeholder="0.45" />
         </div>
       </div>
 
-      <label>CTR (opcional)</label>
+      <label>CTR</label>
       <input id="paid_ctr" type="number" step="0.0001" placeholder="0.06" />
 
-      <label>Duración del Video (seg, opcional)</label>
+      <label>Duracion del Video (seg)</label>
       <input id="paid_video_duration" type="number" step="0.1" placeholder="30" />
 
-      <label>IDs de Campaña (opcional)</label>
+      <label>IDs de Campana</label>
       <div class="grid3">
         <div>
           <label>Campaign ID</label>
@@ -292,6 +492,136 @@
 
       <div style="margin-top:12px;">
         <button id="btnCreatePaidRecord">Crear record paid</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== UPDATE RECORD ==================== -->
+  <div class="card fade-in" style="margin-top:24px; border-color: var(--warn);">
+    <div class="sectionTitle">
+      <h2 style="margin:0;">Actualizar Record Existente</h2>
+      <span class="hint">Actualiza metricas sin crear record nuevo</span>
+    </div>
+    <p class="small">Los records viven y se actualizan. Selecciona un record, actualiza sus metricas, o cierralo cuando ya no reciba trafico.</p>
+
+    <div class="grid3">
+      <div>
+        <label>Experimento</label>
+        <select id="upd_experiment_id">
+          <option value="">-- seleccionar --</option>
+        </select>
+      </div>
+      <div>
+        <label>Record ID</label>
+        <input id="upd_record_id" type="number" placeholder="ID del record" />
+      </div>
+      <div>
+        <label>Accion</label>
+        <div style="display:flex; gap:8px; margin-top:6px;">
+          <button id="btnLoadRecord" class="secondary" style="flex:1;">Cargar</button>
+          <button id="btnCloseRecord" style="flex:1; background:var(--warn); box-shadow: 0 4px 12px rgba(245,158,11,0.3);">Cerrar Record</button>
+          <button id="btnReopenRecord" class="secondary" style="flex:1;">Reabrir</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="updRecordInfo" style="display:none; margin-top:12px; padding:12px; border-radius:12px; background:#f9fafb; border:1px solid var(--border);">
+      <p class="small" style="margin:0;" id="updRecordMeta"></p>
+    </div>
+
+    <div id="updFields" style="display:none; margin-top:12px;">
+      <div class="grid4">
+        <div>
+          <label>Clicks</label>
+          <input id="upd_clicks" type="number" />
+        </div>
+        <div>
+          <label>Views</label>
+          <input id="upd_views" type="number" />
+        </div>
+        <div>
+          <label>Initiate Checkouts</label>
+          <input id="upd_initiate_checkouts" type="number" />
+        </div>
+        <div>
+          <label>View Content</label>
+          <input id="upd_view_content" type="number" />
+        </div>
+      </div>
+      <div class="grid4">
+        <div>
+          <label>Lead Form</label>
+          <input id="upd_lead_form" type="number" />
+        </div>
+        <div>
+          <label>Purchase</label>
+          <input id="upd_purchase" type="number" />
+        </div>
+        <div>
+          <label>Likes</label>
+          <input id="upd_likes" type="number" />
+        </div>
+        <div>
+          <label>Comments</label>
+          <input id="upd_comments" type="number" />
+        </div>
+      </div>
+      <div class="grid4">
+        <div>
+          <label>Shares</label>
+          <input id="upd_shares" type="number" />
+        </div>
+        <div>
+          <label>Saves</label>
+          <input id="upd_saves" type="number" />
+        </div>
+        <div>
+          <label>Live Peak</label>
+          <input id="upd_live_viewers_peak" type="number" />
+        </div>
+        <div>
+          <label>Live Avg</label>
+          <input id="upd_live_avg_viewers" type="number" />
+        </div>
+      </div>
+      <div class="grid4">
+        <div>
+          <label>Live Duration</label>
+          <input id="upd_live_duration" type="number" step="0.1" />
+        </div>
+        <div>
+          <label>Live Followers</label>
+          <input id="upd_live_new_followers" type="number" />
+        </div>
+        <div>
+          <label>CTR</label>
+          <input id="upd_ctr" type="number" step="0.0001" />
+        </div>
+        <div>
+          <label>CPC</label>
+          <input id="upd_cpc" type="number" step="0.0001" />
+        </div>
+      </div>
+      <div class="grid4">
+        <div>
+          <label>Views Finish %</label>
+          <input id="upd_views_finish_pct" type="number" step="0.01" />
+        </div>
+        <div>
+          <label>Retention %</label>
+          <input id="upd_retention_pct" type="number" step="0.01" />
+        </div>
+        <div>
+          <label>Avg Watch Time</label>
+          <input id="upd_avg_watch_time" type="number" step="0.1" />
+        </div>
+        <div>
+          <label>Video Duration</label>
+          <input id="upd_video_duration" type="number" step="0.1" />
+        </div>
+      </div>
+      <div style="margin-top:12px;">
+        <button id="btnUpdateRecord">Guardar Actualizacion</button>
       </div>
     </div>
   </div>
@@ -338,6 +668,16 @@
     return r.json();
   }
 
+  async function apiPatch(path, body) {
+    const r = await fetch(API_BASE + path, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!r.ok) throw new Error(await r.text());
+    return r.json();
+  }
+
   function fillExperimentSelect(selectEl, experiments, keepValue=true) {
     const prev = keepValue ? selectEl.value : "";
     selectEl.innerHTML = "";
@@ -345,7 +685,9 @@
     for (const e of experiments) {
       const opt = document.createElement("option");
       opt.value = String(e.id);
-      opt.textContent = `${e.id} — ${e.project_name} (${e.traffic_type})`;
+      const statusTag = e.experiment_status ? ` [${e.experiment_status}]` : "";
+      const varX = e.independent_variable ? ` | X: ${e.independent_variable}` : "";
+      opt.textContent = `${e.id} — ${e.project_name}${statusTag}${varX}`;
       selectEl.appendChild(opt);
     }
 
@@ -359,7 +701,6 @@
   }
 
   function syncFormSelects(){
-    // FIX REAL: cada formulario usa su propio filtro fijo (organic vs paid vs live)
     const organicExps = experimentsCache.filter(e => e.traffic_type === "organic");
     const paidExps = experimentsCache.filter(e => e.traffic_type === "paid");
     const liveExps = experimentsCache.filter(e => e.traffic_type === "live");
@@ -367,6 +708,18 @@
     fillExperimentSelect($("organic_experiment_id"), organicExps, true);
     fillExperimentSelect($("paid_experiment_id"), paidExps, true);
     fillExperimentSelect($("live_experiment_id"), liveExps, true);
+
+    // Update record section: all experiments
+    const updSel = $("upd_experiment_id");
+    const prev = updSel.value;
+    updSel.innerHTML = '<option value="">-- seleccionar --</option>';
+    for (const e of experimentsCache) {
+      const opt = document.createElement("option");
+      opt.value = String(e.id);
+      opt.textContent = `${e.id} — ${e.project_name} (${e.traffic_type})`;
+      updSel.appendChild(opt);
+    }
+    if (prev) updSel.value = prev;
   }
 
   async function refreshAll() {
@@ -389,12 +742,19 @@
         project_name: $("project_name").value.trim(),
         hypothesis: $("hypothesis").value.trim(),
         traffic_type: $("traffic_type").value,
+        hypothesis_type: $("hypothesis_type").value || null,
+        independent_variable: $("independent_variable").value.trim() || null,
+        primary_metric: $("primary_metric").value || null,
+        validation_threshold: $("validation_threshold").value.trim() || null,
+        min_volume: asIntOrNull($("min_volume").value),
+        experiment_status: "draft",
       };
       if (!body.project_name || !body.hypothesis) throw new Error("project_name y hypothesis son obligatorios.");
       await apiPost("/experiments/", body);
       await refreshAll();
-      $("project_name").value = "";
-      $("hypothesis").value = "";
+      ["project_name","hypothesis","independent_variable","validation_threshold","min_volume"].forEach(id => $(id).value = "");
+      $("hypothesis_type").value = "";
+      $("primary_metric").value = "";
       $("traffic_type").value = "paid";
     } catch(e){
       setStatus("error", true);
@@ -406,7 +766,7 @@
   $("btnCreateOrganicRecord").onclick = async () => {
     try {
       const expId = Number($("organic_experiment_id").value);
-      if (!expId) throw new Error("Selecciona un experimento orgánico.");
+      if (!expId) throw new Error("Selecciona un experimento organico.");
 
       const body = {
         experiment_id: expId,
@@ -423,6 +783,12 @@
         retention_pct: asFloatOrNull($("organic_retention_pct").value),
         avg_watch_time: asFloatOrNull($("organic_avg_watch_time").value),
         video_duration: asFloatOrNull($("organic_video_duration").value),
+        execution_type: "organic_video",
+        hook_text: $("organic_hook_text").value.trim() || null,
+        hook_type: $("organic_hook_type").value || null,
+        cta_text: $("organic_cta_text").value.trim() || null,
+        cta_type: $("organic_cta_type").value || null,
+        creative_id: $("organic_creative_id").value.trim() || null,
       };
       if (!body.session_id) throw new Error("session_id es obligatorio.");
 
@@ -431,10 +797,13 @@
       ["organic_session_id","organic_clicks","organic_views","organic_piece_type",
        "organic_likes","organic_comments","organic_shares","organic_saves",
        "organic_video_url","organic_views_finish_pct","organic_retention_pct",
-       "organic_avg_watch_time","organic_video_duration"
+       "organic_avg_watch_time","organic_video_duration",
+       "organic_hook_text","organic_cta_text","organic_creative_id"
       ].forEach(id => $(id).value = "");
+      $("organic_hook_type").value = "";
+      $("organic_cta_type").value = "";
 
-      setStatus("record orgánico creado");
+      setStatus("record organico creado");
       setTimeout(()=>setStatus("listo"), 800);
     } catch(e){
       setStatus("error", true);
@@ -453,18 +822,21 @@
         session_id: $("live_session_id").value.trim(),
         clicks: asIntOrNull($("live_clicks").value),
         views: asIntOrNull($("live_views").value),
-
         live_viewers_peak: asIntOrNull($("live_viewers_peak").value),
         live_avg_viewers: asIntOrNull($("live_avg_viewers").value),
         live_duration: asFloatOrNull($("live_duration").value),
         live_new_followers: asIntOrNull($("live_new_followers").value),
-
         likes: asIntOrNull($("live_likes").value),
         comments: asIntOrNull($("live_comments").value),
         shares: asIntOrNull($("live_shares").value),
         saves: asIntOrNull($("live_saves").value),
-
         organic_piece_type: null,
+        execution_type: "live_session",
+        hook_text: $("live_hook_text").value.trim() || null,
+        hook_type: $("live_hook_type").value || null,
+        cta_text: $("live_cta_text").value.trim() || null,
+        cta_type: $("live_cta_type").value || null,
+        creative_id: $("live_creative_id").value.trim() || null,
       };
 
       if (!body.session_id) throw new Error("session_id es obligatorio.");
@@ -473,8 +845,11 @@
 
       ["live_session_id","live_clicks","live_views","live_viewers_peak",
        "live_avg_viewers","live_duration","live_new_followers",
-       "live_likes","live_comments","live_shares","live_saves"
+       "live_likes","live_comments","live_shares","live_saves",
+       "live_hook_text","live_cta_text","live_creative_id"
       ].forEach(id => $(id).value = "");
+      $("live_hook_type").value = "";
+      $("live_cta_type").value = "";
 
       setStatus("record live creado");
       setTimeout(()=>setStatus("listo"), 800);
@@ -495,20 +870,23 @@
         session_id: $("paid_session_id").value.trim(),
         clicks: asIntOrNull($("paid_clicks").value),
         views: asIntOrNull($("paid_views").value),
-
         initiate_checkouts: asIntOrNull($("paid_initiate_checkouts").value),
         view_content: asIntOrNull($("paid_view_content").value),
         lead_form: asIntOrNull($("paid_lead").value),
         purchase: asIntOrNull($("paid_purchase").value),
         cpc: asFloatOrNull($("paid_cpc").value),
         ctr: asFloatOrNull($("paid_ctr").value),
-
         paid_video_duration: asFloatOrNull($("paid_video_duration").value),
         campaign_id: $("paid_campaign_id").value.trim() || null,
         ad_set_id: $("paid_ad_set_id").value.trim() || null,
         ad_id: $("paid_ad_id").value.trim() || null,
-
         organic_piece_type: null,
+        execution_type: "paid_ad",
+        hook_text: $("paid_hook_text").value.trim() || null,
+        hook_type: $("paid_hook_type").value || null,
+        cta_text: $("paid_cta_text").value.trim() || null,
+        cta_type: $("paid_cta_type").value || null,
+        creative_id: $("paid_creative_id").value.trim() || null,
       };
 
       if (!body.session_id) throw new Error("session_id es obligatorio.");
@@ -517,12 +895,118 @@
 
       ["paid_session_id","paid_clicks","paid_views","paid_initiate_checkouts",
        "paid_view_content","paid_lead","paid_purchase","paid_cpc","paid_ctr",
-       "paid_video_duration","paid_campaign_id","paid_ad_set_id","paid_ad_id"
+       "paid_video_duration","paid_campaign_id","paid_ad_set_id","paid_ad_id",
+       "paid_hook_text","paid_cta_text","paid_creative_id"
       ].forEach(id => $(id).value = "");
+      $("paid_hook_type").value = "";
+      $("paid_cta_type").value = "";
 
       setStatus("record paid creado");
       setTimeout(()=>setStatus("listo"), 800);
     } catch(e){
+      setStatus("error", true);
+      alert(String(e));
+    }
+  };
+
+  // ==================== UPDATE RECORD ====================
+
+  $("btnLoadRecord").onclick = async () => {
+    try {
+      const rid = Number($("upd_record_id").value);
+      if (!rid) throw new Error("Ingresa un Record ID.");
+      const rec = await apiGet(`/records/${rid}`);
+
+      $("updRecordInfo").style.display = "block";
+      $("updFields").style.display = "block";
+      const statusClass = rec.record_status === "closed" ? "color:#991b1b;" : "color:#065f46;";
+      $("updRecordMeta").innerHTML =
+        `<strong>Record #${rec.id}</strong> | Session: ${rec.session_id} | ` +
+        `Status: <span style="${statusClass}font-weight:600;">${rec.record_status}</span> | ` +
+        `Experiment: ${rec.experiment_id} | ` +
+        (rec.hook_text ? `Hook: "${rec.hook_text}" | ` : "") +
+        (rec.cta_text ? `CTA: "${rec.cta_text}" | ` : "") +
+        `Created: ${rec.created_at}` +
+        (rec.updated_at ? ` | Updated: ${rec.updated_at}` : "");
+
+      // Fill fields with current values
+      const fields = [
+        "clicks","views","initiate_checkouts","view_content","lead_form","purchase",
+        "likes","comments","shares","saves",
+        "live_viewers_peak","live_avg_viewers","live_duration","live_new_followers",
+        "ctr","cpc","views_finish_pct","retention_pct","avg_watch_time","video_duration"
+      ];
+      for (const f of fields) {
+        const el = $("upd_" + f);
+        if (el) el.value = rec[f] !== null && rec[f] !== undefined ? rec[f] : "";
+      }
+
+      setStatus("record cargado");
+    } catch(e) {
+      setStatus("error", true);
+      alert(String(e));
+    }
+  };
+
+  $("btnUpdateRecord").onclick = async () => {
+    try {
+      const rid = Number($("upd_record_id").value);
+      if (!rid) throw new Error("Ingresa un Record ID.");
+
+      const body = {};
+      const fields = [
+        ["clicks", asIntOrNull], ["views", asIntOrNull],
+        ["initiate_checkouts", asIntOrNull], ["view_content", asIntOrNull],
+        ["lead_form", asIntOrNull], ["purchase", asIntOrNull],
+        ["likes", asIntOrNull], ["comments", asIntOrNull],
+        ["shares", asIntOrNull], ["saves", asIntOrNull],
+        ["live_viewers_peak", asIntOrNull], ["live_avg_viewers", asIntOrNull],
+        ["live_duration", asFloatOrNull], ["live_new_followers", asIntOrNull],
+        ["ctr", asFloatOrNull], ["cpc", asFloatOrNull],
+        ["views_finish_pct", asFloatOrNull], ["retention_pct", asFloatOrNull],
+        ["avg_watch_time", asFloatOrNull], ["video_duration", asFloatOrNull],
+      ];
+
+      for (const [f, conv] of fields) {
+        const v = $("upd_" + f).value;
+        if (v !== "" && v !== null && v !== undefined) {
+          body[f] = conv(v);
+        }
+      }
+
+      await apiPatch(`/records/${rid}`, body);
+      setStatus("record actualizado");
+      setTimeout(()=>setStatus("listo"), 800);
+
+      // Reload the record to show updated info
+      $("btnLoadRecord").click();
+    } catch(e) {
+      setStatus("error", true);
+      alert(String(e));
+    }
+  };
+
+  $("btnCloseRecord").onclick = async () => {
+    try {
+      const rid = Number($("upd_record_id").value);
+      if (!rid) throw new Error("Ingresa un Record ID.");
+      await apiPost(`/records/${rid}/close`, {});
+      setStatus("record cerrado");
+      $("btnLoadRecord").click();
+    } catch(e) {
+      setStatus("error", true);
+      alert(String(e));
+    }
+  };
+
+  $("btnReopenRecord").onclick = async () => {
+    try {
+      const rid = Number($("upd_record_id").value);
+      if (!rid) throw new Error("Ingresa un Record ID.");
+      await apiPost(`/records/${rid}/reopen`, {});
+      setStatus("record reabierto");
+      $("btnLoadRecord").click();
+    } catch(e) {
       setStatus("error", true);
       alert(String(e));
     }

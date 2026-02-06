@@ -9,12 +9,91 @@ from pydantic import BaseModel, ConfigDict, Field
 
 TrafficType = Literal["paid", "organic", "mixed", "live"]
 
+HypothesisType = Literal[
+    "acquisition",
+    "activation",
+    "retention",
+    "monetization",
+    "trust_credibility",
+    "message_market_fit",
+    "channel_fit",
+    "pricing",
+    "funnel_friction",
+]
+
+ExperimentStatus = Literal[
+    "draft",
+    "running",
+    "validated",
+    "invalidated",
+    "pivot_candidate",
+    "archived",
+]
+
+PrimaryMetric = Literal[
+    "ctr",
+    "cpc",
+    "initiate_checkout_rate",
+    "view_content_rate",
+    "lead_rate",
+    "purchase_rate",
+    "views",
+    "likes",
+    "comments",
+    "shares",
+    "saves",
+    "views_finish_pct",
+    "retention_pct",
+    "avg_watch_time",
+    "live_viewers_peak",
+    "live_avg_viewers",
+    "live_new_followers",
+]
+
+ExecutionType = Literal["organic_video", "paid_ad", "live_session"]
+
+HookType = Literal[
+    "dolor",
+    "amenaza_perdida",
+    "autoridad",
+    "alivio",
+    "curiosidad",
+    "validacion_emocional",
+]
+
+CtaType = Literal[
+    "accion_directa",
+    "condicional",
+    "urgencia",
+    "informativo",
+]
+
+RecordStatus = Literal["collecting", "closed"]
+
 
 # ---------- Experiments ----------
 class ExperimentCreate(BaseModel):
     project_name: str = Field(min_length=1, max_length=200)
     hypothesis: str = Field(min_length=1, max_length=5000)
     traffic_type: TrafficType
+
+    # Lean hypothesis fields
+    hypothesis_type: Optional[HypothesisType] = None
+    independent_variable: Optional[str] = Field(default=None, max_length=500)
+    primary_metric: Optional[PrimaryMetric] = None
+    validation_threshold: Optional[str] = Field(default=None, max_length=200)
+    experiment_status: ExperimentStatus = "draft"
+    min_volume: Optional[int] = Field(default=None, ge=1)
+
+
+class ExperimentUpdate(BaseModel):
+    hypothesis: Optional[str] = Field(default=None, min_length=1, max_length=5000)
+    hypothesis_type: Optional[HypothesisType] = None
+    independent_variable: Optional[str] = Field(default=None, max_length=500)
+    primary_metric: Optional[PrimaryMetric] = None
+    validation_threshold: Optional[str] = Field(default=None, max_length=200)
+    experiment_status: Optional[ExperimentStatus] = None
+    min_volume: Optional[int] = Field(default=None, ge=1)
 
 
 class ExperimentOut(BaseModel):
@@ -25,6 +104,28 @@ class ExperimentOut(BaseModel):
     hypothesis: str
     traffic_type: TrafficType
     created_at: datetime
+
+    hypothesis_type: Optional[str] = None
+    independent_variable: Optional[str] = None
+    primary_metric: Optional[str] = None
+    validation_threshold: Optional[str] = None
+    experiment_status: str = "draft"
+    min_volume: Optional[int] = None
+
+
+class ExperimentEvaluation(BaseModel):
+    experiment_id: int
+    primary_metric: Optional[str] = None
+    aggregated_value: Optional[float] = None
+    threshold_raw: Optional[str] = None
+    total_volume: int = 0
+    min_volume: Optional[int] = None
+    volume_sufficient: bool = False
+    all_records_closed: bool = False
+    ready_to_evaluate: bool = False
+    suggested_status: Optional[str] = None
+    records_collecting: int = 0
+    records_closed: int = 0
 
 
 # ---------- Records ----------
@@ -70,6 +171,47 @@ class RecordCreate(BaseModel):
     live_duration: Optional[float] = Field(default=None, ge=0)
     live_new_followers: Optional[int] = Field(default=None, ge=0)
 
+    # creative / execution fields (new)
+    execution_type: Optional[ExecutionType] = None
+    hook_text: Optional[str] = Field(default=None, max_length=2000)
+    hook_type: Optional[HookType] = None
+    cta_text: Optional[str] = Field(default=None, max_length=500)
+    cta_type: Optional[CtaType] = None
+    creative_id: Optional[str] = Field(default=None, max_length=200)
+
+
+class RecordUpdate(BaseModel):
+    """For updating metrics on an existing record (same execution, new data)."""
+    clicks: Optional[int] = Field(default=None, ge=0)
+    views: Optional[int] = Field(default=None, ge=0)
+
+    likes: Optional[int] = Field(default=None, ge=0)
+    comments: Optional[int] = Field(default=None, ge=0)
+    shares: Optional[int] = Field(default=None, ge=0)
+    saves: Optional[int] = Field(default=None, ge=0)
+
+    views_finish_pct: Optional[float] = Field(default=None, ge=0, le=100)
+    retention_pct: Optional[float] = Field(default=None, ge=0, le=100)
+    avg_watch_time: Optional[float] = Field(default=None, ge=0)
+    video_duration: Optional[float] = Field(default=None, ge=0)
+
+    ctr: Optional[float] = Field(default=None, ge=0)
+    cpc: Optional[float] = Field(default=None, ge=0)
+    initiate_checkouts: Optional[int] = Field(default=None, ge=0)
+    view_content: Optional[int] = Field(default=None, ge=0)
+    lead_form: Optional[int] = Field(default=None, ge=0)
+    purchase: Optional[int] = Field(default=None, ge=0)
+
+    live_viewers_peak: Optional[int] = Field(default=None, ge=0)
+    live_avg_viewers: Optional[int] = Field(default=None, ge=0)
+    live_duration: Optional[float] = Field(default=None, ge=0)
+    live_new_followers: Optional[int] = Field(default=None, ge=0)
+
+    hook_text: Optional[str] = Field(default=None, max_length=2000)
+    hook_type: Optional[HookType] = None
+    cta_text: Optional[str] = Field(default=None, max_length=500)
+    cta_type: Optional[CtaType] = None
+
 
 class RecordOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -110,4 +252,14 @@ class RecordOut(BaseModel):
     live_duration: Optional[float] = None
     live_new_followers: Optional[int] = None
 
+    # creative / execution fields (new)
+    execution_type: Optional[str] = None
+    hook_text: Optional[str] = None
+    hook_type: Optional[str] = None
+    cta_text: Optional[str] = None
+    cta_type: Optional[str] = None
+    creative_id: Optional[str] = None
+    record_status: str = "collecting"
+
     created_at: datetime
+    updated_at: Optional[datetime] = None

@@ -1,7 +1,7 @@
 # app/routers/records.py
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from .. import schemas, crud
@@ -33,3 +33,42 @@ def list_records(
     db: Session = Depends(get_db),
 ):
     return crud.get_records(db, experiment_id=experiment_id, limit=limit)
+
+
+@router.get("/{record_id}", response_model=schemas.RecordOut)
+def get_record(record_id: int, db: Session = Depends(get_db)):
+    rec = crud.get_record(db, record_id)
+    if not rec:
+        raise HTTPException(status_code=404, detail="Record not found")
+    return rec
+
+
+@router.patch("/{record_id}", response_model=schemas.RecordOut)
+def update_record(
+    record_id: int,
+    data: schemas.RecordUpdate,
+    db: Session = Depends(get_db),
+):
+    """Update metrics on an existing record. Does NOT create a new record."""
+    rec = crud.update_record(db, record_id, data)
+    if not rec:
+        raise HTTPException(status_code=404, detail="Record not found")
+    return rec
+
+
+@router.post("/{record_id}/close", response_model=schemas.RecordOut)
+def close_record(record_id: int, db: Session = Depends(get_db)):
+    """Mark a record as closed (frozen metrics)."""
+    rec = crud.close_record(db, record_id)
+    if not rec:
+        raise HTTPException(status_code=404, detail="Record not found")
+    return rec
+
+
+@router.post("/{record_id}/reopen", response_model=schemas.RecordOut)
+def reopen_record(record_id: int, db: Session = Depends(get_db)):
+    """Reopen a closed record back to collecting."""
+    rec = crud.reopen_record(db, record_id)
+    if not rec:
+        raise HTTPException(status_code=404, detail="Record not found")
+    return rec
