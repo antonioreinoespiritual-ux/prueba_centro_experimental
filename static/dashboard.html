@@ -1243,20 +1243,20 @@
       const expIdStr = $("experimentFilter").value;
       if (!expIdStr) throw new Error("Selecciona un experimento.");
       openAiModal();
-      aiMeta.textContent = "Generando analisis basado en la evaluacion y los récords.";
-      aiContent.innerHTML = `<div class="loading">Generando analisis IA</div>`;
+      aiMeta.textContent = "Generando analisis con ChatGPT basado en la evaluacion y los récords.";
+      aiContent.innerHTML = `<div class="loading">Generando analisis con ChatGPT</div>`;
 
       const result = await apiGet(`/experiments/${expIdStr}/analysis`);
       aiMeta.textContent = `Experimento #${expIdStr} • ${new Date().toLocaleString()}`;
       aiContent.textContent = result.analysis || "No se recibio analisis.";
-      setStatus("analisis IA completado");
+      setStatus("analisis con ChatGPT completado");
     } catch (e) {
       setStatus("error", true);
       let message = String(e);
-      if (message.includes("DeepSeek sin saldo")) {
-        message = "DeepSeek sin saldo. Agrega creditos o actualiza la API key para continuar.";
+      if (message.includes("OpenAI sin saldo")) {
+        message = "OpenAI sin saldo. Agrega creditos o actualiza la API key para continuar.";
       }
-      aiContent.textContent = `Error al generar analisis IA: ${message}`;
+      aiContent.textContent = `Error al generar analisis con ChatGPT: ${message}`;
       openAiModal();
     }
   };
