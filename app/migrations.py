@@ -21,6 +21,10 @@ def ensure_schema() -> None:
 
     conn = sqlite3.connect(str(db_file))
     cur = conn.cursor()
+    cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='experiments'")
+    if not cur.fetchone():
+        conn.close()
+        return
 
     experiment_columns = [
         ("hypothesis_type", "VARCHAR(50)"),
