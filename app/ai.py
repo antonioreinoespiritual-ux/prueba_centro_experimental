@@ -4,12 +4,12 @@ import json
 import urllib.error
 import urllib.request
 
-from .config import get_deepseek_api_key, get_deepseek_api_url, get_deepseek_model
+from .config import get_openai_api_key, get_openai_api_url, get_openai_model
 from .models import Experiment, ExperimentRecord
 from .schemas import ExperimentEvaluation
 
 
-class DeepSeekError(RuntimeError):
+class OpenAIError(RuntimeError):
     def __init__(self, message: str, status_code: int = 502) -> None:
         super().__init__(message)
         self.status_code = status_code
@@ -124,19 +124,21 @@ def generate_experiment_analysis(
     evaluation: ExperimentEvaluation,
     records: list[ExperimentRecord],
 ) -> str:
-    api_key = get_deepseek_api_key()
+    api_key = get_openai_api_key()
     if not api_key:
-        raise ValueError("Missing DEEPSEEK_API_KEY. Define it in the .env file.")
+        raise ValueError("Missing OPENAI_API_KEY. Define it in the .env file.")
 
     payload = {
-        "model": get_deepseek_model(),
+        "model": get_openai_model(),
         "messages": [
             {
                 "role": "system",
                 "content": (
-                    "Eres un analista senior de experimentos. Entrega un analisis completo en español "
-                    "usando los datos disponibles. Incluye resumen ejecutivo, hallazgos clave, "
-                    "riesgos, recomendaciones accionables y siguientes pasos."
+                    "Eres ChatGPT de OpenAI y un analista senior de experimentos. Entrega un analisis "
+                    "completo en español usando los datos disponibles. Aprende y adapta tus "
+                    "conclusiones únicamente con el historial de records entregado en el contexto. "
+                    "Incluye resumen ejecutivo, hallazgos clave, riesgos, recomendaciones accionables "
+                    "y siguientes pasos."
                 ),
             },
             {
@@ -154,7 +156,7 @@ def generate_experiment_analysis(
 
     data = json.dumps(payload).encode("utf-8")
     request = urllib.request.Request(
-        get_deepseek_api_url(),
+        get_openai_api_url(),
         data=data,
         headers={
             "Content-Type": "application/json",
@@ -170,22 +172,22 @@ def generate_experiment_analysis(
         error_body = exc.read().decode("utf-8") if exc.fp else ""
         error_message = _extract_error_message(error_body)
         if exc.code == 402:
-            raise DeepSeekError(
-                "DeepSeek sin saldo. Agrega creditos o actualiza la API key.",
+            raise OpenAIError(
+                "OpenAI sin saldo. Agrega creditos o actualiza la API key.",
                 status_code=402,
             ) from exc
         if error_message:
-            raise DeepSeekError(f"DeepSeek error: {error_message}") from exc
-        raise DeepSeekError(f"DeepSeek HTTP error {exc.code}: {error_body}") from exc
+            raise OpenAIError(f"OpenAI error: {error_message}") from exc
+        raise OpenAIError(f"OpenAI HTTP error {exc.code}: {error_body}") from exc
     except urllib.error.URLError as exc:
-        raise DeepSeekError(f"DeepSeek connection error: {exc.reason}") from exc
+        raise OpenAIError(f"OpenAI connection error: {exc.reason}") from exc
     except Exception as exc:
-        raise DeepSeekError(f"DeepSeek request failed: {exc}") from exc
+        raise OpenAIError(f"OpenAI request failed: {exc}") from exc
 
     try:
         response_data = json.loads(body)
     except json.JSONDecodeError as exc:
-        raise DeepSeekError("DeepSeek returned invalid JSON.") from exc
+        raise OpenAIError("OpenAI returned invalid JSON.") from exc
 
     content = (
         response_data.get("choices", [{}])[0]
@@ -193,5 +195,5 @@ def generate_experiment_analysis(
         .get("content")
     )
     if not content:
-        raise DeepSeekError("DeepSeek response missing content.")
+        raise OpenAIError("OpenAI response missing content.")
     return str(content).strip()

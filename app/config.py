@@ -18,13 +18,13 @@ def load_env() -> None:
         os.environ.setdefault(key, value)
 
 
-def get_deepseek_api_key() -> str:
-    return os.getenv("DEEPSEEK_API_KEY", "").strip()
+def get_openai_api_key() -> str:
+    return os.getenv("OPENAI_API_KEY", "").strip()
 
 
-def get_deepseek_api_url() -> str:
-    return os.getenv("DEEPSEEK_API_URL", "https://api.deepseek.com/v1/chat/completions").strip()
+def get_openai_api_url() -> str:
+    return os.getenv("OPENAI_API_URL", "https://api.openai.com/v1/chat/completions").strip()
 
 
-def get_deepseek_model() -> str:
-    return os.getenv("DEEPSEEK_MODEL", "deepseek-chat").strip()
+def get_openai_model() -> str:
+    return os.getenv("OPENAI_MODEL", "gpt-4o-mini").strip()
