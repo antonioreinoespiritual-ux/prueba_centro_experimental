@@ -409,6 +409,7 @@
   function computeVolumeTotal(recordsForExp, volumeUnit){
     if (!volumeUnit) return 0;
     const volumeFieldMap = {
+      clicks: "clicks",
       ctr: "views",
       cpc: "clicks",
       initiate_checkout_rate: "views",
@@ -436,10 +437,6 @@
     return total;
   }
 
-  function isPercentageMetric(metric){
-    return metric && (metric.endsWith("_rate") || metric === "ctr" || metric === "views_finish_pct" || metric === "retention_pct");
-  }
-
   function formatMetricValue(metric, value){
     if (value === null || value === undefined) return "—";
     if (isPercentageMetric(metric)) return `${fmtFloat(value, 2)}%`;
@@ -454,6 +451,84 @@
     return `${exp.threshold_operator} ${exp.threshold_value} ${typeLabel}`;
   }
 
+  function isRateMetric(metric){
+    return metric && (metric.endsWith("_rate") || metric === "ctr");
+  }
+
+  function isPercentageMetric(metric){
+    return metric && (metric.endsWith("_rate") || metric === "ctr" || metric === "views_finish_pct" || metric === "retention_pct");
+  }
+
+  function isAverageMetric(metric){
+    return metric && (metric === "avg_watch_time");
+  }
+
+  function isCountMetric(metric){
+    if (!metric) return false;
+    if (isRateMetric(metric) || metric === "views_finish_pct" || metric === "retention_pct" || isAverageMetric(metric)) return false;
+    return metric in {
+      views: true,
+      likes: true,
+      comments: true,
+      shares: true,
+      saves: true,
+      live_viewers_peak: true,
+      live_avg_viewers: true,
+      live_new_followers: true,
+      clicks: true,
+      purchase: true,
+      lead_form: true,
+      initiate_checkouts: true,
+      view_content: true,
+    };
+  }
+
+  function computeSuggestedStatus(exp, recordsForExp){
+    const agg = computeAggregatedMetric(recordsForExp, exp.primary_metric);
+    const volumeTotal = computeVolumeTotal(recordsForExp, exp.volume_unit);
+    const volumeMin = exp.volume_min_value || 0;
+    const volumeOk = volumeMin > 0 ? volumeTotal >= volumeMin : false;
+    const collectingCount = recordsForExp.filter(r => r.record_status === "collecting").length;
+    const allClosed = collectingCount === 0 && recordsForExp.length > 0;
+
+    if (!volumeOk || !allClosed) return { status: "running", aggregated: agg.value, volumeTotal };
+    if (!exp.threshold_operator || exp.threshold_value === null || !exp.threshold_type || !exp.primary_metric) {
+      return { status: "running", aggregated: agg.value, volumeTotal };
+    }
+
+    let compareValue = null;
+    if (exp.threshold_type === "percentage"){
+      if (isRateMetric(exp.primary_metric) || exp.primary_metric === "views_finish_pct" || exp.primary_metric === "retention_pct"){
+        compareValue = agg.value;
+      } else if (isCountMetric(exp.primary_metric)){
+        if (volumeTotal > 0){
+          compareValue = (agg.value / volumeTotal) * 100;
+        }
+      }
+    } else if (exp.threshold_type === "absolute"){
+      if (isCountMetric(exp.primary_metric)){
+        compareValue = agg.value;
+      }
+    } else if (exp.threshold_type === "decimal"){
+      if (!isRateMetric(exp.primary_metric) && !isPercentageMetric(exp.primary_metric)){
+        compareValue = agg.value;
+      }
+    }
+
+    if (compareValue === null || compareValue === undefined) {
+      return { status: "running", aggregated: agg.value, volumeTotal };
+    }
+
+    const op = exp.threshold_operator;
+    const target = exp.threshold_value;
+    let validated = false;
+    if (op === ">=") validated = compareValue >= target;
+    if (op === ">") validated = compareValue > target;
+    if (op === "<=") validated = compareValue <= target;
+    if (op === "<") validated = compareValue < target;
+    return { status: validated ? "validated" : "invalidated", aggregated: agg.value, volumeTotal };
+  }
+
   function getExperimentChannel(exp){
     return exp.traffic_type || "—";
   }
@@ -464,16 +539,17 @@
 
     const rows = experiments.map(exp => {
       const recs = recordsByExp.get(exp.id) || [];
-      const agg = computeAggregatedMetric(recs, exp.primary_metric);
+      const evaluation = computeSuggestedStatus(exp, recs);
       return {
         exp,
-        metricValue: agg.value,
+        metricValue: evaluation.aggregated,
+        computedStatus: evaluation.status,
       };
     });
 
     rows.sort((a,b) => {
-      const aOrder = statusOrder[a.exp.experiment_status] || 99;
-      const bOrder = statusOrder[b.exp.experiment_status] || 99;
+      const aOrder = statusOrder[a.computedStatus] || 99;
+      const bOrder = statusOrder[b.computedStatus] || 99;
       if (aOrder !== bOrder) return aOrder - bOrder;
       return String(a.exp.project_name).localeCompare(String(b.exp.project_name));
     });
@@ -481,7 +557,7 @@
     for (const row of rows){
       const exp = row.exp;
       const tr = document.createElement("tr");
-      const statusClass = exp.experiment_status || "draft";
+      const statusClass = row.computedStatus || exp.experiment_status || "draft";
       tr.innerHTML = `
         <td>${escapeHtml(exp.project_name)}</td>
         <td>${escapeHtml(exp.hypothesis_type || "—")}</td>
@@ -495,7 +571,7 @@
     }
   }
 
-  function renderAliveDeadView(){
+  function renderAliveDeadView(recordsByExp){
     const tbody = $("tblAliveDead");
     tbody.innerHTML = "";
     const grouped = new Map();
@@ -507,7 +583,8 @@
       }
       const entry = grouped.get(key);
       entry.total += 1;
-      if (exp.experiment_status === "invalidated") entry.dead += 1;
+      const computed = computeSuggestedStatus(exp, recordsByExp.get(exp.id) || []).status;
+      if (computed === "invalidated") entry.dead += 1;
       else entry.live += 1;
     }
 
@@ -527,7 +604,7 @@
     }
   }
 
-  function renderPatternsView(){
+  function renderPatternsView(recordsByExp){
     const tbody = $("tblPatterns");
     tbody.innerHTML = "";
     const types = new Map();
@@ -539,8 +616,9 @@
       }
       const bucket = types.get(key);
       const channel = exp.traffic_type || "mixed";
-      if (exp.experiment_status === "validated") bucket[channel].v += 1;
-      if (exp.experiment_status === "invalidated") bucket[channel].i += 1;
+      const computed = computeSuggestedStatus(exp, recordsByExp.get(exp.id) || []).status;
+      if (computed === "validated") bucket[channel].v += 1;
+      if (computed === "invalidated") bucket[channel].i += 1;
     }
 
     for (const [type, channels] of [...types.entries()].sort((a,b)=>a[0].localeCompare(b[0]))){
@@ -573,6 +651,7 @@
     empty.style.display = "none";
     panel.style.display = "block";
 
+    const evaluation = computeSuggestedStatus(exp, recordsForExp);
     const agg = computeAggregatedMetric(recordsForExp, exp.primary_metric);
     const volumeTotal = computeVolumeTotal(recordsForExp, exp.volume_unit);
     const volumeMin = exp.volume_min_value || 0;
@@ -590,7 +669,7 @@
     $("detailVolume").textContent = volumeMin ? `${fmt(volumeTotal)} / ${fmt(volumeMin)}` : fmt(volumeTotal);
     $("detailVolumeMeta").textContent = exp.volume_unit ? `Unidad: ${exp.volume_unit}` : "Sin unidad";
 
-    const statusClass = exp.experiment_status || "draft";
+    const statusClass = evaluation.status || exp.experiment_status || "draft";
     $("detailStatus").innerHTML = `<span class="pill ${statusClass}">${statusClass}</span>`;
 
     const signals = [];
@@ -671,8 +750,9 @@
 
     // Build meta info
     let metaHtml = "";
-    if (exp.experiment_status) {
-      metaHtml += `<span class="pill ${exp.experiment_status}" style="color:white; border-color:rgba(255,255,255,0.5);">${exp.experiment_status}</span><br/>`;
+    const computed = computeSuggestedStatus(exp, records.filter(r => r.experiment_id === exp.id));
+    if (computed.status) {
+      metaHtml += `<span class="pill ${computed.status}" style="color:white; border-color:rgba(255,255,255,0.5);">${computed.status}</span><br/>`;
     }
     if (exp.hypothesis_type) {
       metaHtml += `<div style="font-size:12px; opacity:0.9; margin-top:6px;">Tipo: ${exp.hypothesis_type}</div>`;
@@ -793,8 +873,8 @@
     const originalExperiments = experiments;
     experiments = filteredExperiments;
     renderValidatedView(expMap, recordsByExp);
-    renderAliveDeadView();
-    renderPatternsView();
+    renderAliveDeadView(recordsByExp);
+    renderPatternsView(recordsByExp);
     renderDetailView(expIdStr ? expMap.get(Number(expIdStr)) : null, expIdStr ? (recordsByExp.get(Number(expIdStr)) || []) : []);
     experiments = originalExperiments;
   }

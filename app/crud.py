@@ -270,6 +270,7 @@ def _compute_volume_total(records: list[models.ExperimentRecord], volume_unit: s
     if not volume_unit:
         return 0
     volume_field_map = {
+        "clicks": "clicks",
         "ctr": "views",
         "cpc": "clicks",
         "initiate_checkout_rate": "views",
