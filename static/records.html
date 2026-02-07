@@ -6,6 +6,22 @@
   <title>Lista de récords — Centro Experimental</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/css/design-system.css">
+  <style>
+    .btn-ai { background: linear-gradient(135deg, #7c3aed, #6d28d9); color: #fff; border: none; padding: 6px 14px; border-radius: 8px; font-size: 0.75rem; cursor: pointer; font-weight: 600; transition: all 0.15s ease; }
+    .btn-ai:hover { box-shadow: 0 0 12px rgba(124,58,237,0.5); transform: translateY(-1px); }
+    .btn-ai:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+    .ai-panel { background: var(--surface-2); border: 1px solid var(--glass-border); border-radius: var(--radius-xl); padding: var(--space-xl); width: 100%; max-width: 850px; max-height: 85vh; overflow: auto; box-shadow: var(--shadow-lg); }
+    .ai-panel__header { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-lg); }
+    .ai-panel__title { font-size: var(--text-xl); font-weight: 700; background: linear-gradient(135deg, #7c3aed, #a78bfa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .ai-panel__source { font-size: var(--text-xs); color: var(--text-muted); margin-bottom: var(--space-md); padding: var(--space-sm) var(--space-md); background: rgba(124,58,237,0.1); border-radius: var(--radius-sm); border-left: 3px solid #7c3aed; }
+    .ai-panel__output { font-size: var(--text-sm); color: var(--text-secondary); line-height: 1.8; white-space: pre-wrap; }
+    .ai-panel__output strong, .ai-panel__output b { color: var(--text-primary); }
+    .ai-history { margin-top: var(--space-lg); border-top: 1px solid var(--glass-border); padding-top: var(--space-md); }
+    .ai-history__item { padding: var(--space-sm) var(--space-md); border: 1px solid var(--glass-border); border-radius: 8px; margin-bottom: var(--space-sm); cursor: pointer; transition: all 0.15s ease; font-size: 0.75rem; }
+    .ai-history__item:hover { border-color: var(--accent); background: var(--glass-bg-hover); }
+    .ai-spinner { display: inline-block; width: 18px; height: 18px; border: 2px solid rgba(124,58,237,0.3); border-top-color: #7c3aed; border-radius: 50%; animation: spin 0.6s linear infinite; margin-right: 8px; vertical-align: middle; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
 </head>
 <body>
   <div class="app-container" role="main">
@@ -149,6 +165,7 @@
         <div class="flex justify-between items-center">
           <h2>Tarjeta del récord</h2>
           <button class="btn-doc" id="btnRecordDoc" style="display:none;" onclick="openDocModal('record', currentRecordId, currentRecordName)">Documentacion</button>
+          <button class="btn-ai" id="btnRecordAi" style="display:none;" onclick="openAiMetrics('record', currentRecordId, currentRecordName)">Analisis IA</button>
         </div>
         <div id="recordEmpty" class="text-muted text-sm mt-sm">Selecciona un récord para ver el detalle completo.</div>
         <div id="recordCard" style="display:none;" class="mt-md">
@@ -214,13 +231,39 @@
     <div class="doc-panel">
       <div class="doc-panel__header">
         <h2 class="doc-panel__title" id="docModalTitle">Documentacion</h2>
-        <button class="btn-ghost" onclick="closeDocModal()">Cerrar</button>
+        <div class="flex gap-sm">
+          <button class="btn-ai" id="btnDocAiNotes" onclick="openAiNotes()">Analisis IA (Notas)</button>
+          <button class="btn-ghost" onclick="closeDocModal()">Cerrar</button>
+        </div>
       </div>
       <div class="doc-note-form">
         <textarea id="docNewNote" placeholder="Escribe una nueva nota cualitativa..."></textarea>
         <button id="btnAddNote" onclick="addDocNote()">Agregar Nota</button>
       </div>
       <div id="docNotesList"></div>
+    </div>
+  </div>
+
+  <!-- AI Analysis Modal -->
+  <div class="modal-backdrop" id="aiModal" style="display:none;">
+    <div class="ai-panel">
+      <div class="ai-panel__header">
+        <h2 class="ai-panel__title" id="aiModalTitle">Analisis IA</h2>
+        <div class="flex gap-sm">
+          <button class="btn-ai" id="btnAiReanalyze" onclick="reanalyze()" style="display:none;">Re-analizar</button>
+          <button class="btn-ghost" onclick="closeAiModal()">Cerrar</button>
+        </div>
+      </div>
+      <div class="ai-panel__source" id="aiSource"></div>
+      <div id="aiLoading" style="display:none;"><span class="ai-spinner"></span>Generando analisis IA...</div>
+      <div class="ai-panel__output" id="aiOutput"></div>
+      <div class="ai-history" id="aiHistory" style="display:none;">
+        <div class="flex justify-between items-center">
+          <h4>Historial de analisis</h4>
+          <span class="tag" id="aiHistoryCount">0</span>
+        </div>
+        <div id="aiHistoryList" class="mt-sm"></div>
+      </div>
     </div>
   </div>
 
@@ -430,6 +473,7 @@
     $("recordEmpty").style.display = "none";
     $("recordCard").style.display = "block";
     $("btnRecordDoc").style.display = "";
+    $("btnRecordAi").style.display = "";
 
     $("cardRecordName").textContent = r.record_name || r.session_id || "—";
     $("cardRecordMeta").textContent = `Record #${r.id} · ${r.created_at || "—"}`;
@@ -545,6 +589,108 @@
 
   $("docModal").addEventListener("click", function(e) {
     if (e.target === this) closeDocModal();
+  });
+
+  // ---------- AI ANALYSIS ----------
+  let aiEntityType = null;
+  let aiEntityId = null;
+  let aiCurrentType = null;
+
+  function openAiMetrics(entityType, entityId, title) {
+    aiEntityType = entityType;
+    aiEntityId = entityId;
+    aiCurrentType = "metrics";
+    $("aiModalTitle").textContent = `Analisis IA — Metricas`;
+    $("aiSource").textContent = "Fuente: Metricas cuantitativas";
+    $("aiOutput").textContent = "";
+    $("aiLoading").style.display = "block";
+    $("btnAiReanalyze").style.display = "none";
+    $("aiHistory").style.display = "none";
+    $("aiModal").style.display = "flex";
+    runAiAnalysis();
+  }
+
+  function openAiNotes() {
+    if (!docEntityType || !docEntityId) return;
+    aiEntityType = docEntityType;
+    aiEntityId = docEntityId;
+    aiCurrentType = "notes";
+    closeDocModal();
+    $("aiModalTitle").textContent = `Analisis IA — Documentacion`;
+    $("aiSource").textContent = "Fuente: Documentacion cualitativa (notas)";
+    $("aiOutput").textContent = "";
+    $("aiLoading").style.display = "block";
+    $("btnAiReanalyze").style.display = "none";
+    $("aiHistory").style.display = "none";
+    $("aiModal").style.display = "flex";
+    runAiAnalysis();
+  }
+
+  async function runAiAnalysis() {
+    try {
+      const endpoint = aiCurrentType === "metrics"
+        ? `/ai/analyze/metrics/${aiEntityType}/${aiEntityId}`
+        : `/ai/analyze/notes/${aiEntityType}/${aiEntityId}`;
+      const result = await apiPost(endpoint, {});
+      $("aiLoading").style.display = "none";
+      $("aiOutput").innerHTML = formatAiOutput(result.output);
+      $("btnAiReanalyze").style.display = "";
+      loadAiHistory();
+    } catch (e) {
+      $("aiLoading").style.display = "none";
+      $("aiOutput").textContent = "Error al generar analisis: " + String(e);
+    }
+  }
+
+  function reanalyze() {
+    $("aiOutput").textContent = "";
+    $("aiLoading").style.display = "block";
+    $("btnAiReanalyze").style.display = "none";
+    runAiAnalysis();
+  }
+
+  function formatAiOutput(text) {
+    return text
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\n/g, '<br>');
+  }
+
+  async function loadAiHistory() {
+    try {
+      const analyses = await apiGet(`/ai/analysis/${aiEntityType}/${aiEntityId}?analysis_type=${aiCurrentType}`);
+      if (analyses.length > 0) {
+        $("aiHistory").style.display = "";
+        $("aiHistoryCount").textContent = `${analyses.length} analisis`;
+        let html = "";
+        for (const a of analyses) {
+          const date = new Date(a.created_at).toLocaleString("es-ES");
+          html += `<div class="ai-history__item" onclick="showHistoryItem(${a.id}, this)" data-output="${escapeHtml(a.output)}">
+            <span>${date}</span> · <span class="tag">${a.analysis_type}</span> · <span class="text-muted">ID: ${a.id}</span>
+          </div>`;
+        }
+        $("aiHistoryList").innerHTML = html;
+      } else {
+        $("aiHistory").style.display = "none";
+      }
+    } catch (e) {
+      // History load failure is non-critical
+    }
+  }
+
+  function showHistoryItem(id, el) {
+    const output = el.getAttribute("data-output");
+    $("aiOutput").innerHTML = formatAiOutput(output);
+  }
+
+  function closeAiModal() {
+    $("aiModal").style.display = "none";
+    aiEntityType = null;
+    aiEntityId = null;
+    aiCurrentType = null;
+  }
+
+  $("aiModal").addEventListener("click", function(e) {
+    if (e.target === this) closeAiModal();
   });
 
   loadAll().catch(err => alert(String(err)));

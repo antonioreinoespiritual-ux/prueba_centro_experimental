@@ -256,6 +256,54 @@ def update_documentation_note(db: Session, note_id: int, body: str):
 
 
 # ------------------------------------------------------------------ #
+#  AI ANALYSIS
+# ------------------------------------------------------------------ #
+
+def create_ai_analysis(
+    db: Session,
+    entity_type: str,
+    entity_id: int,
+    analysis_type: str,
+    model: str,
+    prompt_version: str,
+    input_snapshot: str,
+    output: str,
+) -> models.AIAnalysis:
+    obj = models.AIAnalysis(
+        entity_type=entity_type,
+        entity_id=entity_id,
+        analysis_type=analysis_type,
+        model=model,
+        prompt_version=prompt_version,
+        input_snapshot=input_snapshot,
+        output=output,
+    )
+    db.add(obj)
+    db.commit()
+    db.refresh(obj)
+    return obj
+
+
+def get_ai_analyses(
+    db: Session,
+    entity_type: str,
+    entity_id: int,
+    analysis_type: str | None = None,
+) -> list[models.AIAnalysis]:
+    q = (
+        select(models.AIAnalysis)
+        .where(
+            models.AIAnalysis.entity_type == entity_type,
+            models.AIAnalysis.entity_id == entity_id,
+        )
+        .order_by(desc(models.AIAnalysis.created_at))
+    )
+    if analysis_type:
+        q = q.where(models.AIAnalysis.analysis_type == analysis_type)
+    return list(db.execute(q).scalars().all())
+
+
+# ------------------------------------------------------------------ #
 #  HYPOTHESIS EVALUATION
 # ------------------------------------------------------------------ #
 

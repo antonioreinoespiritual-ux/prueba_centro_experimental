@@ -5,7 +5,7 @@ import json
 import requests
 
 from .config import get_groq_api_key, get_groq_api_url, get_groq_model
-from .models import Experiment, ExperimentRecord
+from .models import Experiment, ExperimentRecord, Documentation
 from .schemas import ExperimentEvaluation
 
 
@@ -186,6 +186,280 @@ def generate_experiment_analysis(
 
     try:
         response_data = json.loads(body)
+    except json.JSONDecodeError as exc:
+        raise GroqError("Groq returned invalid JSON.") from exc
+
+    content = (
+        response_data.get("choices", [{}])[0]
+        .get("message", {})
+        .get("content")
+    )
+    if not content:
+        raise GroqError("Groq response missing content.")
+    return str(content).strip()
+
+
+# ------------------------------------------------------------------ #
+#  PROMPT VERSIONS
+# ------------------------------------------------------------------ #
+METRICS_PROMPT_VERSION = "v1.0"
+NOTES_PROMPT_VERSION = "v1.0"
+
+
+# ------------------------------------------------------------------ #
+#  IA MÉTRICAS — Only quantitative data
+# ------------------------------------------------------------------ #
+
+def _build_metrics_input(
+    experiment: Experiment,
+    evaluation: ExperimentEvaluation,
+    records: list[ExperimentRecord],
+) -> dict:
+    """Build input snapshot for metrics analysis. NO qualitative data."""
+    volume_actual = evaluation.total_volume
+    volume_min = experiment.volume_min_value
+    volume_insufficient = bool(volume_min and volume_actual < volume_min)
+
+    records_summary = []
+    for r in records:
+        rec_data: dict = {
+            "record_id": r.id,
+            "execution_type": r.execution_type,
+            "record_status": r.record_status,
+            "created_at": r.created_at.isoformat() if r.created_at else None,
+        }
+        metrics_fields = [
+            "clicks", "views", "likes", "comments", "shares", "saves",
+            "views_finish_pct", "retention_pct", "avg_watch_time", "video_duration",
+            "ctr", "cpc", "initiate_checkouts", "view_content", "lead_form", "purchase",
+            "paid_video_duration", "live_viewers_peak", "live_avg_viewers",
+            "live_duration", "live_new_followers",
+        ]
+        rec_metrics = {}
+        for field in metrics_fields:
+            value = getattr(r, field, None)
+            if value is not None:
+                rec_metrics[field] = value
+        if rec_metrics:
+            rec_data["metrics"] = rec_metrics
+        records_summary.append(rec_data)
+
+    # Compute simple variance flag
+    if records and experiment.primary_metric:
+        values = []
+        for r in records:
+            v = getattr(r, experiment.primary_metric, None)
+            if v is not None:
+                values.append(float(v))
+        if len(values) >= 2:
+            mean = sum(values) / len(values)
+            variance = sum((x - mean) ** 2 for x in values) / len(values)
+            high_variance = variance > (mean * 0.5) ** 2 if mean != 0 else variance > 0
+        else:
+            high_variance = False
+    else:
+        high_variance = False
+
+    return {
+        "experiment": {
+            "id": experiment.id,
+            "project_name": experiment.project_name,
+            "hypothesis": experiment.hypothesis,
+            "hypothesis_type": experiment.hypothesis_type,
+            "traffic_type": experiment.traffic_type,
+            "primary_metric": experiment.primary_metric,
+            "threshold_operator": experiment.threshold_operator,
+            "threshold_value": experiment.threshold_value,
+            "threshold_type": experiment.threshold_type,
+            "volume_unit": experiment.volume_unit,
+            "volume_min_value": experiment.volume_min_value,
+            "experiment_status": experiment.experiment_status,
+        },
+        "evaluation": {
+            "aggregated_value": evaluation.aggregated_value,
+            "total_volume": evaluation.total_volume,
+            "volume_sufficient": evaluation.volume_sufficient,
+            "all_records_closed": evaluation.all_records_closed,
+            "ready_to_evaluate": evaluation.ready_to_evaluate,
+            "suggested_status": evaluation.suggested_status,
+            "records_collecting": evaluation.records_collecting,
+            "records_closed": evaluation.records_closed,
+        },
+        "flags": {
+            "volume_insufficient": volume_insufficient,
+            "high_variance": high_variance,
+        },
+        "records_count": len(records),
+        "records": records_summary,
+    }
+
+
+_METRICS_SYSTEM_PROMPT = (
+    "Eres un mentor Lean Startup y analista cuantitativo senior. "
+    "Analiza EXCLUSIVAMENTE los datos cuantitativos (métricas, umbrales, volumen, estados, records) "
+    "del experimento proporcionado. "
+    "NO asumas ni uses información cualitativa, notas ni documentación. "
+    "Responde SIEMPRE en español.\n\n"
+    "Tu output DEBE seguir esta estructura:\n"
+    "1. **Fuente usada: Métricas**\n"
+    "2. **Estado actual**: estado del experimento según métricas + explicación breve\n"
+    "3. **Riesgos de datos**: volumen insuficiente, varianza alta, sesgo de canal, etc.\n"
+    "4. **Recomendaciones accionables** (máximo 5): qué hacer ahora, próximo ciclo, qué cambiar\n"
+    "5. **Hipótesis próxima recomendada**: 1 hipótesis concreta basada en datos\n"
+    "6. **Checklist de decisión**: Escalar / Pivotar / Invalidar (con justificación cuantitativa)\n\n"
+    "IMPORTANTE: Al final incluye la línea: 'No asumí documentación cualitativa.'"
+)
+
+
+def generate_metrics_analysis(
+    experiment: Experiment,
+    evaluation: ExperimentEvaluation,
+    records: list[ExperimentRecord],
+) -> tuple[str, str]:
+    """Generate metrics-only AI analysis. Returns (output_text, input_snapshot_json)."""
+    api_key = get_groq_api_key()
+    if not api_key:
+        raise ValueError("Missing GROQ_API_KEY. Define it in the .env file.")
+
+    input_data = _build_metrics_input(experiment, evaluation, records)
+    input_snapshot = json.dumps(input_data, ensure_ascii=False, indent=2)
+
+    payload = {
+        "model": get_groq_model(),
+        "messages": [
+            {"role": "system", "content": _METRICS_SYSTEM_PROMPT},
+            {
+                "role": "user",
+                "content": (
+                    "Analiza las métricas cuantitativas del siguiente experimento. "
+                    "Usa SOLO los datos proporcionados:\n"
+                    f"{input_snapshot}"
+                ),
+            },
+        ],
+        "temperature": 0.2,
+        "max_tokens": 1200,
+    }
+
+    content = _call_groq(payload)
+    return content, input_snapshot
+
+
+# ------------------------------------------------------------------ #
+#  IA NOTAS — Only qualitative documentation
+# ------------------------------------------------------------------ #
+
+def _build_notes_input(
+    entity_type: str,
+    entity_id: int,
+    documentation: Documentation | None,
+) -> dict:
+    """Build input snapshot for notes analysis. NO metrics."""
+    notes_data = []
+    if documentation and documentation.notes:
+        for note in documentation.notes:
+            notes_data.append({
+                "note_id": note.id,
+                "body": note.body,
+                "created_at": note.created_at.isoformat() if note.created_at else None,
+                "updated_at": note.updated_at.isoformat() if note.updated_at else None,
+            })
+
+    return {
+        "entity_type": entity_type,
+        "entity_id": entity_id,
+        "notes_count": len(notes_data),
+        "notes": notes_data,
+    }
+
+
+_NOTES_SYSTEM_PROMPT = (
+    "Eres un analista cualitativo senior y experto en documentación de experimentos. "
+    "Analiza EXCLUSIVAMENTE la documentación cualitativa (contexto inicial y notas) "
+    "de la entidad proporcionada. "
+    "NO uses ni asumas métricas cuantitativas, umbrales ni volúmenes. "
+    "Responde SIEMPRE en español.\n\n"
+    "Tu output DEBE seguir esta estructura:\n"
+    "1. **Fuente usada: Documentación**\n"
+    "2. **Síntesis**: qué se intentó, por qué, qué se observó cualitativamente\n"
+    "3. **Patrones en notas**: objeciones recurrentes, temas frecuentes\n"
+    "4. **Dudas abiertas**: preguntas sin resolver detectadas en la documentación\n"
+    "5. **Recomendaciones de documentación**: qué falta documentar, lagunas detectadas\n"
+    "6. **Formato recomendado**: sugerencia de estructura para notas futuras\n"
+    "7. **Decisiones sugeridas**: desde lo cualitativo, sin datos cuantitativos\n\n"
+    "IMPORTANTE: Al final incluye la línea: 'No usé métricas cuantitativas.'"
+)
+
+
+def generate_notes_analysis(
+    entity_type: str,
+    entity_id: int,
+    documentation: Documentation | None,
+) -> tuple[str, str]:
+    """Generate notes-only AI analysis. Returns (output_text, input_snapshot_json)."""
+    api_key = get_groq_api_key()
+    if not api_key:
+        raise ValueError("Missing GROQ_API_KEY. Define it in the .env file.")
+
+    input_data = _build_notes_input(entity_type, entity_id, documentation)
+    input_snapshot = json.dumps(input_data, ensure_ascii=False, indent=2)
+
+    payload = {
+        "model": get_groq_model(),
+        "messages": [
+            {"role": "system", "content": _NOTES_SYSTEM_PROMPT},
+            {
+                "role": "user",
+                "content": (
+                    "Analiza la documentación cualitativa de la siguiente entidad. "
+                    "Usa SOLO las notas proporcionadas:\n"
+                    f"{input_snapshot}"
+                ),
+            },
+        ],
+        "temperature": 0.2,
+        "max_tokens": 1200,
+    }
+
+    content = _call_groq(payload)
+    return content, input_snapshot
+
+
+# ------------------------------------------------------------------ #
+#  Shared Groq caller
+# ------------------------------------------------------------------ #
+
+def _call_groq(payload: dict) -> str:
+    """Call Groq API and return content string."""
+    api_key = get_groq_api_key()
+    try:
+        resp = requests.post(
+            get_groq_api_url(),
+            json=payload,
+            headers={"Authorization": f"Bearer {api_key}"},
+            timeout=45,
+        )
+    except requests.ConnectionError as exc:
+        raise GroqError(f"Groq connection error: {exc}") from exc
+    except requests.Timeout as exc:
+        raise GroqError("Groq request timed out.") from exc
+    except Exception as exc:
+        raise GroqError(f"Groq request failed: {exc}") from exc
+
+    if resp.status_code != 200:
+        error_body = resp.text
+        error_message = _extract_error_message(error_body)
+        if resp.status_code == 402:
+            raise GroqError(
+                "Groq sin saldo. Agrega creditos o actualiza la API key.",
+                status_code=402,
+            )
+        if error_message:
+            raise GroqError(f"Groq error: {error_message}")
+        raise GroqError(f"Groq HTTP error {resp.status_code}: {error_body}")
+
+    try:
+        response_data = json.loads(resp.text)
     except json.JSONDecodeError as exc:
         raise GroqError("Groq returned invalid JSON.") from exc
 

@@ -86,5 +86,30 @@ def ensure_schema() -> None:
             )
         """)
 
+    # --- AI Analysis table ---
+    cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='ai_analysis'")
+    if not cur.fetchone():
+        cur.execute("""
+            CREATE TABLE ai_analysis (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                entity_type VARCHAR(20) NOT NULL,
+                entity_id INTEGER NOT NULL,
+                analysis_type VARCHAR(20) NOT NULL,
+                model VARCHAR(100) NOT NULL,
+                prompt_version VARCHAR(50) NOT NULL,
+                input_snapshot TEXT NOT NULL,
+                output TEXT NOT NULL,
+                created_at DATETIME NOT NULL DEFAULT (datetime('now'))
+            )
+        """)
+        cur.execute("""
+            CREATE INDEX IF NOT EXISTS ix_ai_analysis_entity
+            ON ai_analysis (entity_type, entity_id, analysis_type)
+        """)
+        cur.execute("""
+            CREATE INDEX IF NOT EXISTS ix_ai_analysis_created
+            ON ai_analysis (created_at)
+        """)
+
     conn.commit()
     conn.close()

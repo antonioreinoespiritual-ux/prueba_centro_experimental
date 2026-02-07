@@ -128,3 +128,17 @@ class DocumentationNote(Base):
     updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, onupdate=datetime.utcnow)
 
     documentation: Mapped["Documentation"] = relationship("Documentation", back_populates="notes")
+
+
+class AIAnalysis(Base):
+    __tablename__ = "ai_analysis"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    entity_type: Mapped[str] = mapped_column(String(20), nullable=False)  # 'experiment' | 'record'
+    entity_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    analysis_type: Mapped[str] = mapped_column(String(20), nullable=False)  # 'metrics' | 'notes'
+    model: Mapped[str] = mapped_column(String(100), nullable=False)
+    prompt_version: Mapped[str] = mapped_column(String(50), nullable=False)
+    input_snapshot: Mapped[str] = mapped_column(Text, nullable=False)
+    output: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)

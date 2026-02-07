@@ -98,6 +98,7 @@ RecordStatus = Literal["collecting", "closed"]
 
 
 EntityType = Literal["experiment", "record"]
+AIAnalysisType = Literal["metrics", "notes"]
 
 
 # ---------- Documentation ----------
@@ -128,6 +129,26 @@ class DocumentationOut(BaseModel):
     created_at: datetime
     updated_at: Optional[datetime] = None
     notes: list[DocumentationNoteOut] = []
+
+
+# ---------- AI Analysis ----------
+class AIAnalysisOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    entity_type: str
+    entity_id: int
+    analysis_type: str
+    model: str
+    prompt_version: str
+    input_snapshot: str
+    output: str
+    created_at: datetime
+
+
+class AIAnalysisResponse(BaseModel):
+    ai_analysis_id: int
+    output: str
 
 
 # ---------- Experiments ----------
