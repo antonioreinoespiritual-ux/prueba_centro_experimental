@@ -5,7 +5,7 @@ from datetime import datetime
 import re
 
 from sqlalchemy.orm import Session
-from sqlalchemy import select, desc, delete, update
+from sqlalchemy import select, desc, delete, update, func, or_
 
 from . import models, schemas
 
@@ -174,6 +174,104 @@ def rename_project(db: Session, project_name: str, new_project_name: str):
 #  RECORDS
 # ------------------------------------------------------------------ #
 
+def _normalize_public_name(name: str) -> str:
+    return " ".join(name.strip().lower().split())
+
+
+def _is_unassigned_public(name: str) -> bool:
+    return name in {"sin publico", "sin público", "no asignado", "no asignada"}
+
+
+def get_public_by_normalized(db: Session, name_normalized: str):
+    q = select(models.Public).where(models.Public.name_normalized == name_normalized)
+    return db.execute(q).scalar_one_or_none()
+
+
+def get_public(db: Session, public_id: int):
+    q = select(models.Public).where(models.Public.id == public_id)
+    return db.execute(q).scalar_one_or_none()
+
+
+def get_publics(db: Session, search: str | None = None):
+    q = (
+        select(models.Public, func.count(models.ExperimentRecord.id))
+        .join(models.ExperimentRecord, models.ExperimentRecord.public_id == models.Public.id, isouter=True)
+        .group_by(models.Public.id)
+        .order_by(models.Public.name)
+    )
+    if search:
+        q = q.where(models.Public.name.ilike(f"%{search}%"))
+    return list(db.execute(q).all())
+
+
+def create_public(db: Session, data: schemas.PublicCreate):
+    name = data.name.strip()
+    normalized = _normalize_public_name(name)
+    if not normalized or _is_unassigned_public(normalized):
+        raise ValueError("Public name is not allowed.")
+    existing = get_public_by_normalized(db, normalized)
+    if existing:
+        raise ValueError("Public already exists.")
+    obj = models.Public(
+        name=name,
+        name_normalized=normalized,
+        description=(data.description or "").strip() or None,
+    )
+    db.add(obj)
+    db.commit()
+    db.refresh(obj)
+    return obj
+
+
+def update_public(db: Session, public_id: int, data: schemas.PublicUpdate):
+    public = get_public(db, public_id)
+    if not public:
+        return None
+    update_data = data.model_dump(exclude_unset=True)
+    name = update_data.get("name")
+    if name is not None:
+        name = name.strip()
+        normalized = _normalize_public_name(name)
+        if not normalized or _is_unassigned_public(normalized):
+            raise ValueError("Public name is not allowed.")
+        existing = get_public_by_normalized(db, normalized)
+        if existing and existing.id != public_id:
+            raise ValueError("Public already exists.")
+        public.name = name
+        public.name_normalized = normalized
+    if "description" in update_data:
+        public.description = (update_data.get("description") or "").strip() or None
+    public.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(public)
+    return public
+
+
+def get_public_detail(db: Session, public_id: int):
+    public = get_public(db, public_id)
+    if not public:
+        return None, [], schemas.PublicMetrics()
+    records = list(
+        db.execute(
+            select(models.ExperimentRecord).where(
+                or_(
+                    models.ExperimentRecord.public_id == public_id,
+                    models.ExperimentRecord.publico == public.name,
+                )
+            ).order_by(desc(models.ExperimentRecord.created_at))
+        ).scalars().all()
+    )
+    metrics = schemas.PublicMetrics(
+        records_total=len(records),
+        clicks_total=sum(r.clicks or 0 for r in records),
+        views_total=sum(r.views or 0 for r in records),
+        purchases_total=sum(r.purchase or 0 for r in records),
+        leads_total=sum(r.lead_form or 0 for r in records),
+        initiate_checkouts_total=sum(r.initiate_checkouts or 0 for r in records),
+    )
+    return public, records, metrics
+
+
 def create_record(db: Session, data: schemas.RecordCreate):
     # Normalización: si viene string vacío => None (por seguridad)
     organic_piece_type = (data.organic_piece_type or "").strip() or None
@@ -185,6 +283,28 @@ def create_record(db: Session, data: schemas.RecordCreate):
     hook_text = (data.hook_text or "").strip() or None
     cta_text = (data.cta_text or "").strip() or None
     creative_id = (data.creative_id or "").strip() or None
+    public_id = data.public_id
+    public = None
+
+    if public_id:
+        public = get_public(db, public_id)
+        if not public:
+            raise ValueError("Public not found.")
+    elif publico:
+        normalized = _normalize_public_name(publico)
+        if not _is_unassigned_public(normalized):
+            public = get_public_by_normalized(db, normalized)
+            if not public:
+                public = models.Public(name=publico, name_normalized=normalized)
+                db.add(public)
+                db.commit()
+                db.refresh(public)
+
+    if public:
+        public_id = public.id
+        publico = public.name
+    elif publico and _is_unassigned_public(_normalize_public_name(publico)):
+        publico = None
 
     obj = models.ExperimentRecord(
         experiment_id=data.experiment_id,
@@ -233,6 +353,7 @@ def create_record(db: Session, data: schemas.RecordCreate):
         execution_type=data.execution_type,
         record_name=(data.record_name or "").strip() or None,
         publico=publico,
+        public_id=public_id,
         hook_text=hook_text,
         hook_type=data.hook_type,
         cta_text=cta_text,
@@ -268,6 +389,30 @@ def update_record(db: Session, record_id: int, data: schemas.RecordUpdate):
         return None
 
     update_data = data.model_dump(exclude_unset=True)
+    if "public_id" in update_data or "publico" in update_data:
+        public_id = update_data.pop("public_id", None)
+        publico = update_data.pop("publico", None)
+        public = None
+        if public_id:
+            public = get_public(db, public_id)
+            if not public:
+                raise ValueError("Public not found.")
+        elif publico:
+            normalized = _normalize_public_name(publico)
+            if not _is_unassigned_public(normalized):
+                public = get_public_by_normalized(db, normalized)
+                if not public:
+                    public = models.Public(name=publico.strip(), name_normalized=normalized)
+                    db.add(public)
+                    db.commit()
+                    db.refresh(public)
+        if public:
+            rec.public_id = public.id
+            rec.publico = public.name
+        else:
+            rec.public_id = None
+            rec.publico = None
+
     for field, value in update_data.items():
         if isinstance(value, str):
             value = value.strip() or None
@@ -614,6 +759,91 @@ def _is_count_metric(metric: str) -> bool:
     }
 
 
+def _compare_threshold(op: str, value: float, target: float) -> bool:
+    if op == ">=":
+        return value >= target
+    if op == ">":
+        return value > target
+    if op == "<=":
+        return value <= target
+    if op == "<":
+        return value < target
+    return False
+
+
+def _compute_comparison_value(
+    metric: str | None,
+    threshold_type: str | None,
+    aggregated_value: float | None,
+    volume_total: int,
+) -> float | None:
+    if aggregated_value is None or not metric or not threshold_type:
+        return None
+
+    if threshold_type == "percentage":
+        if _is_rate_metric(metric) or _is_percentage_metric(metric):
+            return aggregated_value
+        if _is_count_metric(metric) and volume_total > 0:
+            return (aggregated_value / volume_total) * 100
+    elif threshold_type in {"absolute", "decimal"}:
+        if not _is_rate_metric(metric) and not _is_percentage_metric(metric):
+            return aggregated_value
+    return None
+
+
+def _evaluate_records_segment(
+    records: list[models.ExperimentRecord],
+    exp: models.Experiment,
+    op: str | None,
+    threshold_val: float | None,
+    threshold_type: str | None,
+) -> dict:
+    records_collecting = sum(1 for r in records if r.record_status == "collecting")
+    records_closed = sum(1 for r in records if r.record_status == "closed")
+    all_closed = records_collecting == 0 and len(records) > 0
+
+    aggregated_value = None
+    if exp.primary_metric and records:
+        aggregated_value, _ = _compute_aggregated_metric(records, exp.primary_metric)
+
+    volume_total = _compute_volume_total(records, exp.volume_unit)
+    min_vol = exp.volume_min_value
+    volume_sufficient = bool(min_vol and volume_total >= min_vol)
+    ready = volume_sufficient and all_closed
+
+    comparison_value = None
+    suggested_status = "inconclusive"
+    explanation = "evidencia insuficiente"
+
+    if ready and aggregated_value is not None and op and threshold_val is not None and threshold_type:
+        comparison_value = _compute_comparison_value(
+            exp.primary_metric,
+            threshold_type,
+            aggregated_value,
+            volume_total,
+        )
+        if comparison_value is not None:
+            if _compare_threshold(op, comparison_value, threshold_val):
+                suggested_status = "validated"
+                explanation = "cumple umbral"
+            else:
+                suggested_status = "invalidated"
+                explanation = "no cumple umbral"
+
+    return {
+        "aggregated_value": round(aggregated_value, 4) if aggregated_value is not None else None,
+        "comparison_value": round(comparison_value, 4) if comparison_value is not None else None,
+        "total_volume": volume_total,
+        "volume_sufficient": volume_sufficient,
+        "all_records_closed": all_closed,
+        "ready_to_evaluate": ready,
+        "suggested_status": suggested_status,
+        "explanation": explanation,
+        "records_collecting": records_collecting,
+        "records_closed": records_closed,
+    }
+
+
 def evaluate_experiment(db: Session, experiment_id: int) -> schemas.ExperimentEvaluation:
     """Evaluate a hypothesis by aggregating all its records and comparing to threshold."""
     exp = get_experiment(db, experiment_id)
@@ -621,21 +851,6 @@ def evaluate_experiment(db: Session, experiment_id: int) -> schemas.ExperimentEv
         return None
 
     records = get_records(db, experiment_id=experiment_id, limit=50000)
-
-    records_collecting = sum(1 for r in records if r.record_status == "collecting")
-    records_closed = sum(1 for r in records if r.record_status == "closed")
-    all_closed = records_collecting == 0 and len(records) > 0
-
-    aggregated_value = None
-
-    if exp.primary_metric and records:
-        aggregated_value, _ = _compute_aggregated_metric(records, exp.primary_metric)
-
-    volume_total = _compute_volume_total(records, exp.volume_unit)
-    min_vol = exp.volume_min_value
-    volume_sufficient = bool(min_vol and volume_total >= min_vol)
-
-    ready = volume_sufficient and all_closed
 
     suggested_status = None
     op = exp.threshold_operator
@@ -647,35 +862,58 @@ def evaluate_experiment(db: Session, experiment_id: int) -> schemas.ExperimentEv
         threshold_val = threshold_val if threshold_val is not None else parsed_val
         threshold_type = threshold_type or _infer_threshold_type(exp.primary_metric, parsed_percent)
 
-    if ready and aggregated_value is not None:
-        metric = exp.primary_metric
-        if op and threshold_val is not None and threshold_type and metric:
-            compare_value = None
-            if threshold_type == "percentage":
-                if _is_rate_metric(metric) or _is_percentage_metric(metric):
-                    compare_value = aggregated_value
-                elif _is_count_metric(metric):
-                    base_total = _compute_volume_total(records, exp.volume_unit)
-                    if base_total > 0:
-                        compare_value = (aggregated_value / base_total) * 100
-            elif threshold_type == "absolute":
-                if not _is_rate_metric(metric) and not _is_percentage_metric(metric):
-                    compare_value = aggregated_value
-            elif threshold_type == "decimal":
-                if not _is_rate_metric(metric) and not _is_percentage_metric(metric):
-                    compare_value = aggregated_value
+    grouped: dict[str, list[models.ExperimentRecord]] = {}
+    for record in records:
+        publico = (record.publico or "").strip() or "Sin público"
+        grouped.setdefault(publico, []).append(record)
 
-            if compare_value is not None:
-                if op == ">=" and compare_value >= threshold_val:
-                    suggested_status = "validated"
-                elif op == ">" and compare_value > threshold_val:
-                    suggested_status = "validated"
-                elif op == "<=" and compare_value <= threshold_val:
-                    suggested_status = "validated"
-                elif op == "<" and compare_value < threshold_val:
-                    suggested_status = "validated"
-                else:
-                    suggested_status = "invalidated"
+    segments: list[schemas.ExperimentEvaluationSegment] = []
+    for publico in sorted(grouped.keys()):
+        segment_values = _evaluate_records_segment(
+            grouped[publico],
+            exp,
+            op,
+            threshold_val,
+            threshold_type,
+        )
+        segments.append(
+            schemas.ExperimentEvaluationSegment(
+                publico=publico,
+                records_total=len(grouped[publico]),
+                aggregated_value=segment_values["aggregated_value"],
+                comparison_value=segment_values["comparison_value"],
+                total_volume=segment_values["total_volume"],
+                volume_sufficient=segment_values["volume_sufficient"],
+                all_records_closed=segment_values["all_records_closed"],
+                ready_to_evaluate=segment_values["ready_to_evaluate"],
+                suggested_status=segment_values["suggested_status"],
+                explanation=segment_values["explanation"],
+            )
+        )
+
+    segmented_by_public = len(segments) > 1
+
+    records_collecting = sum(1 for r in records if r.record_status == "collecting")
+    records_closed = sum(1 for r in records if r.record_status == "closed")
+    all_closed = records_collecting == 0 and len(records) > 0
+    volume_total = _compute_volume_total(records, exp.volume_unit)
+    min_vol = exp.volume_min_value
+    volume_sufficient = bool(min_vol and volume_total >= min_vol)
+
+    ready = volume_sufficient and all_closed and not segmented_by_public
+    aggregated_value = None
+    if exp.primary_metric and records and not segmented_by_public:
+        aggregated_value, _ = _compute_aggregated_metric(records, exp.primary_metric)
+
+    if ready and aggregated_value is not None and op and threshold_val is not None and threshold_type:
+        comparison_value = _compute_comparison_value(
+            exp.primary_metric,
+            threshold_type,
+            aggregated_value,
+            volume_total,
+        )
+        if comparison_value is not None:
+            suggested_status = "validated" if _compare_threshold(op, comparison_value, threshold_val) else "invalidated"
 
     return schemas.ExperimentEvaluation(
         experiment_id=experiment_id,
@@ -695,4 +933,6 @@ def evaluate_experiment(db: Session, experiment_id: int) -> schemas.ExperimentEv
         suggested_status=suggested_status,
         records_collecting=records_collecting,
         records_closed=records_closed,
+        segmented_by_public=segmented_by_public,
+        segments=segments,
     )

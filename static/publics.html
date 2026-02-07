@@ -1,0 +1,772 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Públicos — Centro Experimental</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/design-system.css">
+  <style>
+    .btn-ai { background: linear-gradient(135deg, #7c3aed, #6d28d9); color: #fff; border: none; padding: 6px 14px; border-radius: 8px; font-size: 0.75rem; cursor: pointer; font-weight: 600; transition: all 0.15s ease; }
+    .btn-ai:hover { box-shadow: 0 0 12px rgba(124,58,237,0.5); transform: translateY(-1px); }
+    .btn-ai:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+    .ai-panel { background: var(--surface-2); border: 1px solid var(--glass-border); border-radius: var(--radius-xl); padding: var(--space-xl); width: 100%; max-width: 850px; max-height: 85vh; overflow: auto; box-shadow: var(--shadow-lg); }
+    .ai-panel__header { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-lg); }
+    .ai-panel__title { font-size: var(--text-xl); font-weight: 700; background: linear-gradient(135deg, #7c3aed, #a78bfa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .ai-panel__source { font-size: var(--text-xs); color: var(--text-muted); margin-bottom: var(--space-md); padding: var(--space-sm) var(--space-md); background: rgba(124,58,237,0.1); border-radius: var(--radius-sm); border-left: 3px solid #7c3aed; }
+    .ai-panel__output { font-size: var(--text-sm); color: var(--text-secondary); line-height: 1.8; white-space: pre-wrap; }
+    .ai-panel__output strong, .ai-panel__output b { color: var(--text-primary); }
+    .ai-history { margin-top: var(--space-lg); border-top: 1px solid var(--glass-border); padding-top: var(--space-md); }
+    .ai-history__item { padding: var(--space-sm) var(--space-md); border: 1px solid var(--glass-border); border-radius: 8px; margin-bottom: var(--space-sm); cursor: pointer; transition: all 0.15s ease; font-size: 0.75rem; }
+    .ai-history__item:hover { border-color: var(--accent); background: var(--glass-bg-hover); }
+    .ai-spinner { display: inline-block; width: 18px; height: 18px; border: 2px solid rgba(124,58,237,0.3); border-top-color: #7c3aed; border-radius: 50%; animation: spin 0.6s linear infinite; margin-right: 8px; vertical-align: middle; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div class="app-container" role="main">
+    <div class="top-bar">
+      <div>
+        <h1 class="top-bar__title">Públicos</h1>
+        <p class="top-bar__subtitle">
+          Backend: <code id="apiBase" class="text-mono"></code>
+        </p>
+      </div>
+      <div class="top-bar__actions">
+        <a class="btn-link" href="/" aria-label="Volver a formularios">Volver a formularios</a>
+        <a class="btn-link" href="/static/dashboard.html" aria-label="Ir al dashboard">Dashboard</a>
+        <a class="btn-link" href="/static/records.html" aria-label="Ir a records">Records</a>
+        <button id="btnReload" class="btn-secondary">Recargar</button>
+      </div>
+    </div>
+
+    <div class="grid grid-2 mt-lg">
+      <div class="card">
+        <div class="section-header">
+          <div>
+            <h2>Crear público</h2>
+            <div class="text-sm text-muted mt-sm">Define públicos para evitar nombres inconsistentes.</div>
+          </div>
+        </div>
+        <div class="field-group mt-md">
+          <label for="publicName">Nombre</label>
+          <input id="publicName" placeholder="Ej: Retargeting, Estudiantes 18-24" />
+        </div>
+        <div class="field-group mt-md">
+          <label for="publicDescription">Descripción / notas</label>
+          <textarea id="publicDescription" placeholder="Notas sobre el público, criterio de segmentación, etc."></textarea>
+        </div>
+        <button id="btnCreatePublic" class="btn-primary mt-md">Crear público</button>
+      </div>
+
+      <div class="card">
+        <div class="section-header">
+          <div>
+            <h2>Listado de públicos</h2>
+            <div class="text-sm text-muted mt-sm">Haz clic en un público para ver su detalle.</div>
+          </div>
+          <div class="flex gap-sm">
+            <input id="publicSearch" placeholder="Buscar público..." />
+            <button id="btnSearch" class="btn-secondary">Buscar</button>
+          </div>
+        </div>
+        <div class="table-wrapper mt-md">
+          <table>
+            <thead>
+              <tr>
+                <th>Nombre</th>
+                <th>Records</th>
+                <th>Descripción</th>
+              </tr>
+            </thead>
+            <tbody id="publicsTable"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+      <div class="card mt-lg" id="publicDetailCard">
+      <div class="section-header">
+        <div>
+          <h2 id="publicDetailTitle">Detalle del público</h2>
+          <div class="text-sm text-muted mt-sm" id="publicDetailMeta">Selecciona un público para ver su historial.</div>
+        </div>
+      </div>
+      <div class="grid grid-4 mt-md">
+        <div class="stat-chip">
+          <div class="stat-chip__label">Records</div>
+          <div class="stat-chip__value" id="publicRecordsTotal">—</div>
+        </div>
+        <div class="stat-chip">
+          <div class="stat-chip__label">Clicks</div>
+          <div class="stat-chip__value" id="publicClicksTotal">—</div>
+        </div>
+        <div class="stat-chip">
+          <div class="stat-chip__label">Views</div>
+          <div class="stat-chip__value" id="publicViewsTotal">—</div>
+        </div>
+        <div class="stat-chip">
+          <div class="stat-chip__label">Purchases</div>
+          <div class="stat-chip__value" id="publicPurchasesTotal">—</div>
+        </div>
+      </div>
+      <div class="grid grid-3 mt-md">
+        <div class="stat-chip">
+          <div class="stat-chip__label">Leads</div>
+          <div class="stat-chip__value" id="publicLeadsTotal">—</div>
+        </div>
+        <div class="stat-chip">
+          <div class="stat-chip__label">Initiate Checkouts</div>
+          <div class="stat-chip__value" id="publicInitiateTotal">—</div>
+        </div>
+      </div>
+      <div class="table-wrapper mt-lg">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Proyecto</th>
+              <th>Experimento</th>
+              <th>Hipótesis</th>
+              <th>Record</th>
+              <th>Status</th>
+              <th>Canal</th>
+              <th>Clicks</th>
+              <th>Views</th>
+              <th>Purchase</th>
+              <th>Creado</th>
+            </tr>
+          </thead>
+          <tbody id="publicRecordsTable"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop hidden" id="recordModal">
+    <div class="modal">
+      <div class="modal__header">
+        <div>
+          <div class="modal__title" id="recordModalTitle">Detalle del récord</div>
+          <div class="text-sm text-muted" id="recordModalMeta">Analiza el récord sin salir del público.</div>
+        </div>
+        <div class="flex gap-sm items-center">
+          <button class="btn-doc" id="btnRecordDoc">Documentacion</button>
+          <button class="btn-ai" id="btnRecordAi">Analisis IA</button>
+          <button class="btn-ai" id="btnRecordAiFull">Analisis IA Completo</button>
+          <button class="btn-secondary" id="btnCloseRecordModal">Cerrar</button>
+        </div>
+      </div>
+      <div class="modal__body">
+        <div class="grid grid-2">
+          <div class="card">
+            <div class="section-header">
+              <h3>Contexto</h3>
+            </div>
+            <div class="stat-chip">
+              <div class="stat-chip__label">Proyecto</div>
+              <div class="stat-chip__value" id="modalProject">—</div>
+              <div class="stat-chip__meta" id="modalExperiment">—</div>
+            </div>
+            <div class="stat-chip mt-md">
+              <div class="stat-chip__label">Hipótesis</div>
+              <div class="stat-chip__value" id="modalHypothesis">—</div>
+              <div class="stat-chip__meta" id="modalHypothesisMeta">—</div>
+            </div>
+            <div class="stat-chip mt-md">
+              <div class="stat-chip__label">Estado</div>
+              <div class="stat-chip__value" id="modalStatus">—</div>
+              <div class="stat-chip__meta" id="modalChannel">—</div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="section-header">
+              <h3>Creative</h3>
+            </div>
+            <div class="stat-chip">
+              <div class="stat-chip__label">Hook</div>
+              <div class="stat-chip__value" id="modalHook">—</div>
+              <div class="stat-chip__meta" id="modalHookType">—</div>
+            </div>
+            <div class="stat-chip mt-md">
+              <div class="stat-chip__label">CTA</div>
+              <div class="stat-chip__value" id="modalCta">—</div>
+              <div class="stat-chip__meta" id="modalCtaType">—</div>
+            </div>
+            <div class="stat-chip mt-md">
+              <div class="stat-chip__label">Ejecución</div>
+              <div class="stat-chip__value" id="modalExecution">—</div>
+              <div class="stat-chip__meta" id="modalRecordName">—</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card mt-lg">
+          <div class="section-header">
+            <h3>Métricas principales</h3>
+          </div>
+          <div class="grid grid-4 mt-md">
+            <div class="stat-chip">
+              <div class="stat-chip__label">Clicks</div>
+              <div class="stat-chip__value" id="modalClicks">—</div>
+            </div>
+            <div class="stat-chip">
+              <div class="stat-chip__label">Views</div>
+              <div class="stat-chip__value" id="modalViews">—</div>
+            </div>
+            <div class="stat-chip">
+              <div class="stat-chip__label">CTR</div>
+              <div class="stat-chip__value" id="modalCtr">—</div>
+            </div>
+            <div class="stat-chip">
+              <div class="stat-chip__label">Purchase</div>
+              <div class="stat-chip__value" id="modalPurchase">—</div>
+            </div>
+          </div>
+          <div class="grid grid-4 mt-md">
+            <div class="stat-chip">
+              <div class="stat-chip__label">Initiate Checkout</div>
+              <div class="stat-chip__value" id="modalInitiateCheckout">—</div>
+            </div>
+            <div class="stat-chip">
+              <div class="stat-chip__label">Inicia Test</div>
+              <div class="stat-chip__value" id="modalIniciaTest">—</div>
+            </div>
+            <div class="stat-chip">
+              <div class="stat-chip__label">Lead Form</div>
+              <div class="stat-chip__value" id="modalLeadForm">—</div>
+            </div>
+            <div class="stat-chip">
+              <div class="stat-chip__label">Nuevos seguidores</div>
+              <div class="stat-chip__value" id="modalNewFollowers">—</div>
+            </div>
+          </div>
+          <div class="grid grid-4 mt-md">
+            <div class="stat-chip">
+              <div class="stat-chip__label">Retención %</div>
+              <div class="stat-chip__value" id="modalRetention">—</div>
+            </div>
+            <div class="stat-chip">
+              <div class="stat-chip__label">Engagement %</div>
+              <div class="stat-chip__value" id="modalEngagement">—</div>
+            </div>
+            <div class="stat-chip">
+              <div class="stat-chip__label">Avg Watch Time</div>
+              <div class="stat-chip__value" id="modalAvgWatch">—</div>
+            </div>
+            <div class="stat-chip">
+              <div class="stat-chip__label">Interacciones</div>
+              <div class="stat-chip__value" id="modalInteractions">—</div>
+            </div>
+          </div>
+          <div class="grid grid-4 mt-md">
+            <div class="stat-chip">
+              <div class="stat-chip__label">Likes</div>
+              <div class="stat-chip__value" id="modalLikes">—</div>
+            </div>
+            <div class="stat-chip">
+              <div class="stat-chip__label">Comentarios</div>
+              <div class="stat-chip__value" id="modalComments">—</div>
+            </div>
+            <div class="stat-chip">
+              <div class="stat-chip__label">Shares</div>
+              <div class="stat-chip__value" id="modalShares">—</div>
+            </div>
+            <div class="stat-chip">
+              <div class="stat-chip__label">Guardados</div>
+              <div class="stat-chip__value" id="modalSaves">—</div>
+            </div>
+          </div>
+          <div class="grid grid-4 mt-md">
+            <div class="stat-chip">
+              <div class="stat-chip__label">CPC</div>
+              <div class="stat-chip__value" id="modalCpc">—</div>
+            </div>
+            <div class="stat-chip">
+              <div class="stat-chip__label">CAC</div>
+              <div class="stat-chip__value" id="modalCac">—</div>
+            </div>
+            <div class="stat-chip">
+              <div class="stat-chip__label">CPR</div>
+              <div class="stat-chip__value" id="modalCpr">—</div>
+            </div>
+            <div class="stat-chip">
+              <div class="stat-chip__label">CTR</div>
+              <div class="stat-chip__value" id="modalCtrRepeat">—</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card mt-lg">
+          <div class="section-header">
+            <h3>Notas cualitativas</h3>
+          </div>
+          <div id="modalNotes" class="text-sm text-muted">Sin notas.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Documentation Modal -->
+  <div class="modal-backdrop" id="docModal" style="display:none;">
+    <div class="doc-panel">
+      <div class="doc-panel__header">
+        <h2 class="doc-panel__title" id="docModalTitle">Documentacion</h2>
+        <div class="flex gap-sm">
+          <button class="btn-ai" id="btnDocAiNotes" onclick="openAiNotes()">Analisis IA (Notas)</button>
+          <button class="btn-ghost" onclick="closeDocModal()">Cerrar</button>
+        </div>
+      </div>
+      <div class="doc-note-form">
+        <textarea id="docNewNote" placeholder="Escribe una nueva nota cualitativa..."></textarea>
+        <button id="btnAddNote" onclick="addDocNote()">Agregar Nota</button>
+      </div>
+      <div id="docNotesList"></div>
+    </div>
+  </div>
+
+  <!-- AI Analysis Modal -->
+  <div class="modal-backdrop" id="aiModal" style="display:none;">
+    <div class="ai-panel">
+      <div class="ai-panel__header">
+        <h2 class="ai-panel__title" id="aiModalTitle">Analisis IA</h2>
+        <div class="flex gap-sm">
+          <button class="btn-ai" id="btnAiReanalyze" onclick="reanalyze()" style="display:none;">Re-analizar</button>
+          <button class="btn-ghost" onclick="closeAiModal()">Cerrar</button>
+        </div>
+      </div>
+      <div class="ai-panel__source" id="aiSource"></div>
+      <div id="aiLoading" style="display:none;"><span class="ai-spinner"></span>Generando analisis IA...</div>
+      <div class="ai-panel__output" id="aiOutput"></div>
+      <div class="ai-history" id="aiHistory" style="display:none;">
+        <div class="flex justify-between items-center">
+          <h4>Historial de analisis</h4>
+          <span class="tag" id="aiHistoryCount">0</span>
+        </div>
+        <div id="aiHistoryList" class="mt-sm"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script>
+    const apiBase = "";
+    const $ = (id) => document.getElementById(id);
+    $("apiBase").textContent = location.origin;
+    let experiments = [];
+
+    function showToast(message, type = "success") {
+      const container = $("toastContainer");
+      const toast = document.createElement("div");
+      toast.className = `toast toast--${type}`;
+      toast.textContent = message;
+      container.appendChild(toast);
+      setTimeout(() => toast.remove(), 3000);
+    }
+
+    function escapeHtml(s) {
+      return String(s)
+        .replaceAll("&","&amp;")
+        .replaceAll("<","&lt;")
+        .replaceAll(">","&gt;")
+        .replaceAll('"',"&quot;");
+    }
+
+    async function apiGet(path){
+      const res = await fetch(apiBase + path);
+      if (!res.ok) throw new Error(await res.text());
+      return res.json();
+    }
+
+    async function apiPost(path, body){
+      const res = await fetch(apiBase + path, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      return res.json();
+    }
+
+    function fmt(value){
+      if (value === null || value === undefined) return "—";
+      const n = Number(value);
+      return Number.isFinite(n) ? n.toLocaleString("es-ES") : String(value);
+    }
+
+    function fmtFloat(value, digits = 2){
+      if (value === null || value === undefined) return "—";
+      const n = Number(value);
+      return Number.isFinite(n) ? n.toFixed(digits) : "—";
+    }
+
+    function computeEngagement(record){
+      const views = record.views || 0;
+      const total = (record.likes || 0) + (record.comments || 0) + (record.shares || 0) + (record.saves || 0);
+      if (!views) return null;
+      return (total / views) * 100;
+    }
+
+    function computeSpend(record){
+      if (record.cpc === null || record.cpc === undefined) return null;
+      const clicks = record.clicks || 0;
+      return record.cpc * clicks;
+    }
+
+    function getExperimentById(id){
+      return experiments.find((exp) => exp.id === id);
+    }
+
+    async function loadPublics(){
+      const search = $("publicSearch").value.trim();
+      const publics = await apiGet(`/publics${search ? `?search=${encodeURIComponent(search)}` : ""}`);
+      const tbody = $("publicsTable");
+      tbody.innerHTML = "";
+      publics.forEach(publico => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${publico.name}</td>
+          <td>${publico.records_count}</td>
+          <td>${publico.description || "—"}</td>
+        `;
+        tr.style.cursor = "pointer";
+        tr.addEventListener("click", () => loadPublicDetail(publico.id));
+        tbody.appendChild(tr);
+      });
+    }
+
+    function fillMetric(id, value){
+      $(id).textContent = value ?? "—";
+    }
+
+    async function loadPublicDetail(publicId){
+      const detail = await apiGet(`/publics/${publicId}`);
+      $("publicDetailTitle").textContent = `Detalle del público: ${detail.public.name}`;
+      $("publicDetailMeta").textContent = detail.public.description || "Sin descripción.";
+      fillMetric("publicRecordsTotal", detail.metrics.records_total);
+      fillMetric("publicClicksTotal", detail.metrics.clicks_total);
+      fillMetric("publicViewsTotal", detail.metrics.views_total);
+      fillMetric("publicPurchasesTotal", detail.metrics.purchases_total);
+      fillMetric("publicLeadsTotal", detail.metrics.leads_total);
+      fillMetric("publicInitiateTotal", detail.metrics.initiate_checkouts_total);
+
+      const tbody = $("publicRecordsTable");
+      tbody.innerHTML = "";
+      detail.records.forEach(rec => {
+        const exp = getExperimentById(rec.experiment_id);
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${rec.id}</td>
+          <td>${exp?.project_name || "—"}</td>
+          <td>Exp #${rec.experiment_id}</td>
+          <td>${exp?.hypothesis || "—"}</td>
+          <td>${rec.record_name || "—"}</td>
+          <td>${rec.record_status}</td>
+          <td>${exp?.traffic_type || "—"}</td>
+          <td>${rec.clicks ?? "—"}</td>
+          <td>${rec.views ?? "—"}</td>
+          <td>${rec.purchase ?? "—"}</td>
+          <td>${new Date(rec.created_at).toLocaleString()}</td>
+        `;
+        tr.style.cursor = "pointer";
+        tr.addEventListener("click", () => openRecordModal(rec, exp));
+        tbody.appendChild(tr);
+      });
+    }
+
+    async function openRecordModal(record, exp){
+      const recordTitle = record.record_name || `Record #${record.id}`;
+      $("recordModalTitle").textContent = recordTitle;
+      $("recordModalMeta").textContent = `Record #${record.id} · Session ${record.session_id}`;
+      $("btnRecordDoc").onclick = (event) => {
+        event.stopPropagation();
+        openDocModal("record", record.id, recordTitle);
+      };
+      $("btnRecordAi").onclick = (event) => {
+        event.stopPropagation();
+        openAiMetrics("record", record.id, recordTitle);
+      };
+      $("btnRecordAiFull").onclick = (event) => {
+        event.stopPropagation();
+        openAiCombined("record", record.id, recordTitle);
+      };
+      $("modalProject").textContent = exp?.project_name || "—";
+      $("modalExperiment").textContent = exp ? `Experimento #${exp.id}` : "—";
+      $("modalHypothesis").textContent = exp?.hypothesis || "—";
+      $("modalHypothesisMeta").textContent = exp?.hypothesis_type || "—";
+      $("modalStatus").textContent = record.record_status || "—";
+      $("modalChannel").textContent = exp?.traffic_type || "—";
+      $("modalHook").textContent = record.hook_text || "—";
+      $("modalHookType").textContent = record.hook_type || "—";
+      $("modalCta").textContent = record.cta_text || "—";
+      $("modalCtaType").textContent = record.cta_type || "—";
+      $("modalExecution").textContent = record.execution_type || "—";
+      $("modalRecordName").textContent = record.record_name || record.session_id || "—";
+      const engagement = computeEngagement(record);
+      const spend = computeSpend(record);
+      const purchases = record.purchase || 0;
+      const leads = record.lead_form || 0;
+      const cac = spend && purchases ? spend / purchases : null;
+      const cpr = spend && leads ? spend / leads : null;
+
+      $("modalClicks").textContent = fmt(record.clicks);
+      $("modalViews").textContent = fmt(record.views);
+      $("modalCtr").textContent = record.ctr ?? "—";
+      $("modalPurchase").textContent = fmt(record.purchase);
+      $("modalInitiateCheckout").textContent = fmt(record.initiate_checkouts);
+      $("modalIniciaTest").textContent = fmt(record.inicia_test);
+      $("modalLeadForm").textContent = fmt(record.lead_form);
+      $("modalNewFollowers").textContent = fmt(record.live_new_followers);
+      $("modalRetention").textContent = record.retention_pct !== null && record.retention_pct !== undefined
+        ? `${fmtFloat(record.retention_pct, 1)}%`
+        : "—";
+      $("modalEngagement").textContent = engagement !== null ? `${fmtFloat(engagement, 2)}%` : "—";
+      $("modalAvgWatch").textContent = record.avg_watch_time !== null && record.avg_watch_time !== undefined
+        ? fmtFloat(record.avg_watch_time, 2)
+        : "—";
+      const interactions = (record.likes || 0) + (record.comments || 0) + (record.shares || 0) + (record.saves || 0);
+      $("modalInteractions").textContent = fmt(interactions);
+      $("modalLikes").textContent = fmt(record.likes);
+      $("modalComments").textContent = fmt(record.comments);
+      $("modalShares").textContent = fmt(record.shares);
+      $("modalSaves").textContent = fmt(record.saves);
+      $("modalCpc").textContent = record.cpc !== null && record.cpc !== undefined ? fmtFloat(record.cpc, 4) : "—";
+      $("modalCac").textContent = cac !== null ? fmtFloat(cac, 2) : "—";
+      $("modalCpr").textContent = cpr !== null ? fmtFloat(cpr, 2) : "—";
+      $("modalCtrRepeat").textContent = record.ctr ?? "—";
+
+      $("modalNotes").textContent = "Cargando notas...";
+      try {
+        const doc = await apiGet(`/documentation/record/${record.id}`);
+        if (!doc.notes || doc.notes.length === 0) {
+          $("modalNotes").textContent = "Sin notas.";
+        } else {
+          $("modalNotes").innerHTML = doc.notes
+            .map(note => `<div class="mb-sm">${note.body}</div>`)
+            .join("");
+        }
+      } catch (error) {
+        $("modalNotes").textContent = "Sin notas.";
+      }
+
+      $("recordModal").classList.remove("hidden");
+    }
+
+    $("btnCloseRecordModal").addEventListener("click", () => {
+      $("recordModal").classList.add("hidden");
+    });
+
+    $("recordModal").addEventListener("click", (event) => {
+      if (event.target === $("recordModal")) {
+        $("recordModal").classList.add("hidden");
+      }
+    });
+
+    // ---------- DOCUMENTATION MODAL ----------
+    let docEntityType = null;
+    let docEntityId = null;
+
+    function openDocModal(entityType, entityId, title) {
+      docEntityType = entityType;
+      docEntityId = entityId;
+      $("docModalTitle").textContent = `Documentacion — ${title}`;
+      $("docNewNote").value = "";
+      $("docModal").style.display = "flex";
+      loadDocNotes();
+    }
+
+    function closeDocModal() {
+      $("docModal").style.display = "none";
+      docEntityType = null;
+      docEntityId = null;
+    }
+
+    async function loadDocNotes() {
+      try {
+        const doc = await apiGet(`/documentation/${docEntityType}/${docEntityId}`);
+        const container = $("docNotesList");
+        if (!doc.notes || doc.notes.length === 0) {
+          container.innerHTML = '<div class="doc-empty">No hay notas de documentacion aun.</div>';
+          return;
+        }
+        let html = "";
+        for (const note of doc.notes) {
+          const date = new Date(note.created_at).toLocaleString("es-ES");
+          const updated = note.updated_at ? ` (editada: ${new Date(note.updated_at).toLocaleString("es-ES")})` : "";
+          html += `<div class="doc-note">
+            <div class="doc-note__body">${escapeHtml(note.body)}</div>
+            <div class="doc-note__meta">
+              <span>${date}${updated}</span>
+              <span class="tag">Nota #${note.id}</span>
+            </div>
+          </div>`;
+        }
+        container.innerHTML = html;
+      } catch (e) {
+        $("docNotesList").innerHTML = '<div class="doc-empty">Error al cargar documentacion.</div>';
+      }
+    }
+
+    async function addDocNote() {
+      const body = $("docNewNote").value.trim();
+      if (!body) { showToast("Escribe una nota antes de agregar.", "error"); return; }
+      try {
+        await apiPost(`/documentation/${docEntityType}/${docEntityId}/notes`, { body });
+        $("docNewNote").value = "";
+        showToast("Nota agregada", "success");
+        loadDocNotes();
+      } catch (e) {
+        showToast("Error al agregar nota: " + String(e), "error");
+      }
+    }
+
+    $("docModal").addEventListener("click", function(e) {
+      if (e.target === this) closeDocModal();
+    });
+
+    // ---------- AI ANALYSIS ----------
+    let aiEntityType = null;
+    let aiEntityId = null;
+    let aiCurrentType = null;
+
+    function openAiMetrics(entityType, entityId, title) {
+      aiEntityType = entityType;
+      aiEntityId = entityId;
+      aiCurrentType = "metrics";
+      $("aiModalTitle").textContent = `Analisis IA — Metricas`;
+      $("aiSource").textContent = "Fuente: Metricas cuantitativas";
+      $("aiOutput").textContent = "";
+      $("aiLoading").style.display = "block";
+      $("btnAiReanalyze").style.display = "none";
+      $("aiHistory").style.display = "none";
+      $("aiModal").style.display = "flex";
+      runAiAnalysis();
+    }
+
+    function openAiNotes() {
+      if (!docEntityType || !docEntityId) return;
+      aiEntityType = docEntityType;
+      aiEntityId = docEntityId;
+      aiCurrentType = "notes";
+      closeDocModal();
+      $("aiModalTitle").textContent = `Analisis IA — Documentacion`;
+      $("aiSource").textContent = "Fuente: Documentacion cualitativa (notas)";
+      $("aiOutput").textContent = "";
+      $("aiLoading").style.display = "block";
+      $("btnAiReanalyze").style.display = "none";
+      $("aiHistory").style.display = "none";
+      $("aiModal").style.display = "flex";
+      runAiAnalysis();
+    }
+
+    function openAiCombined(entityType, entityId, title) {
+      aiEntityType = entityType;
+      aiEntityId = entityId;
+      aiCurrentType = "combined";
+      $("aiModalTitle").textContent = "Analisis IA — Completo";
+      $("aiSource").textContent = "Fuente: Metricas + Documentacion + Historial IA";
+      $("aiOutput").textContent = "";
+      $("aiLoading").style.display = "block";
+      $("btnAiReanalyze").style.display = "none";
+      $("aiHistory").style.display = "none";
+      $("aiModal").style.display = "flex";
+      runAiAnalysis();
+    }
+
+    async function runAiAnalysis() {
+      try {
+        let endpoint = "";
+        if (aiCurrentType === "metrics") {
+          endpoint = `/ai/analyze/metrics/${aiEntityType}/${aiEntityId}`;
+        } else if (aiCurrentType === "notes") {
+          endpoint = `/ai/analyze/notes/${aiEntityType}/${aiEntityId}`;
+        } else if (aiCurrentType === "combined") {
+          endpoint = `/ai/analyze/combined/${aiEntityType}/${aiEntityId}`;
+        }
+        const result = await apiPost(endpoint, {});
+        $("aiLoading").style.display = "none";
+        $("aiOutput").innerHTML = formatAiOutput(result.output);
+        $("btnAiReanalyze").style.display = "";
+        loadAiHistory();
+      } catch (e) {
+        $("aiLoading").style.display = "none";
+        $("aiOutput").textContent = "Error al generar analisis: " + String(e);
+      }
+    }
+
+    function reanalyze() {
+      $("aiOutput").textContent = "";
+      $("aiLoading").style.display = "block";
+      $("btnAiReanalyze").style.display = "none";
+      runAiAnalysis();
+    }
+
+    function formatAiOutput(text) {
+      return text
+        .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
+        .replace(/\n/g, "<br>");
+    }
+
+    async function loadAiHistory() {
+      try {
+        const analyses = await apiGet(`/ai/analysis/${aiEntityType}/${aiEntityId}?analysis_type=${aiCurrentType}`);
+        if (analyses.length > 0) {
+          $("aiHistory").style.display = "";
+          $("aiHistoryCount").textContent = `${analyses.length} analisis`;
+          let html = "";
+          for (const a of analyses) {
+            const date = new Date(a.created_at).toLocaleString("es-ES");
+            html += `<div class="ai-history__item" onclick="showHistoryItem(${a.id}, this)" data-output="${escapeHtml(a.output)}">
+              <span>${date}</span> · <span class="tag">${a.analysis_type}</span> · <span class="text-muted">ID: ${a.id}</span>
+            </div>`;
+          }
+          $("aiHistoryList").innerHTML = html;
+        } else {
+          $("aiHistory").style.display = "none";
+        }
+      } catch (e) {
+        // History load failure is non-critical
+      }
+    }
+
+    function showHistoryItem(id, el) {
+      const output = el.getAttribute("data-output");
+      $("aiOutput").innerHTML = formatAiOutput(output);
+    }
+
+    function closeAiModal() {
+      $("aiModal").style.display = "none";
+      aiEntityType = null;
+      aiEntityId = null;
+      aiCurrentType = null;
+    }
+
+    $("aiModal").addEventListener("click", function(e) {
+      if (e.target === this) closeAiModal();
+    });
+
+    $("btnReload").addEventListener("click", loadPublics);
+    $("btnSearch").addEventListener("click", loadPublics);
+    $("btnCreatePublic").addEventListener("click", async () => {
+      const name = $("publicName").value.trim();
+      const description = $("publicDescription").value.trim();
+      if (!name) {
+        alert("Nombre requerido");
+        return;
+      }
+      await apiPost("/publics", { name, description: description || null });
+      $("publicName").value = "";
+      $("publicDescription").value = "";
+      await loadPublics();
+    });
+
+    async function init() {
+      experiments = await apiGet("/experiments/");
+      await loadPublics();
+    }
+
+    init().catch((error) => alert(String(error)));
+  </script>
+</body>
+</html>

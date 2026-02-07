@@ -44,6 +44,22 @@ class Experiment(Base):
     )
 
 
+class Public(Base):
+    __tablename__ = "publics"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    name_normalized: Mapped[str] = mapped_column(String(200), nullable=False, unique=True, index=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, onupdate=datetime.utcnow)
+
+    records: Mapped[list["ExperimentRecord"]] = relationship(
+        "ExperimentRecord",
+        back_populates="public",
+    )
+
+
 class ExperimentRecord(Base):
     __tablename__ = "experiment_records"
 
@@ -94,6 +110,7 @@ class ExperimentRecord(Base):
     execution_type: Mapped[str | None] = mapped_column(String(30), nullable=True)
     record_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
     publico: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    public_id: Mapped[int | None] = mapped_column(ForeignKey("publics.id"), nullable=True, index=True)
     hook_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     hook_type: Mapped[str | None] = mapped_column(String(30), nullable=True)
     cta_text: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -105,6 +122,7 @@ class ExperimentRecord(Base):
     updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, onupdate=datetime.utcnow)
 
     experiment: Mapped["Experiment"] = relationship("Experiment", back_populates="records")
+    public: Mapped[Public | None] = relationship("Public", back_populates="records")
 
 
 class Documentation(Base):

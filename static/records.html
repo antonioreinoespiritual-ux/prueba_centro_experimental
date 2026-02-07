@@ -21,6 +21,9 @@
     .ai-history__item:hover { border-color: var(--accent); background: var(--glass-bg-hover); }
     .ai-spinner { display: inline-block; width: 18px; height: 18px; border: 2px solid rgba(124,58,237,0.3); border-top-color: #7c3aed; border-radius: 50%; animation: spin 0.6s linear infinite; margin-right: 8px; vertical-align: middle; }
     @keyframes spin { to { transform: rotate(360deg); } }
+    .table-ellipsis { max-width: 260px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .table-ellipsis--sm { max-width: 180px; }
+    .table-ellipsis--lg { max-width: 360px; }
   </style>
 </head>
 <body>
@@ -37,6 +40,7 @@
       <div class="top-bar__actions">
         <a class="btn-link" href="/" aria-label="Volver a formularios">Volver a formularios</a>
         <a class="btn-link" href="/static/dashboard.html" aria-label="Ir al dashboard">Dashboard</a>
+        <a class="btn-link" href="/static/publics.html" aria-label="Ir a publicos">Públicos</a>
         <button id="btnReload" class="btn-secondary" aria-label="Recargar datos">Recargar</button>
       </div>
     </div>
@@ -154,12 +158,15 @@
               <tr>
                 <th>ID (Session)</th>
                 <th>Record</th>
+                <th>Experimento</th>
+                <th>Hipótesis</th>
                 <th>Metrica X</th>
                 <th>Proyecto</th>
                 <th>Status</th>
                 <th>Canal</th>
                 <th>Clicks</th>
                 <th>Views</th>
+                <th>Nuevos seguidores</th>
                 <th>Purchase</th>
                 <th>Created</th>
                 <th>Updated</th>
@@ -170,77 +177,176 @@
         </div>
       </div>
 
-      <!-- Record Detail Card -->
       <div class="card">
-        <div class="flex justify-between items-center">
-          <h2>Tarjeta del récord</h2>
-          <button class="btn-doc" id="btnRecordDoc" style="display:none;" onclick="openDocModal('record', currentRecordId, currentRecordName)">Documentacion</button>
-          <button class="btn-secondary" id="btnRecordEdit" style="display:none;" onclick="goToRecordEdit()">Editar</button>
-          <button class="btn-ai" id="btnRecordAi" style="display:none;" onclick="openAiMetrics('record', currentRecordId, currentRecordName)">Analisis IA</button>
-          <button class="btn-ai" id="btnRecordAiCombined" style="display:none;" onclick="openAiCombined('record', currentRecordId, currentRecordName)">Analisis IA Completo</button>
-        </div>
-        <div id="recordEmpty" class="text-muted text-sm mt-sm">Selecciona un récord para ver el detalle completo.</div>
-        <div id="recordCard" style="display:none;" class="mt-md">
-          <div class="grid grid-3">
-            <div class="stat-chip">
-              <div class="stat-chip__label">Record</div>
-              <div class="stat-chip__value" id="cardRecordName">—</div>
-              <div class="stat-chip__meta" id="cardRecordMeta"></div>
-            </div>
-            <div class="stat-chip">
-              <div class="stat-chip__label">Experimento</div>
-              <div class="stat-chip__value" id="cardExperiment">—</div>
-              <div class="stat-chip__meta" id="cardExperimentMeta"></div>
-            </div>
-            <div class="stat-chip">
-              <div class="stat-chip__label">Estado</div>
-              <div class="stat-chip__value" id="cardStatus">—</div>
-              <div class="stat-chip__meta" id="cardStatusMeta"></div>
-            </div>
-          </div>
-          <div class="grid grid-3 mt-md">
-            <div class="stat-chip">
-              <div class="stat-chip__label">Clicks / Views</div>
-              <div class="stat-chip__value" id="cardTraffic">—</div>
-              <div class="stat-chip__meta" id="cardTrafficMeta"></div>
-            </div>
-            <div class="stat-chip">
-              <div class="stat-chip__label">Funnel</div>
-              <div class="stat-chip__value" id="cardFunnel">—</div>
-              <div class="stat-chip__meta" id="cardFunnelMeta"></div>
-            </div>
-            <div class="stat-chip">
-              <div class="stat-chip__label">Engagement</div>
-              <div class="stat-chip__value" id="cardEngagement">—</div>
-              <div class="stat-chip__meta">(Likes + Comments + Shares) / Views x 1000</div>
-            </div>
-            <div class="stat-chip">
-              <div class="stat-chip__label">Creative</div>
-              <div class="stat-chip__value" id="cardCreative">—</div>
-              <div class="stat-chip__meta" id="cardCreativeMeta"></div>
-            </div>
-          </div>
-          <div class="grid grid-3 mt-md">
-            <div class="stat-chip">
-              <div class="stat-chip__label">Video</div>
-              <div class="stat-chip__value" id="cardVideo">—</div>
-              <div class="stat-chip__meta" id="cardVideoMeta"></div>
-            </div>
-            <div class="stat-chip">
-              <div class="stat-chip__label">Live</div>
-              <div class="stat-chip__value" id="cardLive">—</div>
-              <div class="stat-chip__meta" id="cardLiveMeta"></div>
-            </div>
-            <div class="stat-chip">
-              <div class="stat-chip__label">IDs campaña</div>
-              <div class="stat-chip__value" id="cardCampaign">—</div>
-              <div class="stat-chip__meta" id="cardCampaignMeta"></div>
-            </div>
-          </div>
-        </div>
+        <h2>Detalle del récord</h2>
+        <div class="text-muted text-sm mt-sm">Haz clic en un récord para abrir el modal de análisis.</div>
       </div>
     </div>
 
+  </div>
+
+  <div class="modal-backdrop hidden" id="recordModal">
+    <div class="modal">
+      <div class="modal__header">
+        <div>
+          <div class="modal__title" id="recordModalTitle">Detalle del récord</div>
+          <div class="text-sm text-muted" id="recordModalMeta">Analiza el récord sin salir de la lista.</div>
+        </div>
+        <div class="flex gap-sm items-center">
+          <button class="btn-doc" id="btnRecordDoc">Documentacion</button>
+          <button class="btn-ai" id="btnRecordAi">Analisis IA</button>
+          <button class="btn-ai" id="btnRecordAiFull">Analisis IA Completo</button>
+          <button class="btn-secondary" id="btnCloseRecordModal">Cerrar</button>
+        </div>
+      </div>
+      <div class="modal__body">
+        <div class="grid grid-2">
+          <div class="card">
+            <div class="section-header">
+              <h3>Contexto</h3>
+            </div>
+            <div class="stat-chip">
+              <div class="stat-chip__label">Proyecto</div>
+              <div class="stat-chip__value" id="modalProject">—</div>
+              <div class="stat-chip__meta" id="modalExperiment">—</div>
+            </div>
+            <div class="stat-chip mt-md">
+              <div class="stat-chip__label">Hipótesis</div>
+              <div class="stat-chip__value" id="modalHypothesis">—</div>
+              <div class="stat-chip__meta" id="modalHypothesisMeta">—</div>
+            </div>
+            <div class="stat-chip mt-md">
+              <div class="stat-chip__label">Estado</div>
+              <div class="stat-chip__value" id="modalStatus">—</div>
+              <div class="stat-chip__meta" id="modalChannel">—</div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="section-header">
+              <h3>Creative</h3>
+            </div>
+            <div class="stat-chip">
+              <div class="stat-chip__label">Hook</div>
+              <div class="stat-chip__value" id="modalHook">—</div>
+              <div class="stat-chip__meta" id="modalHookType">—</div>
+            </div>
+            <div class="stat-chip mt-md">
+              <div class="stat-chip__label">CTA</div>
+              <div class="stat-chip__value" id="modalCta">—</div>
+              <div class="stat-chip__meta" id="modalCtaType">—</div>
+            </div>
+            <div class="stat-chip mt-md">
+              <div class="stat-chip__label">Ejecución</div>
+              <div class="stat-chip__value" id="modalExecution">—</div>
+              <div class="stat-chip__meta" id="modalRecordName">—</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card mt-lg">
+          <div class="section-header">
+            <h3>Métricas principales</h3>
+          </div>
+          <div class="grid grid-4 mt-md">
+            <div class="stat-chip">
+              <div class="stat-chip__label">Clicks</div>
+              <div class="stat-chip__value" id="modalClicks">—</div>
+            </div>
+            <div class="stat-chip">
+              <div class="stat-chip__label">Views</div>
+              <div class="stat-chip__value" id="modalViews">—</div>
+            </div>
+            <div class="stat-chip">
+              <div class="stat-chip__label">CTR</div>
+              <div class="stat-chip__value" id="modalCtr">—</div>
+            </div>
+            <div class="stat-chip">
+              <div class="stat-chip__label">Purchase</div>
+              <div class="stat-chip__value" id="modalPurchase">—</div>
+            </div>
+          </div>
+          <div class="grid grid-4 mt-md">
+            <div class="stat-chip">
+              <div class="stat-chip__label">Initiate Checkout</div>
+              <div class="stat-chip__value" id="modalInitiateCheckout">—</div>
+            </div>
+            <div class="stat-chip">
+              <div class="stat-chip__label">Inicia Test</div>
+              <div class="stat-chip__value" id="modalIniciaTest">—</div>
+            </div>
+            <div class="stat-chip">
+              <div class="stat-chip__label">Lead Form</div>
+              <div class="stat-chip__value" id="modalLeadForm">—</div>
+            </div>
+            <div class="stat-chip">
+              <div class="stat-chip__label">Nuevos seguidores</div>
+              <div class="stat-chip__value" id="modalNewFollowers">—</div>
+            </div>
+          </div>
+          <div class="grid grid-4 mt-md">
+            <div class="stat-chip">
+              <div class="stat-chip__label">Retención %</div>
+              <div class="stat-chip__value" id="modalRetention">—</div>
+            </div>
+            <div class="stat-chip">
+              <div class="stat-chip__label">Engagement %</div>
+              <div class="stat-chip__value" id="modalEngagement">—</div>
+            </div>
+            <div class="stat-chip">
+              <div class="stat-chip__label">Avg Watch Time</div>
+              <div class="stat-chip__value" id="modalAvgWatch">—</div>
+            </div>
+            <div class="stat-chip">
+              <div class="stat-chip__label">Interacciones</div>
+              <div class="stat-chip__value" id="modalInteractions">—</div>
+            </div>
+          </div>
+          <div class="grid grid-4 mt-md">
+            <div class="stat-chip">
+              <div class="stat-chip__label">Likes</div>
+              <div class="stat-chip__value" id="modalLikes">—</div>
+            </div>
+            <div class="stat-chip">
+              <div class="stat-chip__label">Comentarios</div>
+              <div class="stat-chip__value" id="modalComments">—</div>
+            </div>
+            <div class="stat-chip">
+              <div class="stat-chip__label">Shares</div>
+              <div class="stat-chip__value" id="modalShares">—</div>
+            </div>
+            <div class="stat-chip">
+              <div class="stat-chip__label">Guardados</div>
+              <div class="stat-chip__value" id="modalSaves">—</div>
+            </div>
+          </div>
+          <div class="grid grid-4 mt-md">
+            <div class="stat-chip">
+              <div class="stat-chip__label">CPC</div>
+              <div class="stat-chip__value" id="modalCpc">—</div>
+            </div>
+            <div class="stat-chip">
+              <div class="stat-chip__label">CAC</div>
+              <div class="stat-chip__value" id="modalCac">—</div>
+            </div>
+            <div class="stat-chip">
+              <div class="stat-chip__label">CPR</div>
+              <div class="stat-chip__value" id="modalCpr">—</div>
+            </div>
+            <div class="stat-chip">
+              <div class="stat-chip__label">CTR</div>
+              <div class="stat-chip__value" id="modalCtrRepeat">—</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card mt-lg">
+          <div class="section-header">
+            <h3>Notas cualitativas</h3>
+          </div>
+          <div id="modalNotes" class="text-sm text-muted">Sin notas.</div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- Documentation Modal -->
@@ -293,6 +399,7 @@
 
   let experiments = [];
   let records = [];
+  let publics = [];
   let currentRecordId = null;
   let currentRecordName = "";
 
@@ -314,6 +421,31 @@
     const x = Number(n);
     if (!Number.isFinite(x)) return "—";
     return x.toFixed(digits);
+  }
+
+  function fmtPercent(value, digits = 2){
+    if (value === null || value === undefined) return "—";
+    const n = Number(value);
+    return Number.isFinite(n) ? `${n.toFixed(digits)}%` : "—";
+  }
+
+  function computeEngagement(record){
+    const views = record.views || 0;
+    const total = (record.likes || 0) + (record.comments || 0) + (record.shares || 0) + (record.saves || 0);
+    if (!views) return null;
+    return (total / views) * 100;
+  }
+
+  function computeSpend(record){
+    if (record.cpc === null || record.cpc === undefined) return null;
+    const clicks = record.clicks || 0;
+    return record.cpc * clicks;
+  }
+
+  function isUnassignedPublic(value){
+    if (!value) return true;
+    const normalized = value.trim().toLowerCase();
+    return ["sin publico", "sin público", "no asignado", "no asignada"].includes(normalized);
   }
 
   function toDateOnly(dt){
@@ -378,15 +510,26 @@
   }
 
   function fillPublicoFilter(){
-    const project = $("f_project").value;
-    const metricX = $("f_metric_x").value;
-    const expIds = experiments
-      .filter(e => (!project || e.project_name === project) && (!metricX || e.independent_variable === metricX))
-      .map(e => e.id);
-    const publicoCandidates = records
-      .filter(r => !expIds.length || expIds.includes(r.experiment_id))
-      .map(r => r.publico);
-    fillFilterSelect($("f_publico"), uniqueSorted(publicoCandidates));
+    const selectEl = $("f_publico");
+    const prev = selectEl.value;
+    selectEl.innerHTML = "";
+    const optAll = document.createElement("option");
+    optAll.value = "";
+    optAll.textContent = "(todos)";
+    selectEl.appendChild(optAll);
+    const optNone = document.createElement("option");
+    optNone.value = "none";
+    optNone.textContent = "Sin público";
+    selectEl.appendChild(optNone);
+    publics.forEach(publico => {
+      const opt = document.createElement("option");
+      opt.value = String(publico.id);
+      opt.textContent = publico.name;
+      selectEl.appendChild(opt);
+    });
+    if (prev && [...selectEl.options].some(o => o.value === prev)) {
+      selectEl.value = prev;
+    }
   }
 
   function getExperimentById(id){
@@ -441,8 +584,12 @@
       filtered = filtered.filter(r => r.execution_type === exec);
     }
 
-    if (publico){
-      filtered = filtered.filter(r => (r.publico || "") === publico);
+    if (publico === "none"){
+      filtered = filtered.filter(r => !r.public_id && isUnassignedPublic(r.publico));
+    } else if (publico){
+      const publicId = Number(publico);
+      const publicName = publics.find(p => p.id === publicId)?.name;
+      filtered = filtered.filter(r => r.public_id === publicId || (publicName && r.publico === publicName));
     }
 
     if (from){
@@ -515,71 +662,101 @@
       const traffic = exp?.traffic_type || "mixed";
       tr.innerHTML = `
         <td>${escapeHtml(r.session_id || "—")}</td>
-        <td>${escapeHtml(r.record_name || "—")}</td>
+        <td class="table-ellipsis table-ellipsis--sm" title="${escapeHtml(r.record_name || r.session_id || "—")}">${escapeHtml(r.record_name || "—")}</td>
+        <td>${escapeHtml(exp ? `Exp #${exp.id}` : "—")}</td>
+        <td class="table-ellipsis table-ellipsis--lg" title="${escapeHtml(exp?.hypothesis || "—")}">${escapeHtml(exp ? `Hyp #${exp.id} · ${(exp.hypothesis || "").slice(0, 90)}${(exp.hypothesis || "").length > 90 ? "…" : ""}` : "—")}</td>
         <td>${escapeHtml(exp?.independent_variable || "—")}</td>
         <td>${escapeHtml(exp?.project_name || "—")}</td>
         <td><span class="badge badge-${statusClass}">${statusClass}</span></td>
         <td><span class="badge badge-${traffic}">${traffic}</span></td>
         <td>${fmt(r.clicks)}</td>
         <td>${fmt(r.views)}</td>
+        <td>${fmt(r.live_new_followers)}</td>
         <td>${fmt(r.purchase)}</td>
         <td>${escapeHtml(r.created_at || "")}</td>
         <td>${escapeHtml(r.updated_at || r.created_at || "")}</td>
       `;
-      tr.onclick = () => renderCard(r);
+      tr.onclick = () => openRecordModal(r, exp);
       tbody.appendChild(tr);
     }
     $("resultCount").textContent = `${list.length} récords`;
   }
 
-  function renderCard(r){
-    const exp = getExperimentById(r.experiment_id);
-    currentRecordId = r.id;
-    currentRecordName = r.record_name || r.session_id || `Record #${r.id}`;
-    $("recordEmpty").style.display = "none";
-    $("recordCard").style.display = "block";
-    $("btnRecordDoc").style.display = "";
-    $("btnRecordEdit").style.display = "";
-    $("btnRecordAi").style.display = "";
-    $("btnRecordAiCombined").style.display = "";
+  async function openRecordModal(record, exp){
+    const engagement = computeEngagement(record);
+    const spend = computeSpend(record);
+    const purchases = record.purchase || 0;
+    const leads = record.lead_form || 0;
+    const cac = spend && purchases ? spend / purchases : null;
+    const cpr = spend && leads ? spend / leads : null;
+    const recordTitle = record.record_name || `Record #${record.id}`;
 
-    $("cardRecordName").textContent = r.record_name || r.session_id || "—";
-    $("cardRecordMeta").textContent = `Record #${r.id} · ${r.created_at || "—"}`;
+    $("recordModalTitle").textContent = recordTitle;
+    $("recordModalMeta").textContent = `Record #${record.id} · Session ${record.session_id}`;
+    $("btnRecordDoc").onclick = (event) => {
+      event.stopPropagation();
+      openDocModal("record", record.id, recordTitle);
+    };
+    $("btnRecordAi").onclick = (event) => {
+      event.stopPropagation();
+      openAiMetrics("record", record.id, recordTitle);
+    };
+    $("btnRecordAiFull").onclick = (event) => {
+      event.stopPropagation();
+      openAiCombined("record", record.id, recordTitle);
+    };
+    $("modalProject").textContent = exp?.project_name || "—";
+    $("modalExperiment").textContent = exp ? `Experimento #${exp.id}` : "—";
+    $("modalHypothesis").textContent = exp?.hypothesis || "—";
+    $("modalHypothesisMeta").textContent = exp?.hypothesis_type || "—";
+    $("modalStatus").textContent = record.record_status || "—";
+    $("modalChannel").textContent = exp?.traffic_type || "—";
+    $("modalHook").textContent = record.hook_text || "—";
+    $("modalHookType").textContent = record.hook_type || "—";
+    $("modalCta").textContent = record.cta_text || "—";
+    $("modalCtaType").textContent = record.cta_type || "—";
+    $("modalExecution").textContent = record.execution_type || "—";
+    $("modalRecordName").textContent = record.record_name || record.session_id || "—";
 
-    $("cardExperiment").textContent = exp ? `${exp.project_name}` : "—";
-    $("cardExperimentMeta").textContent = exp ? `Hypótesis: ${exp.hypothesis_type || "—"} · Y: ${exp.primary_metric || "—"}` : "—";
+    $("modalClicks").textContent = fmt(record.clicks);
+    $("modalViews").textContent = fmt(record.views);
+    $("modalCtr").textContent = record.ctr ?? "—";
+    $("modalPurchase").textContent = fmt(record.purchase);
+    $("modalInitiateCheckout").textContent = fmt(record.initiate_checkouts);
+    $("modalIniciaTest").textContent = fmt(record.inicia_test);
+    $("modalLeadForm").textContent = fmt(record.lead_form);
+    $("modalNewFollowers").textContent = fmt(record.live_new_followers);
+    $("modalRetention").textContent = fmtPercent(record.retention_pct, 1);
+    $("modalEngagement").textContent = engagement !== null ? `${fmtFloat(engagement, 2)}%` : "—";
+    $("modalAvgWatch").textContent = record.avg_watch_time !== null && record.avg_watch_time !== undefined
+      ? fmtFloat(record.avg_watch_time, 2)
+      : "—";
+    const interactions = (record.likes || 0) + (record.comments || 0) + (record.shares || 0) + (record.saves || 0);
+    $("modalInteractions").textContent = fmt(interactions);
+    $("modalLikes").textContent = fmt(record.likes);
+    $("modalComments").textContent = fmt(record.comments);
+    $("modalShares").textContent = fmt(record.shares);
+    $("modalSaves").textContent = fmt(record.saves);
+    $("modalCpc").textContent = record.cpc !== null && record.cpc !== undefined ? fmtFloat(record.cpc, 4) : "—";
+    $("modalCac").textContent = cac !== null ? fmtFloat(cac, 2) : "—";
+    $("modalCpr").textContent = cpr !== null ? fmtFloat(cpr, 2) : "—";
+    $("modalCtrRepeat").textContent = record.ctr ?? "—";
 
-    const status = r.record_status || "collecting";
-    $("cardStatus").innerHTML = `<span class="badge badge-${status}">${status}</span>`;
-    $("cardStatusMeta").textContent = `Execution: ${r.execution_type || "—"}`;
+    $("modalNotes").textContent = "Cargando notas...";
+    try {
+      const doc = await apiGet(`/documentation/record/${record.id}`);
+      if (!doc.notes || doc.notes.length === 0) {
+        $("modalNotes").textContent = "Sin notas.";
+      } else {
+        $("modalNotes").innerHTML = doc.notes
+          .map(note => `<div class="mb-sm">${note.body}</div>`)
+          .join("");
+      }
+    } catch (error) {
+      $("modalNotes").textContent = "Sin notas.";
+    }
 
-    $("cardTraffic").textContent = `${fmt(r.clicks)} / ${fmt(r.views)}`;
-    $("cardTrafficMeta").textContent = `CTR: ${r.ctr ?? "—"} · CPC: ${r.cpc ?? "—"}`;
-
-    $("cardFunnel").textContent = `${fmt(r.view_content)} / ${fmt(r.lead_form)} / ${fmt(r.initiate_checkouts)} / ${fmt(r.purchase)}`;
-    $("cardFunnelMeta").textContent = "VC / Lead / IC / Purchase";
-
-    const engagementViews = r.views || 0;
-    const engagementTotal = (r.likes || 0) + (r.comments || 0) + (r.shares || 0);
-    const engagement = engagementViews ? (engagementTotal / engagementViews) * 1000 : null;
-    $("cardEngagement").textContent = engagement === null ? "—" : fmtFloat(engagement, 2);
-
-    $("cardCreative").textContent = `${r.hook_type || "—"} / ${r.cta_type || "—"}`;
-    $("cardCreativeMeta").textContent = `Hook: ${r.hook_text || "—"} · CTA: ${r.cta_text || "—"}`;
-
-    $("cardVideo").textContent = `${r.views_finish_pct ?? "—"}% / ${r.retention_pct ?? "—"}%`;
-    $("cardVideoMeta").textContent = `Avg watch: ${r.avg_watch_time ?? "—"} · Duración: ${r.video_duration ?? "—"}`;
-
-    $("cardLive").textContent = `${fmt(r.live_viewers_peak)} / ${fmt(r.live_avg_viewers)} / ${fmt(r.live_new_followers)}`;
-    $("cardLiveMeta").textContent = "Peak / Avg / New followers";
-
-    $("cardCampaign").textContent = `${r.campaign_id || "—"} / ${r.ad_set_id || "—"}`;
-    $("cardCampaignMeta").textContent = `Ad: ${r.ad_id || "—"}`;
-  }
-
-  function goToRecordEdit() {
-    if (!currentRecordId) return;
-    window.location.href = `/static/edit_record.html?id=${currentRecordId}`;
+    $("recordModal").classList.remove("hidden");
   }
 
   function clearFilters(){
@@ -597,8 +774,19 @@
     renderTable(filtered);
   }
 
+  $("btnCloseRecordModal").addEventListener("click", () => {
+    $("recordModal").classList.add("hidden");
+  });
+
+  $("recordModal").addEventListener("click", (event) => {
+    if (event.target === $("recordModal")) {
+      $("recordModal").classList.add("hidden");
+    }
+  });
+
   async function loadAll(){
     experiments = await apiGet("/experiments/");
+    publics = await apiGet("/publics");
     fillProjectMetricFilters();
     const limit = Math.max(1, Number($("f_limit").value) || 5000);
     records = await apiGet(`/records/?limit=${encodeURIComponent(limit)}`);
