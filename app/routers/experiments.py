@@ -28,6 +28,14 @@ def list_experiments(db: Session = Depends(get_db)):
     return crud.get_experiments(db)
 
 
+@router.delete("/projects/{project_name}")
+def delete_project(project_name: str, db: Session = Depends(get_db)):
+    deleted_count = crud.delete_project(db, project_name)
+    if not deleted_count:
+        raise HTTPException(status_code=404, detail="Project not found")
+    return {"deleted": True, "project_name": project_name, "experiments_deleted": deleted_count}
+
+
 @router.get("/{experiment_id}", response_model=schemas.ExperimentOut)
 def get_experiment(experiment_id: int, db: Session = Depends(get_db)):
     exp = crud.get_experiment(db, experiment_id)

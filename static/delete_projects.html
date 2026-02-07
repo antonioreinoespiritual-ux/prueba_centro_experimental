@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Eliminar Proyectos — Centro Experimental</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/design-system.css">
+  <style>
+    .table-checkbox { width: 20px; height: 20px; accent-color: var(--danger); }
+    .delete-toolbar { display: flex; flex-wrap: wrap; gap: var(--space-sm); align-items: center; }
+    .confirm-backdrop { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); display: none; align-items: center; justify-content: center; z-index: 1000; }
+    .confirm-modal { background: var(--surface-2); border: 1px solid var(--glass-border); border-radius: var(--radius-lg); padding: var(--space-xl); width: min(520px, 95vw); box-shadow: var(--shadow-lg); }
+    .confirm-actions { display: flex; gap: var(--space-sm); justify-content: flex-end; margin-top: var(--space-lg); }
+    .row-muted { color: var(--text-muted); }
+  </style>
+</head>
+<body>
+  <div class="app-container" role="main">
+    <div class="top-bar">
+      <div>
+        <h1 class="top-bar__title">Eliminar Proyectos</h1>
+        <p class="top-bar__subtitle">Filtra, selecciona y elimina proyectos con confirmación.</p>
+      </div>
+      <div class="top-bar__actions">
+        <a class="btn-link" href="/" aria-label="Volver a formularios">Volver a formularios</a>
+        <a class="btn-link" href="/static/projects.html" aria-label="Lista de proyectos">Lista de proyectos</a>
+        <a class="btn-link" href="/static/dashboard.html" aria-label="Dashboard">Dashboard</a>
+      </div>
+    </div>
+
+    <div class="card fade-in mt-lg">
+      <div class="grid grid-3">
+        <div class="field-group">
+          <label for="fSearch">Buscar</label>
+          <input id="fSearch" placeholder="proyecto, hipotesis..." />
+        </div>
+        <div class="field-group">
+          <label for="fTraffic">Canal</label>
+          <select id="fTraffic">
+            <option value="">Todos</option>
+            <option value="paid">Paid</option>
+            <option value="organic">Organic</option>
+            <option value="live">Live</option>
+            <option value="mixed">Mixed</option>
+          </select>
+        </div>
+      </div>
+      <div class="delete-toolbar mt-lg">
+        <button id="btnSelectAll" class="btn-secondary">Seleccionar visibles</button>
+        <button id="btnClearAll" class="btn-ghost">Limpiar selección</button>
+        <span class="tag" id="selectedCount">0 seleccionados</span>
+        <button id="btnDeleteSelected" class="btn-warning">Eliminar seleccionados</button>
+        <span class="text-sm row-muted">Elimina proyectos con todas sus hipótesis, récords, documentación y análisis IA.</span>
+      </div>
+    </div>
+
+    <div class="card mt-lg">
+      <div class="section-header">
+        <h3>Proyectos</h3>
+        <span class="tag" id="totalCount">0 proyectos</span>
+      </div>
+      <div class="table-wrapper mt-md">
+        <table>
+          <thead>
+            <tr>
+              <th></th>
+              <th>Proyecto</th>
+              <th>Hipótesis</th>
+              <th>Récords</th>
+              <th>Canales</th>
+              <th>Último experimento</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="tblProjects"></tbody>
+        </table>
+      </div>
+      <div id="emptyState" class="text-sm text-muted mt-md" style="display:none;">No hay proyectos con estos filtros.</div>
+    </div>
+  </div>
+
+  <div class="confirm-backdrop" id="confirmBackdrop" role="dialog" aria-modal="true">
+    <div class="confirm-modal">
+      <h3>Confirmar eliminación</h3>
+      <p class="text-sm">Vas a eliminar <strong id="confirmCount">0</strong> proyectos. Esta acción es permanente.</p>
+      <div class="confirm-actions">
+        <button id="btnCancelDelete" class="btn-secondary">Cancelar</button>
+        <button id="btnConfirmDelete" class="btn-warning">Eliminar ahora</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast-container" id="toastContainer"></div>
+
+<script>
+  const API_BASE = "";
+  const $ = (id) => document.getElementById(id);
+
+  let experiments = [];
+  let records = [];
+  const selectedProjects = new Set();
+
+  function showToast(message, type = "success") {
+    const container = $("toastContainer");
+    const toast = document.createElement("div");
+    toast.className = `toast toast--${type}`;
+    toast.textContent = message;
+    container.appendChild(toast);
+    setTimeout(() => toast.remove(), 3000);
+  }
+
+  async function apiGet(path) {
+    const r = await fetch(API_BASE + path);
+    if (!r.ok) throw new Error(await r.text());
+    return r.json();
+  }
+
+  async function apiDelete(path) {
+    const r = await fetch(API_BASE + path, { method: "DELETE" });
+    if (!r.ok) throw new Error(await r.text());
+    return r.json();
+  }
+
+  function buildProjectRows() {
+    const recordCounts = new Map();
+    records.forEach((record) => {
+      recordCounts.set(record.experiment_id, (recordCounts.get(record.experiment_id) || 0) + 1);
+    });
+
+    const projectMap = new Map();
+    experiments.forEach((exp) => {
+      const entry = projectMap.get(exp.project_name) || {
+        name: exp.project_name,
+        experiments: [],
+        records: 0,
+        channels: new Set(),
+        lastCreatedAt: null,
+      };
+      entry.experiments.push(exp);
+      entry.records += recordCounts.get(exp.id) || 0;
+      if (exp.traffic_type) entry.channels.add(exp.traffic_type);
+      if (!entry.lastCreatedAt || String(exp.created_at) > String(entry.lastCreatedAt)) {
+        entry.lastCreatedAt = exp.created_at;
+      }
+      projectMap.set(exp.project_name, entry);
+    });
+
+    return [...projectMap.values()];
+  }
+
+  function applyFilters(items) {
+    const search = $("fSearch").value.trim().toLowerCase();
+    const traffic = $("fTraffic").value;
+
+    return items.filter((item) => {
+      if (traffic && !item.channels.has(traffic)) return false;
+      if (!search) return true;
+      const hay = [item.name, ...item.experiments.map((exp) => exp.hypothesis || "")].join(" ").toLowerCase();
+      return hay.includes(search);
+    });
+  }
+
+  function renderTable() {
+    const tbody = $("tblProjects");
+    const items = applyFilters(buildProjectRows());
+    tbody.innerHTML = "";
+
+    $("totalCount").textContent = `${items.length} proyectos`;
+    $("emptyState").style.display = items.length ? "none" : "";
+
+    items.forEach((item) => {
+      const tr = document.createElement("tr");
+      const isChecked = selectedProjects.has(item.name);
+      tr.innerHTML = `
+        <td><input type="checkbox" class="table-checkbox" data-name="${item.name}" ${isChecked ? "checked" : ""}></td>
+        <td>${item.name}</td>
+        <td>${item.experiments.length}</td>
+        <td>${item.records}</td>
+        <td>${[...item.channels].sort().join(", ") || "—"}</td>
+        <td>${item.lastCreatedAt || "—"}</td>
+        <td><button class="btn-warning" data-delete="${item.name}">Eliminar</button></td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    tbody.querySelectorAll("input[type=checkbox]").forEach((cb) => {
+      cb.addEventListener("change", (event) => {
+        const name = event.target.dataset.name;
+        if (event.target.checked) selectedProjects.add(name);
+        else selectedProjects.delete(name);
+        updateSelectedCount();
+      });
+    });
+
+    tbody.querySelectorAll("button[data-delete]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const name = btn.dataset.delete;
+        openConfirm([name]);
+      });
+    });
+
+    updateSelectedCount();
+  }
+
+  function updateSelectedCount() {
+    $("selectedCount").textContent = `${selectedProjects.size} seleccionados`;
+    $("btnDeleteSelected").disabled = selectedProjects.size === 0;
+  }
+
+  function openConfirm(names) {
+    $("confirmCount").textContent = names.length;
+    $("confirmBackdrop").style.display = "flex";
+    $("confirmBackdrop").dataset.names = names.join("||");
+  }
+
+  function closeConfirm() {
+    $("confirmBackdrop").style.display = "none";
+    $("confirmBackdrop").dataset.names = "";
+  }
+
+  async function deleteProjects(names) {
+    try {
+      await Promise.all(
+        names.map((name) => apiDelete(`/experiments/projects/${encodeURIComponent(name)}`))
+      );
+      experiments = experiments.filter((exp) => !names.includes(exp.project_name));
+      const remainingExpIds = new Set(experiments.map((exp) => exp.id));
+      records = records.filter((record) => remainingExpIds.has(record.experiment_id));
+      names.forEach((name) => selectedProjects.delete(name));
+      renderTable();
+      showToast("Proyectos eliminados correctamente.");
+    } catch (error) {
+      showToast(String(error), "error");
+    }
+  }
+
+  $("btnSelectAll").addEventListener("click", () => {
+    applyFilters(buildProjectRows()).forEach((item) => selectedProjects.add(item.name));
+    renderTable();
+  });
+  $("btnClearAll").addEventListener("click", () => {
+    selectedProjects.clear();
+    renderTable();
+  });
+  $("btnDeleteSelected").addEventListener("click", () => {
+    if (!selectedProjects.size) return;
+    openConfirm([...selectedProjects]);
+  });
+  $("btnCancelDelete").addEventListener("click", closeConfirm);
+  $("confirmBackdrop").addEventListener("click", (event) => {
+    if (event.target === $("confirmBackdrop")) closeConfirm();
+  });
+  $("btnConfirmDelete").addEventListener("click", async () => {
+    const names = $("confirmBackdrop").dataset.names.split("||").filter(Boolean);
+    closeConfirm();
+    if (names.length) await deleteProjects(names);
+  });
+
+  ["fSearch", "fTraffic"].forEach((id) => {
+    $(id).addEventListener(id === "fSearch" ? "input" : "change", renderTable);
+  });
+
+  async function loadAll() {
+    try {
+      experiments = await apiGet("/experiments/");
+      records = await apiGet("/records/?limit=50000");
+      renderTable();
+    } catch (error) {
+      showToast("Error cargando datos: " + String(error), "error");
+    }
+  }
+
+  loadAll();
+</script>
+</body>
+</html>

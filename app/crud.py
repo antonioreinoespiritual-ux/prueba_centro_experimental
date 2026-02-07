@@ -106,6 +106,59 @@ def delete_experiment(db: Session, experiment_id: int):
     return exp
 
 
+def delete_project(db: Session, project_name: str):
+    exp_ids = list(
+        db.execute(
+            select(models.Experiment.id).where(models.Experiment.project_name == project_name)
+        ).scalars()
+    )
+    if not exp_ids:
+        return 0
+
+    record_ids = list(
+        db.execute(
+            select(models.ExperimentRecord.id).where(
+                models.ExperimentRecord.experiment_id.in_(exp_ids)
+            )
+        ).scalars()
+    )
+
+    if record_ids:
+        db.execute(
+            delete(models.Documentation).where(
+                models.Documentation.entity_type == "record",
+                models.Documentation.entity_id.in_(record_ids),
+            )
+        )
+        db.execute(
+            delete(models.AIAnalysis).where(
+                models.AIAnalysis.entity_type == "record",
+                models.AIAnalysis.entity_id.in_(record_ids),
+            )
+        )
+        db.execute(
+            delete(models.ExperimentRecord).where(
+                models.ExperimentRecord.id.in_(record_ids)
+            )
+        )
+
+    db.execute(
+        delete(models.Documentation).where(
+            models.Documentation.entity_type == "experiment",
+            models.Documentation.entity_id.in_(exp_ids),
+        )
+    )
+    db.execute(
+        delete(models.AIAnalysis).where(
+            models.AIAnalysis.entity_type == "experiment",
+            models.AIAnalysis.entity_id.in_(exp_ids),
+        )
+    )
+    db.execute(delete(models.Experiment).where(models.Experiment.id.in_(exp_ids)))
+    db.commit()
+    return len(exp_ids)
+
+
 # ------------------------------------------------------------------ #
 #  RECORDS
 # ------------------------------------------------------------------ #

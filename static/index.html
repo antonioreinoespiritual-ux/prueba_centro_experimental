@@ -25,6 +25,7 @@
         <a class="btn-link" href="/static/hypotheses.html" aria-label="Lista de hipotesis">Lista de hipotesis</a>
         <a class="btn-link btn-warning" href="/static/delete_hypotheses.html" aria-label="Eliminar hipotesis">Eliminar hipotesis</a>
         <a class="btn-link btn-warning" href="/static/delete_records.html" aria-label="Eliminar records">Eliminar records</a>
+        <a class="btn-link btn-warning" href="/static/delete_projects.html" aria-label="Eliminar proyectos">Eliminar proyectos</a>
         <button id="btnRefresh" class="btn-secondary" aria-label="Actualizar listas">Actualizar listas</button>
       </div>
     </div>
@@ -661,7 +662,17 @@
       </div>
       <p class="text-sm text-secondary mb-lg">Los records viven y se actualizan. Selecciona un record, actualiza sus metricas, o cierralo cuando ya no reciba trafico.</p>
 
-      <div class="grid grid-3">
+      <div class="grid grid-4">
+        <div class="field-group">
+          <label for="upd_channel_filter">Canal</label>
+          <select id="upd_channel_filter">
+            <option value="">Todos</option>
+            <option value="paid">Paid</option>
+            <option value="organic">Orgánico</option>
+            <option value="live">Live</option>
+            <option value="mixed">Mixed</option>
+          </select>
+        </div>
         <div class="field-group">
           <label for="upd_project_filter">Proyecto</label>
           <select id="upd_project_filter"></select>
@@ -951,9 +962,11 @@
   function updateUpdateRecordFilters(){
     const projectSel = $("upd_project_filter");
     const metricSel = $("upd_metric_x_filter");
-    fillFilterSelect(projectSel, uniqueSorted(experimentsCache.map(e => e.project_name)), true, "(todos)");
+    const channel = $("upd_channel_filter").value;
+    const channelExperiments = experimentsCache.filter(e => !channel || e.traffic_type === channel);
+    fillFilterSelect(projectSel, uniqueSorted(channelExperiments.map(e => e.project_name)), true, "(todos)");
     const project = projectSel.value;
-    const metricCandidates = experimentsCache.filter(e => !project || e.project_name === project);
+    const metricCandidates = channelExperiments.filter(e => !project || e.project_name === project);
     fillFilterSelect(metricSel, uniqueSorted(metricCandidates.map(e => e.independent_variable)), true, "(todas)");
   }
 
@@ -1181,9 +1194,11 @@
   async function refreshRecordList() {
     const recordSelect = $("upd_record_id");
     recordSelect.innerHTML = '<option value="">-- seleccionar --</option>';
+    const channel = $("upd_channel_filter").value;
     const project = $("upd_project_filter").value;
     const metricX = $("upd_metric_x_filter").value;
     const filteredExps = experimentsCache.filter(e => {
+      if (channel && e.traffic_type !== channel) return false;
       if (project && e.project_name !== project) return false;
       if (metricX && e.independent_variable !== metricX) return false;
       return true;
@@ -1204,6 +1219,10 @@
   }
 
   $("upd_project_filter").onchange = () => {
+    updateUpdateRecordFilters();
+    refreshRecordList().catch(e => { setStatus("error", true); showToast(String(e), 'error'); });
+  };
+  $("upd_channel_filter").onchange = () => {
     updateUpdateRecordFilters();
     refreshRecordList().catch(e => { setStatus("error", true); showToast(String(e), 'error'); });
   };
