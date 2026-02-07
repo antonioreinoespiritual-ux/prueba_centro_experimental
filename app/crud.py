@@ -5,7 +5,7 @@ from datetime import datetime
 import re
 
 from sqlalchemy.orm import Session
-from sqlalchemy import select, desc
+from sqlalchemy import select, desc, delete
 
 from . import models, schemas
 
@@ -66,6 +66,43 @@ def update_experiment(db: Session, experiment_id: int, data: schemas.ExperimentU
 
     db.commit()
     db.refresh(exp)
+    return exp
+
+
+def delete_experiment(db: Session, experiment_id: int):
+    exp = get_experiment(db, experiment_id)
+    if not exp:
+        return None
+
+    record_ids = [record.id for record in exp.records]
+    if record_ids:
+        db.execute(
+            delete(models.Documentation).where(
+                models.Documentation.entity_type == "record",
+                models.Documentation.entity_id.in_(record_ids),
+            )
+        )
+        db.execute(
+            delete(models.AIAnalysis).where(
+                models.AIAnalysis.entity_type == "record",
+                models.AIAnalysis.entity_id.in_(record_ids),
+            )
+        )
+
+    db.execute(
+        delete(models.Documentation).where(
+            models.Documentation.entity_type == "experiment",
+            models.Documentation.entity_id == experiment_id,
+        )
+    )
+    db.execute(
+        delete(models.AIAnalysis).where(
+            models.AIAnalysis.entity_type == "experiment",
+            models.AIAnalysis.entity_id == experiment_id,
+        )
+    )
+    db.delete(exp)
+    db.commit()
     return exp
 
 
@@ -191,6 +228,27 @@ def reopen_record(db: Session, record_id: int):
     rec.updated_at = datetime.utcnow()
     db.commit()
     db.refresh(rec)
+    return rec
+
+
+def delete_record(db: Session, record_id: int):
+    rec = get_record(db, record_id)
+    if not rec:
+        return None
+    db.execute(
+        delete(models.Documentation).where(
+            models.Documentation.entity_type == "record",
+            models.Documentation.entity_id == record_id,
+        )
+    )
+    db.execute(
+        delete(models.AIAnalysis).where(
+            models.AIAnalysis.entity_type == "record",
+            models.AIAnalysis.entity_id == record_id,
+        )
+    )
+    db.delete(rec)
+    db.commit()
     return rec
 
 

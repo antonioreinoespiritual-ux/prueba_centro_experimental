@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Eliminar Hipotesis — Centro Experimental</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/design-system.css">
+  <style>
+    .table-checkbox { width: 20px; height: 20px; accent-color: var(--danger); }
+    .delete-toolbar { display: flex; flex-wrap: wrap; gap: var(--space-sm); align-items: center; }
+    .danger-text { color: var(--danger-text); }
+    .confirm-backdrop { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); display: none; align-items: center; justify-content: center; z-index: 1000; }
+    .confirm-modal { background: var(--surface-2); border: 1px solid var(--glass-border); border-radius: var(--radius-lg); padding: var(--space-xl); width: min(520px, 95vw); box-shadow: var(--shadow-lg); }
+    .confirm-actions { display: flex; gap: var(--space-sm); justify-content: flex-end; margin-top: var(--space-lg); }
+    .row-muted { color: var(--text-muted); }
+  </style>
+</head>
+<body>
+  <div class="app-container" role="main">
+    <div class="top-bar">
+      <div>
+        <h1 class="top-bar__title">Eliminar Hipotesis</h1>
+        <p class="top-bar__subtitle">Selecciona hipotesis y elimina en bloque con confirmacion.</p>
+      </div>
+      <div class="top-bar__actions">
+        <a class="btn-link" href="/" aria-label="Volver a formularios">Volver a formularios</a>
+        <a class="btn-link" href="/static/dashboard.html" aria-label="Dashboard">Dashboard</a>
+        <a class="btn-link" href="/static/hypotheses.html" aria-label="Lista de hipotesis">Lista de hipotesis</a>
+      </div>
+    </div>
+
+    <div class="card fade-in mt-lg">
+      <div class="grid grid-4">
+        <div class="field-group">
+          <label for="fSearch">Buscar</label>
+          <input id="fSearch" placeholder="proyecto, hipotesis, variable..." />
+        </div>
+        <div class="field-group">
+          <label for="fProject">Proyecto</label>
+          <select id="fProject"></select>
+        </div>
+        <div class="field-group">
+          <label for="fTraffic">Canal</label>
+          <select id="fTraffic">
+            <option value="">Todos</option>
+            <option value="paid">Paid</option>
+            <option value="organic">Organic</option>
+            <option value="live">Live</option>
+            <option value="mixed">Mixed</option>
+          </select>
+        </div>
+        <div class="field-group">
+          <label for="fStatus">Estado</label>
+          <select id="fStatus">
+            <option value="">Todos</option>
+            <option value="draft">Draft</option>
+            <option value="running">Running</option>
+            <option value="validated">Validated</option>
+            <option value="invalidated">Invalidated</option>
+            <option value="pivot_candidate">Pivot Candidate</option>
+            <option value="archived">Archived</option>
+          </select>
+        </div>
+      </div>
+      <div class="delete-toolbar mt-lg">
+        <button id="btnSelectAll" class="btn-secondary">Seleccionar visibles</button>
+        <button id="btnClearAll" class="btn-ghost">Limpiar seleccion</button>
+        <span class="tag" id="selectedCount">0 seleccionadas</span>
+        <button id="btnDeleteSelected" class="btn-warning">Eliminar seleccionadas</button>
+        <span class="text-sm row-muted">Esta accion elimina hipotesis y records asociados.</span>
+      </div>
+    </div>
+
+    <div class="card mt-lg">
+      <div class="section-header">
+        <h3>Hipotesis</h3>
+        <span class="tag" id="totalCount">0 hipotesis</span>
+      </div>
+      <div class="table-wrapper mt-md">
+        <table>
+          <thead>
+            <tr>
+              <th></th>
+              <th>ID</th>
+              <th>Proyecto</th>
+              <th>Metrica X</th>
+              <th>Estado</th>
+              <th>Records</th>
+              <th>Creado</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="tblHypotheses"></tbody>
+        </table>
+      </div>
+      <div id="emptyState" class="text-sm text-muted mt-md" style="display:none;">No hay hipotesis para estos filtros.</div>
+    </div>
+  </div>
+
+  <div class="confirm-backdrop" id="confirmBackdrop" role="dialog" aria-modal="true">
+    <div class="confirm-modal">
+      <h3>Confirmar eliminacion</h3>
+      <p class="text-sm">Vas a eliminar <strong id="confirmCount">0</strong> hipotesis. Esta accion es permanente.</p>
+      <div class="confirm-actions">
+        <button id="btnCancelDelete" class="btn-secondary">Cancelar</button>
+        <button id="btnConfirmDelete" class="btn-warning">Eliminar ahora</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast-container" id="toastContainer"></div>
+
+<script>
+  const API_BASE = "";
+  const $ = (id) => document.getElementById(id);
+
+  let experiments = [];
+  let records = [];
+  const selectedIds = new Set();
+
+  function showToast(message, type = "success") {
+    const container = $("toastContainer");
+    const toast = document.createElement("div");
+    toast.className = `toast toast--${type}`;
+    toast.textContent = message;
+    container.appendChild(toast);
+    setTimeout(() => toast.remove(), 3000);
+  }
+
+  function uniqueSorted(values) {
+    return [...new Set(values.filter(Boolean))].sort((a, b) => a.localeCompare(b, "es"));
+  }
+
+  function fillFilterSelect(selectEl, options, allLabel = "Todos") {
+    const prev = selectEl.value;
+    selectEl.innerHTML = "";
+    const optAll = document.createElement("option");
+    optAll.value = "";
+    optAll.textContent = allLabel;
+    selectEl.appendChild(optAll);
+    for (const value of options) {
+      const opt = document.createElement("option");
+      opt.value = value;
+      opt.textContent = value;
+      selectEl.appendChild(opt);
+    }
+    if (prev && [...selectEl.options].some(o => o.value === prev)) {
+      selectEl.value = prev;
+    }
+  }
+
+  async function apiGet(path) {
+    const r = await fetch(API_BASE + path);
+    if (!r.ok) throw new Error(await r.text());
+    return r.json();
+  }
+
+  async function apiDelete(path) {
+    const r = await fetch(API_BASE + path, { method: "DELETE" });
+    if (!r.ok) throw new Error(await r.text());
+    return r.json();
+  }
+
+  function applyFilters() {
+    const search = $("fSearch").value.trim().toLowerCase();
+    const project = $("fProject").value;
+    const traffic = $("fTraffic").value;
+    const status = $("fStatus").value;
+
+    return experiments.filter(exp => {
+      if (project && exp.project_name !== project) return false;
+      if (traffic && exp.traffic_type !== traffic) return false;
+      if (status && exp.experiment_status !== status) return false;
+      if (!search) return true;
+      const hay = [exp.project_name, exp.hypothesis, exp.independent_variable, exp.primary_metric]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return hay.includes(search);
+    });
+  }
+
+  function renderTable() {
+    const filtered = applyFilters();
+    const tbody = $("tblHypotheses");
+    const countMap = new Map();
+    records.forEach(r => {
+      countMap.set(r.experiment_id, (countMap.get(r.experiment_id) || 0) + 1);
+    });
+
+    tbody.innerHTML = "";
+    $("totalCount").textContent = `${filtered.length} hipotesis`;
+    $("emptyState").style.display = filtered.length ? "none" : "";
+
+    filtered.forEach(exp => {
+      const tr = document.createElement("tr");
+      const isChecked = selectedIds.has(exp.id);
+      tr.innerHTML = `
+        <td><input type="checkbox" class="table-checkbox" data-id="${exp.id}" ${isChecked ? "checked" : ""}></td>
+        <td>${exp.id}</td>
+        <td>${exp.project_name}</td>
+        <td>${exp.independent_variable || "—"}</td>
+        <td><span class="badge badge-${exp.experiment_status || "draft"}">${exp.experiment_status || "draft"}</span></td>
+        <td>${countMap.get(exp.id) || 0}</td>
+        <td>${exp.created_at || "—"}</td>
+        <td><button class="btn-warning" data-delete="${exp.id}">Eliminar</button></td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    tbody.querySelectorAll("input[type=checkbox]").forEach(cb => {
+      cb.addEventListener("change", (event) => {
+        const id = Number(event.target.dataset.id);
+        if (event.target.checked) selectedIds.add(id);
+        else selectedIds.delete(id);
+        updateSelectedCount();
+      });
+    });
+
+    tbody.querySelectorAll("button[data-delete]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const id = Number(btn.dataset.delete);
+        openConfirm([id]);
+      });
+    });
+
+    updateSelectedCount();
+  }
+
+  function updateSelectedCount() {
+    $("selectedCount").textContent = `${selectedIds.size} seleccionadas`;
+    $("btnDeleteSelected").disabled = selectedIds.size === 0;
+  }
+
+  function openConfirm(ids) {
+    $("confirmCount").textContent = ids.length;
+    $("confirmBackdrop").style.display = "flex";
+    $("confirmBackdrop").dataset.ids = ids.join(",");
+  }
+
+  function closeConfirm() {
+    $("confirmBackdrop").style.display = "none";
+    $("confirmBackdrop").dataset.ids = "";
+  }
+
+  async function deleteIds(ids) {
+    try {
+      await Promise.all(ids.map(id => apiDelete(`/experiments/${id}`)));
+      experiments = experiments.filter(exp => !ids.includes(exp.id));
+      records = records.filter(r => !ids.includes(r.experiment_id));
+      ids.forEach(id => selectedIds.delete(id));
+      renderTable();
+      showToast("Hipotesis eliminadas correctamente.");
+    } catch (e) {
+      showToast(String(e), "error");
+    }
+  }
+
+  $("btnSelectAll").addEventListener("click", () => {
+    applyFilters().forEach(exp => selectedIds.add(exp.id));
+    renderTable();
+  });
+  $("btnClearAll").addEventListener("click", () => {
+    selectedIds.clear();
+    renderTable();
+  });
+  $("btnDeleteSelected").addEventListener("click", () => {
+    if (!selectedIds.size) return;
+    openConfirm([...selectedIds]);
+  });
+  $("btnCancelDelete").addEventListener("click", closeConfirm);
+  $("confirmBackdrop").addEventListener("click", (event) => {
+    if (event.target === $("confirmBackdrop")) closeConfirm();
+  });
+  $("btnConfirmDelete").addEventListener("click", async () => {
+    const ids = $("confirmBackdrop").dataset.ids.split(",").filter(Boolean).map(Number);
+    closeConfirm();
+    if (ids.length) await deleteIds(ids);
+  });
+
+  ["fSearch", "fProject", "fTraffic", "fStatus"].forEach(id => {
+    $(id).addEventListener(id === "fSearch" ? "input" : "change", renderTable);
+  });
+
+  async function loadAll() {
+    try {
+      experiments = await apiGet("/experiments/");
+      records = await apiGet("/records/?limit=50000");
+      fillFilterSelect($("fProject"), uniqueSorted(experiments.map(e => e.project_name)));
+      renderTable();
+    } catch (e) {
+      showToast("Error cargando datos: " + String(e), "error");
+    }
+  }
+
+  loadAll();
+</script>
+</body>
+</html>

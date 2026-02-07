@@ -1,0 +1,338 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Eliminar Records — Centro Experimental</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/design-system.css">
+  <style>
+    .table-checkbox { width: 20px; height: 20px; accent-color: var(--danger); }
+    .delete-toolbar { display: flex; flex-wrap: wrap; gap: var(--space-sm); align-items: center; }
+    .confirm-backdrop { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); display: none; align-items: center; justify-content: center; z-index: 1000; }
+    .confirm-modal { background: var(--surface-2); border: 1px solid var(--glass-border); border-radius: var(--radius-lg); padding: var(--space-xl); width: min(520px, 95vw); box-shadow: var(--shadow-lg); }
+    .confirm-actions { display: flex; gap: var(--space-sm); justify-content: flex-end; margin-top: var(--space-lg); }
+    .row-muted { color: var(--text-muted); }
+  </style>
+</head>
+<body>
+  <div class="app-container" role="main">
+    <div class="top-bar">
+      <div>
+        <h1 class="top-bar__title">Eliminar Records</h1>
+        <p class="top-bar__subtitle">Filtra, selecciona y elimina records con confirmacion.</p>
+      </div>
+      <div class="top-bar__actions">
+        <a class="btn-link" href="/" aria-label="Volver a formularios">Volver a formularios</a>
+        <a class="btn-link" href="/static/records.html" aria-label="Lista de records">Lista de records</a>
+        <a class="btn-link" href="/static/dashboard.html" aria-label="Dashboard">Dashboard</a>
+      </div>
+    </div>
+
+    <div class="card fade-in mt-lg">
+      <div class="grid grid-4">
+        <div class="field-group">
+          <label for="fSearch">Buscar</label>
+          <input id="fSearch" placeholder="record, session, proyecto..." />
+        </div>
+        <div class="field-group">
+          <label for="fProject">Proyecto</label>
+          <select id="fProject"></select>
+        </div>
+        <div class="field-group">
+          <label for="fMetricX">Metrica X</label>
+          <select id="fMetricX"></select>
+        </div>
+        <div class="field-group">
+          <label for="fTraffic">Canal</label>
+          <select id="fTraffic">
+            <option value="">Todos</option>
+            <option value="paid">Paid</option>
+            <option value="organic">Organic</option>
+            <option value="live">Live</option>
+            <option value="mixed">Mixed</option>
+          </select>
+        </div>
+      </div>
+      <div class="grid grid-3 mt-md">
+        <div class="field-group">
+          <label for="fStatus">Estado record</label>
+          <select id="fStatus">
+            <option value="">Todos</option>
+            <option value="collecting">Collecting</option>
+            <option value="closed">Closed</option>
+          </select>
+        </div>
+        <div class="field-group">
+          <label for="fExecution">Execution type</label>
+          <select id="fExecution">
+            <option value="">Todos</option>
+            <option value="organic_video">Organic video</option>
+            <option value="paid_ad">Paid ad</option>
+            <option value="live_session">Live session</option>
+          </select>
+        </div>
+      </div>
+      <div class="delete-toolbar mt-lg">
+        <button id="btnSelectAll" class="btn-secondary">Seleccionar visibles</button>
+        <button id="btnClearAll" class="btn-ghost">Limpiar seleccion</button>
+        <span class="tag" id="selectedCount">0 seleccionados</span>
+        <button id="btnDeleteSelected" class="btn-warning">Eliminar seleccionados</button>
+        <span class="text-sm row-muted">Elimina solo los records seleccionados.</span>
+      </div>
+    </div>
+
+    <div class="card mt-lg">
+      <div class="section-header">
+        <h3>Records</h3>
+        <span class="tag" id="totalCount">0 records</span>
+      </div>
+      <div class="table-wrapper mt-md">
+        <table>
+          <thead>
+            <tr>
+              <th></th>
+              <th>ID</th>
+              <th>Record</th>
+              <th>Proyecto</th>
+              <th>Metrica X</th>
+              <th>Status</th>
+              <th>Views</th>
+              <th>Clicks</th>
+              <th>Created</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="tblRecords"></tbody>
+        </table>
+      </div>
+      <div id="emptyState" class="text-sm text-muted mt-md" style="display:none;">No hay records con estos filtros.</div>
+    </div>
+  </div>
+
+  <div class="confirm-backdrop" id="confirmBackdrop" role="dialog" aria-modal="true">
+    <div class="confirm-modal">
+      <h3>Confirmar eliminacion</h3>
+      <p class="text-sm">Vas a eliminar <strong id="confirmCount">0</strong> records. Esta accion es permanente.</p>
+      <div class="confirm-actions">
+        <button id="btnCancelDelete" class="btn-secondary">Cancelar</button>
+        <button id="btnConfirmDelete" class="btn-warning">Eliminar ahora</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast-container" id="toastContainer"></div>
+
+<script>
+  const API_BASE = "";
+  const $ = (id) => document.getElementById(id);
+
+  let experiments = [];
+  let records = [];
+  const selectedIds = new Set();
+
+  function showToast(message, type = "success") {
+    const container = $("toastContainer");
+    const toast = document.createElement("div");
+    toast.className = `toast toast--${type}`;
+    toast.textContent = message;
+    container.appendChild(toast);
+    setTimeout(() => toast.remove(), 3000);
+  }
+
+  function uniqueSorted(values) {
+    return [...new Set(values.filter(Boolean))].sort((a, b) => a.localeCompare(b, "es"));
+  }
+
+  function fillFilterSelect(selectEl, options, allLabel = "Todos") {
+    const prev = selectEl.value;
+    selectEl.innerHTML = "";
+    const optAll = document.createElement("option");
+    optAll.value = "";
+    optAll.textContent = allLabel;
+    selectEl.appendChild(optAll);
+    for (const value of options) {
+      const opt = document.createElement("option");
+      opt.value = value;
+      opt.textContent = value;
+      selectEl.appendChild(opt);
+    }
+    if (prev && [...selectEl.options].some(o => o.value === prev)) {
+      selectEl.value = prev;
+    }
+  }
+
+  async function apiGet(path) {
+    const r = await fetch(API_BASE + path);
+    if (!r.ok) throw new Error(await r.text());
+    return r.json();
+  }
+
+  async function apiDelete(path) {
+    const r = await fetch(API_BASE + path, { method: "DELETE" });
+    if (!r.ok) throw new Error(await r.text());
+    return r.json();
+  }
+
+  function getExperimentMap() {
+    return new Map(experiments.map(exp => [exp.id, exp]));
+  }
+
+  function applyFilters() {
+    const search = $("fSearch").value.trim().toLowerCase();
+    const project = $("fProject").value;
+    const metricX = $("fMetricX").value;
+    const traffic = $("fTraffic").value;
+    const status = $("fStatus").value;
+    const execution = $("fExecution").value;
+    const expMap = getExperimentMap();
+
+    return records.filter(record => {
+      const exp = expMap.get(record.experiment_id);
+      if (!exp) return false;
+      if (project && exp.project_name !== project) return false;
+      if (metricX && exp.independent_variable !== metricX) return false;
+      if (traffic && exp.traffic_type !== traffic) return false;
+      if (status && record.record_status !== status) return false;
+      if (execution && record.execution_type !== execution) return false;
+      if (!search) return true;
+      const hay = [
+        record.record_name,
+        record.session_id,
+        exp.project_name,
+        exp.independent_variable,
+        record.hook_text,
+        record.cta_text,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return hay.includes(search);
+    });
+  }
+
+  function syncProjectMetricFilters() {
+    fillFilterSelect($("fProject"), uniqueSorted(experiments.map(e => e.project_name)));
+    const project = $("fProject").value;
+    const metricCandidates = experiments.filter(e => !project || e.project_name === project);
+    fillFilterSelect($("fMetricX"), uniqueSorted(metricCandidates.map(e => e.independent_variable)), "Todas");
+  }
+
+  function renderTable() {
+    const filtered = applyFilters();
+    const expMap = getExperimentMap();
+    const tbody = $("tblRecords");
+    tbody.innerHTML = "";
+    $("totalCount").textContent = `${filtered.length} records`;
+    $("emptyState").style.display = filtered.length ? "none" : "";
+
+    filtered.forEach(record => {
+      const exp = expMap.get(record.experiment_id);
+      const isChecked = selectedIds.has(record.id);
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td><input type="checkbox" class="table-checkbox" data-id="${record.id}" ${isChecked ? "checked" : ""}></td>
+        <td>${record.id}</td>
+        <td>${record.record_name || record.session_id}</td>
+        <td>${exp ? exp.project_name : "—"}</td>
+        <td>${exp ? (exp.independent_variable || "—") : "—"}</td>
+        <td><span class="badge badge-${record.record_status || "collecting"}">${record.record_status || "collecting"}</span></td>
+        <td>${record.views ?? "—"}</td>
+        <td>${record.clicks ?? "—"}</td>
+        <td>${record.created_at || "—"}</td>
+        <td><button class="btn-warning" data-delete="${record.id}">Eliminar</button></td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    tbody.querySelectorAll("input[type=checkbox]").forEach(cb => {
+      cb.addEventListener("change", (event) => {
+        const id = Number(event.target.dataset.id);
+        if (event.target.checked) selectedIds.add(id);
+        else selectedIds.delete(id);
+        updateSelectedCount();
+      });
+    });
+
+    tbody.querySelectorAll("button[data-delete]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const id = Number(btn.dataset.delete);
+        openConfirm([id]);
+      });
+    });
+
+    updateSelectedCount();
+  }
+
+  function updateSelectedCount() {
+    $("selectedCount").textContent = `${selectedIds.size} seleccionados`;
+    $("btnDeleteSelected").disabled = selectedIds.size === 0;
+  }
+
+  function openConfirm(ids) {
+    $("confirmCount").textContent = ids.length;
+    $("confirmBackdrop").style.display = "flex";
+    $("confirmBackdrop").dataset.ids = ids.join(",");
+  }
+
+  function closeConfirm() {
+    $("confirmBackdrop").style.display = "none";
+    $("confirmBackdrop").dataset.ids = "";
+  }
+
+  async function deleteIds(ids) {
+    try {
+      await Promise.all(ids.map(id => apiDelete(`/records/${id}`)));
+      records = records.filter(r => !ids.includes(r.id));
+      ids.forEach(id => selectedIds.delete(id));
+      renderTable();
+      showToast("Records eliminados correctamente.");
+    } catch (e) {
+      showToast(String(e), "error");
+    }
+  }
+
+  $("btnSelectAll").addEventListener("click", () => {
+    applyFilters().forEach(record => selectedIds.add(record.id));
+    renderTable();
+  });
+  $("btnClearAll").addEventListener("click", () => {
+    selectedIds.clear();
+    renderTable();
+  });
+  $("btnDeleteSelected").addEventListener("click", () => {
+    if (!selectedIds.size) return;
+    openConfirm([...selectedIds]);
+  });
+  $("btnCancelDelete").addEventListener("click", closeConfirm);
+  $("confirmBackdrop").addEventListener("click", (event) => {
+    if (event.target === $("confirmBackdrop")) closeConfirm();
+  });
+  $("btnConfirmDelete").addEventListener("click", async () => {
+    const ids = $("confirmBackdrop").dataset.ids.split(",").filter(Boolean).map(Number);
+    closeConfirm();
+    if (ids.length) await deleteIds(ids);
+  });
+
+  ["fSearch", "fProject", "fMetricX", "fTraffic", "fStatus", "fExecution"].forEach(id => {
+    $(id).addEventListener(id === "fSearch" ? "input" : "change", () => {
+      if (id === "fProject") syncProjectMetricFilters();
+      renderTable();
+    });
+  });
+
+  async function loadAll() {
+    try {
+      experiments = await apiGet("/experiments/");
+      records = await apiGet("/records/?limit=50000");
+      syncProjectMetricFilters();
+      renderTable();
+    } catch (e) {
+      showToast("Error cargando datos: " + String(e), "error");
+    }
+  }
+
+  loadAll();
+</script>
+</body>
+</html>
