@@ -163,7 +163,12 @@
           <div class="modal__title" id="recordModalTitle">Detalle del récord</div>
           <div class="text-sm text-muted" id="recordModalMeta">Analiza el récord sin salir de la hipótesis.</div>
         </div>
-        <button class="btn-secondary" id="btnCloseRecordModal">Cerrar</button>
+        <div class="flex gap-sm items-center">
+          <button class="btn-doc" id="btnRecordDoc">Documentacion</button>
+          <button class="btn-ai" id="btnRecordAi">Analisis IA</button>
+          <button class="btn-ai" id="btnRecordAiFull">Analisis IA Completo</button>
+          <button class="btn-secondary" id="btnCloseRecordModal">Cerrar</button>
+        </div>
       </div>
       <div class="modal__body">
         <div class="grid grid-2">
@@ -583,9 +588,22 @@
     const leads = record.lead_form || 0;
     const cac = spend && purchases ? spend / purchases : null;
     const cpr = spend && leads ? spend / leads : null;
+    const recordTitle = record.record_name || `Record #${record.id}`;
 
-    $("recordModalTitle").textContent = record.record_name || `Record #${record.id}`;
+    $("recordModalTitle").textContent = recordTitle;
     $("recordModalMeta").textContent = `Record #${record.id} · Session ${record.session_id}`;
+    $("btnRecordDoc").onclick = (event) => {
+      event.stopPropagation();
+      openDocModal("record", record.id, recordTitle);
+    };
+    $("btnRecordAi").onclick = (event) => {
+      event.stopPropagation();
+      openAiMetrics("record", record.id, recordTitle);
+    };
+    $("btnRecordAiFull").onclick = (event) => {
+      event.stopPropagation();
+      openAiCombined("record", record.id, recordTitle);
+    };
     $("modalProject").textContent = exp?.project_name || "—";
     $("modalExperiment").textContent = exp ? `Experimento #${exp.id}` : "—";
     $("modalHypothesis").textContent = exp?.hypothesis || "—";
