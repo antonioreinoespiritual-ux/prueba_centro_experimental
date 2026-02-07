@@ -17,6 +17,12 @@ class Experiment(Base):
     hypothesis: Mapped[str] = mapped_column(String(5000), nullable=False)
     traffic_type: Mapped[str] = mapped_column(String(20), nullable=False)  # paid/organic/mixed/live
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime,
+        default=datetime.utcnow,
+        nullable=True,
+        onupdate=datetime.utcnow,
+    )
 
     # --- Lean Hypothesis fields (new) ---
     hypothesis_type: Mapped[str | None] = mapped_column(String(50), nullable=True)
@@ -47,6 +53,8 @@ class ExperimentRecord(Base):
 
     clicks: Mapped[int | None] = mapped_column(Integer, nullable=True)
     views: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    views_profile: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    inicia_test: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     # orgánico
     organic_piece_type: Mapped[str | None] = mapped_column(String(200), nullable=True)
@@ -85,6 +93,7 @@ class ExperimentRecord(Base):
     # --- Creative / Execution fields (new) ---
     execution_type: Mapped[str | None] = mapped_column(String(30), nullable=True)
     record_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    publico: Mapped[str | None] = mapped_column(String(200), nullable=True)
     hook_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     hook_type: Mapped[str | None] = mapped_column(String(30), nullable=True)
     cta_text: Mapped[str | None] = mapped_column(Text, nullable=True)

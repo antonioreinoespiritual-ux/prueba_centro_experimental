@@ -5,7 +5,7 @@ from datetime import datetime
 import re
 
 from sqlalchemy.orm import Session
-from sqlalchemy import select, desc, delete
+from sqlalchemy import select, desc, delete, update
 
 from . import models, schemas
 
@@ -63,6 +63,7 @@ def update_experiment(db: Session, experiment_id: int, data: schemas.ExperimentU
         if isinstance(value, str):
             value = value.strip() or None
         setattr(exp, field, value)
+    exp.updated_at = datetime.utcnow()
 
     db.commit()
     db.refresh(exp)
@@ -106,6 +107,69 @@ def delete_experiment(db: Session, experiment_id: int):
     return exp
 
 
+def delete_project(db: Session, project_name: str):
+    exp_ids = list(
+        db.execute(
+            select(models.Experiment.id).where(models.Experiment.project_name == project_name)
+        ).scalars()
+    )
+    if not exp_ids:
+        return 0
+
+    record_ids = list(
+        db.execute(
+            select(models.ExperimentRecord.id).where(
+                models.ExperimentRecord.experiment_id.in_(exp_ids)
+            )
+        ).scalars()
+    )
+
+    if record_ids:
+        db.execute(
+            delete(models.Documentation).where(
+                models.Documentation.entity_type == "record",
+                models.Documentation.entity_id.in_(record_ids),
+            )
+        )
+        db.execute(
+            delete(models.AIAnalysis).where(
+                models.AIAnalysis.entity_type == "record",
+                models.AIAnalysis.entity_id.in_(record_ids),
+            )
+        )
+        db.execute(
+            delete(models.ExperimentRecord).where(
+                models.ExperimentRecord.id.in_(record_ids)
+            )
+        )
+
+    db.execute(
+        delete(models.Documentation).where(
+            models.Documentation.entity_type == "experiment",
+            models.Documentation.entity_id.in_(exp_ids),
+        )
+    )
+    db.execute(
+        delete(models.AIAnalysis).where(
+            models.AIAnalysis.entity_type == "experiment",
+            models.AIAnalysis.entity_id.in_(exp_ids),
+        )
+    )
+    db.execute(delete(models.Experiment).where(models.Experiment.id.in_(exp_ids)))
+    db.commit()
+    return len(exp_ids)
+
+
+def rename_project(db: Session, project_name: str, new_project_name: str):
+    result = db.execute(
+        update(models.Experiment)
+        .where(models.Experiment.project_name == project_name)
+        .values(project_name=new_project_name, updated_at=datetime.utcnow())
+    )
+    db.commit()
+    return result.rowcount or 0
+
+
 # ------------------------------------------------------------------ #
 #  RECORDS
 # ------------------------------------------------------------------ #
@@ -117,6 +181,7 @@ def create_record(db: Session, data: schemas.RecordCreate):
     campaign_id = (data.campaign_id or "").strip() or None
     ad_set_id = (data.ad_set_id or "").strip() or None
     ad_id = (data.ad_id or "").strip() or None
+    publico = (data.publico or "").strip() or None
     hook_text = (data.hook_text or "").strip() or None
     cta_text = (data.cta_text or "").strip() or None
     creative_id = (data.creative_id or "").strip() or None
@@ -127,6 +192,8 @@ def create_record(db: Session, data: schemas.RecordCreate):
 
         clicks=data.clicks,
         views=data.views,
+        views_profile=data.views_profile,
+        inicia_test=data.inicia_test,
 
         # orgánico
         organic_piece_type=organic_piece_type,
@@ -165,6 +232,7 @@ def create_record(db: Session, data: schemas.RecordCreate):
         # creative / execution
         execution_type=data.execution_type,
         record_name=(data.record_name or "").strip() or None,
+        publico=publico,
         hook_text=hook_text,
         hook_type=data.hook_type,
         cta_text=cta_text,
@@ -172,6 +240,10 @@ def create_record(db: Session, data: schemas.RecordCreate):
         creative_id=creative_id,
         record_status="collecting",
     )
+    obj.updated_at = datetime.utcnow()
+    exp = get_experiment(db, data.experiment_id)
+    if exp:
+        exp.updated_at = datetime.utcnow()
     db.add(obj)
     db.commit()
     db.refresh(obj)
@@ -202,6 +274,9 @@ def update_record(db: Session, record_id: int, data: schemas.RecordUpdate):
         setattr(rec, field, value)
 
     rec.updated_at = datetime.utcnow()
+    exp = get_experiment(db, rec.experiment_id)
+    if exp:
+        exp.updated_at = datetime.utcnow()
     db.commit()
     db.refresh(rec)
     return rec
@@ -214,6 +289,9 @@ def close_record(db: Session, record_id: int):
         return None
     rec.record_status = "closed"
     rec.updated_at = datetime.utcnow()
+    exp = get_experiment(db, rec.experiment_id)
+    if exp:
+        exp.updated_at = datetime.utcnow()
     db.commit()
     db.refresh(rec)
     return rec
@@ -226,6 +304,9 @@ def reopen_record(db: Session, record_id: int):
         return None
     rec.record_status = "collecting"
     rec.updated_at = datetime.utcnow()
+    exp = get_experiment(db, rec.experiment_id)
+    if exp:
+        exp.updated_at = datetime.utcnow()
     db.commit()
     db.refresh(rec)
     return rec
@@ -368,11 +449,20 @@ def get_ai_analyses(
 def _compute_aggregated_metric(records: list[models.ExperimentRecord], metric: str) -> tuple[float | None, int]:
     """Compute an aggregated metric across all records.
 
-    For rate metrics (ending in _rate): compute as sum(numerator)/sum(denominator).
-    For direct metrics: sum all values.
+    For rate/percentage metrics: compute a robust aggregate (median) of per-record values.
+    For direct count metrics: sum all values.
 
     Returns (aggregated_value, total_volume).
     """
+    def median(values: list[float]) -> float | None:
+        if not values:
+            return None
+        values.sort()
+        mid = len(values) // 2
+        if len(values) % 2 == 1:
+            return values[mid]
+        return (values[mid - 1] + values[mid]) / 2
+
     # Rate metrics require numerator/denominator aggregation
     rate_definitions = {
         "initiate_checkout_rate": ("initiate_checkouts", "views"),
@@ -384,43 +474,41 @@ def _compute_aggregated_metric(records: list[models.ExperimentRecord], metric: s
 
     if metric in rate_definitions:
         num_field, den_field = rate_definitions[metric]
-        total_num = 0
-        total_den = 0
+        values = []
         for r in records:
             n = getattr(r, num_field, None) or 0
             d = getattr(r, den_field, None) or 0
-            total_num += n
-            total_den += d
-        if total_den == 0:
+            if d > 0:
+                values.append((n / d) * 100)
+        aggregated = median(values)
+        if aggregated is None:
             return None, 0
-        return (total_num / total_den) * 100, total_den
+        return aggregated, len(values)
 
-    # Direct sum metrics
+    # Cost metrics: use median to avoid summing across records
     if metric == "cpc":
-        total = 0.0
-        count = 0
+        values = []
         for r in records:
             v = getattr(r, "cpc", None)
             if v is not None:
-                total += v
-                count += 1
-        if count == 0:
+                values.append(float(v))
+        aggregated = median(values)
+        if aggregated is None:
             return None, 0
-        return total / count, count
+        return aggregated, len(values)
 
     # Averaged metrics (percentages, time)
     averaged_metrics = {"views_finish_pct", "retention_pct", "avg_watch_time"}
     if metric in averaged_metrics:
-        total = 0.0
-        count = 0
+        values = []
         for r in records:
             v = getattr(r, metric, None)
             if v is not None:
-                total += v
-                count += 1
-        if count == 0:
+                values.append(float(v))
+        aggregated = median(values)
+        if aggregated is None:
             return None, 0
-        return total / count, count
+        return aggregated, len(values)
 
     # Simple sum metrics
     total = 0
@@ -470,6 +558,8 @@ def _compute_volume_total(records: list[models.ExperimentRecord], volume_unit: s
         "lead_rate": "views",
         "purchase_rate": "views",
         "views": "views",
+        "views_profile": "views_profile",
+        "inicia_test": "inicia_test",
         "likes": "likes",
         "comments": "comments",
         "shares": "shares",
@@ -506,11 +596,18 @@ def _is_count_metric(metric: str) -> bool:
     if _is_rate_metric(metric) or _is_percentage_metric(metric) or _is_average_metric(metric):
         return False
     return metric in {
+        "clicks",
         "views",
+        "views_profile",
+        "inicia_test",
         "likes",
         "comments",
         "shares",
         "saves",
+        "initiate_checkouts",
+        "view_content",
+        "lead_form",
+        "purchase",
         "live_viewers_peak",
         "live_avg_viewers",
         "live_new_followers",

@@ -38,6 +38,7 @@ def ensure_schema() -> None:
         ("min_volume", "INTEGER"),
         ("volume_min_value", "INTEGER"),
         ("volume_unit", "VARCHAR(30)"),
+        ("updated_at", "DATETIME"),
     ]
 
     for col_name, col_type in experiment_columns:
@@ -47,6 +48,7 @@ def ensure_schema() -> None:
     record_columns = [
         ("execution_type", "VARCHAR(30)"),
         ("record_name", "VARCHAR(200)"),
+        ("publico", "VARCHAR(200)"),
         ("hook_text", "TEXT"),
         ("hook_type", "VARCHAR(30)"),
         ("cta_text", "TEXT"),
@@ -54,6 +56,8 @@ def ensure_schema() -> None:
         ("creative_id", "VARCHAR(200)"),
         ("record_status", "VARCHAR(20) NOT NULL DEFAULT 'collecting'"),
         ("updated_at", "DATETIME"),
+        ("views_profile", "INTEGER"),
+        ("inicia_test", "INTEGER"),
     ]
 
     for col_name, col_type in record_columns:

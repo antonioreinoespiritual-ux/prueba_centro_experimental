@@ -189,6 +189,10 @@ class ExperimentUpdate(BaseModel):
     volume_unit: Optional[VolumeUnit] = None
 
 
+class ProjectRename(BaseModel):
+    new_project_name: str = Field(min_length=1, max_length=200)
+
+
 class ExperimentOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -197,6 +201,7 @@ class ExperimentOut(BaseModel):
     hypothesis: str
     traffic_type: TrafficType
     created_at: datetime
+    updated_at: Optional[datetime] = None
 
     hypothesis_type: Optional[str] = None
     independent_variable: Optional[str] = None
@@ -247,6 +252,8 @@ class RecordCreate(BaseModel):
     # comunes
     clicks: Optional[int] = Field(default=None, ge=0)
     views: Optional[int] = Field(default=None, ge=0)
+    views_profile: Optional[int] = Field(default=None, ge=0)
+    inicia_test: Optional[int] = Field(default=None, ge=0)
 
     # orgánico
     organic_piece_type: Optional[str] = Field(default=None, max_length=200)
@@ -285,6 +292,7 @@ class RecordCreate(BaseModel):
     # creative / execution fields (new)
     execution_type: Optional[ExecutionType] = None
     record_name: Optional[str] = Field(default=None, max_length=200)
+    publico: Optional[str] = Field(default=None, max_length=200)
     hook_text: Optional[str] = Field(default=None, max_length=2000)
     hook_type: Optional[HookType] = None
     cta_text: Optional[str] = Field(default=None, max_length=500)
@@ -296,6 +304,8 @@ class RecordUpdate(BaseModel):
     """For updating metrics on an existing record (same execution, new data)."""
     clicks: Optional[int] = Field(default=None, ge=0)
     views: Optional[int] = Field(default=None, ge=0)
+    views_profile: Optional[int] = Field(default=None, ge=0)
+    inicia_test: Optional[int] = Field(default=None, ge=0)
 
     likes: Optional[int] = Field(default=None, ge=0)
     comments: Optional[int] = Field(default=None, ge=0)
@@ -321,6 +331,7 @@ class RecordUpdate(BaseModel):
 
     hook_text: Optional[str] = Field(default=None, max_length=2000)
     record_name: Optional[str] = Field(default=None, max_length=200)
+    publico: Optional[str] = Field(default=None, max_length=200)
     hook_type: Optional[HookType] = None
     cta_text: Optional[str] = Field(default=None, max_length=500)
     cta_type: Optional[CtaType] = None
@@ -335,6 +346,8 @@ class RecordOut(BaseModel):
 
     clicks: Optional[int] = None
     views: Optional[int] = None
+    views_profile: Optional[int] = None
+    inicia_test: Optional[int] = None
 
     organic_piece_type: Optional[str] = None
     likes: Optional[int] = None
@@ -368,6 +381,7 @@ class RecordOut(BaseModel):
     # creative / execution fields (new)
     execution_type: Optional[str] = None
     record_name: Optional[str] = None
+    publico: Optional[str] = None
     hook_text: Optional[str] = None
     hook_type: Optional[str] = None
     cta_text: Optional[str] = None

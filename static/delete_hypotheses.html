@@ -68,7 +68,7 @@
         <button id="btnClearAll" class="btn-ghost">Limpiar seleccion</button>
         <span class="tag" id="selectedCount">0 seleccionadas</span>
         <button id="btnDeleteSelected" class="btn-warning">Eliminar seleccionadas</button>
-        <span class="text-sm row-muted">Esta accion elimina hipotesis y records asociados.</span>
+        <span class="text-sm row-muted">Esta acción elimina hipótesis, récords, documentación y análisis IA asociados.</span>
       </div>
     </div>
 
@@ -88,6 +88,7 @@
               <th>Estado</th>
               <th>Records</th>
               <th>Creado</th>
+              <th>Actualizado</th>
               <th></th>
             </tr>
           </thead>
@@ -204,6 +205,7 @@
         <td><span class="badge badge-${exp.experiment_status || "draft"}">${exp.experiment_status || "draft"}</span></td>
         <td>${countMap.get(exp.id) || 0}</td>
         <td>${exp.created_at || "—"}</td>
+        <td>${exp.updated_at || "—"}</td>
         <td><button class="btn-warning" data-delete="${exp.id}">Eliminar</button></td>
       `;
       tbody.appendChild(tr);

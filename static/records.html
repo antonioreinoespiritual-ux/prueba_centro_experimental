@@ -85,6 +85,10 @@
           </select>
         </div>
         <div>
+          <label>Publico</label>
+          <select id="f_publico"></select>
+        </div>
+        <div>
           <label>Rango fecha (desde)</label>
           <input id="f_from" type="date" />
         </div>
@@ -158,6 +162,7 @@
                 <th>Views</th>
                 <th>Purchase</th>
                 <th>Created</th>
+                <th>Updated</th>
               </tr>
             </thead>
             <tbody id="tblRecords"></tbody>
@@ -170,6 +175,7 @@
         <div class="flex justify-between items-center">
           <h2>Tarjeta del récord</h2>
           <button class="btn-doc" id="btnRecordDoc" style="display:none;" onclick="openDocModal('record', currentRecordId, currentRecordName)">Documentacion</button>
+          <button class="btn-secondary" id="btnRecordEdit" style="display:none;" onclick="goToRecordEdit()">Editar</button>
           <button class="btn-ai" id="btnRecordAi" style="display:none;" onclick="openAiMetrics('record', currentRecordId, currentRecordName)">Analisis IA</button>
           <button class="btn-ai" id="btnRecordAiCombined" style="display:none;" onclick="openAiCombined('record', currentRecordId, currentRecordName)">Analisis IA Completo</button>
         </div>
@@ -371,6 +377,18 @@
     fillFilterSelect($("f_metric_x"), uniqueSorted(metricCandidates.map(e => e.independent_variable)));
   }
 
+  function fillPublicoFilter(){
+    const project = $("f_project").value;
+    const metricX = $("f_metric_x").value;
+    const expIds = experiments
+      .filter(e => (!project || e.project_name === project) && (!metricX || e.independent_variable === metricX))
+      .map(e => e.id);
+    const publicoCandidates = records
+      .filter(r => !expIds.length || expIds.includes(r.experiment_id))
+      .map(r => r.publico);
+    fillFilterSelect($("f_publico"), uniqueSorted(publicoCandidates));
+  }
+
   function getExperimentById(id){
     return experiments.find(e => e.id === id);
   }
@@ -391,6 +409,7 @@
     const traffic = $("f_traffic").value;
     const status = $("f_status").value;
     const exec = $("f_execution").value;
+    const publico = $("f_publico").value;
     const from = $("f_from").value;
     const to = $("f_to").value;
     const clicksMin = parseNumberField("f_clicks_min");
@@ -420,6 +439,10 @@
 
     if (exec){
       filtered = filtered.filter(r => r.execution_type === exec);
+    }
+
+    if (publico){
+      filtered = filtered.filter(r => (r.publico || "") === publico);
     }
 
     if (from){
@@ -462,6 +485,7 @@
           r.record_name,
           r.hook_text,
           r.cta_text,
+          r.publico,
           r.organic_piece_type,
           r.video_url,
         ].filter(Boolean).join(" ").toLowerCase();
@@ -500,6 +524,7 @@
         <td>${fmt(r.views)}</td>
         <td>${fmt(r.purchase)}</td>
         <td>${escapeHtml(r.created_at || "")}</td>
+        <td>${escapeHtml(r.updated_at || r.created_at || "")}</td>
       `;
       tr.onclick = () => renderCard(r);
       tbody.appendChild(tr);
@@ -514,6 +539,7 @@
     $("recordEmpty").style.display = "none";
     $("recordCard").style.display = "block";
     $("btnRecordDoc").style.display = "";
+    $("btnRecordEdit").style.display = "";
     $("btnRecordAi").style.display = "";
     $("btnRecordAiCombined").style.display = "";
 
@@ -551,13 +577,19 @@
     $("cardCampaignMeta").textContent = `Ad: ${r.ad_id || "—"}`;
   }
 
+  function goToRecordEdit() {
+    if (!currentRecordId) return;
+    window.location.href = `/static/edit_record.html?id=${currentRecordId}`;
+  }
+
   function clearFilters(){
-    ["f_search","f_project","f_metric_x","f_traffic","f_status","f_execution","f_from","f_to",
+    ["f_search","f_project","f_metric_x","f_traffic","f_status","f_execution","f_publico","f_from","f_to",
      "f_clicks_min","f_clicks_max","f_views_min","f_views_max","f_purchase_min","f_purchase_max"
     ].forEach(id => $(id).value = "");
     $("f_sort").value = "created_desc";
     $("f_limit").value = "5000";
     fillProjectMetricFilters();
+    fillPublicoFilter();
   }
 
   function refresh(){
@@ -570,14 +602,16 @@
     fillProjectMetricFilters();
     const limit = Math.max(1, Number($("f_limit").value) || 5000);
     records = await apiGet(`/records/?limit=${encodeURIComponent(limit)}`);
+    fillPublicoFilter();
     refresh();
   }
 
   $("btnApplyFilters").onclick = refresh;
   $("btnClearFilters").onclick = () => { clearFilters(); refresh(); };
   $("btnReload").onclick = loadAll;
-  $("f_project").addEventListener("change", () => { fillProjectMetricFilters(); refresh(); });
-  $("f_metric_x").addEventListener("change", refresh);
+  $("f_project").addEventListener("change", () => { fillProjectMetricFilters(); fillPublicoFilter(); refresh(); });
+  $("f_metric_x").addEventListener("change", () => { fillPublicoFilter(); refresh(); });
+  $("f_publico").addEventListener("change", refresh);
 
   // ---------- DOCUMENTATION MODAL ----------
   let docEntityType = null;

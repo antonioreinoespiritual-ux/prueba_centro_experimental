@@ -143,6 +143,7 @@
                     <th>Views</th>
                     <th>Purchase</th>
                     <th>Created</th>
+                    <th>Updated</th>
                   </tr>
                 </thead>
                 <tbody id="tblRecords"></tbody>
@@ -361,6 +362,8 @@
           ${exp.hypothesis_type ? `<span class="tag">${exp.hypothesis_type}</span>` : ''}
           ${exp.primary_metric ? `<span class="tag">Y: ${exp.primary_metric}</span>` : ''}
           ${exp.threshold_operator && exp.threshold_value !== null ? `<span class="tag">Umbral: ${exp.threshold_operator} ${exp.threshold_value}${exp.threshold_type === 'percentage' ? '%' : ''}</span>` : ''}
+          <span class="tag">Creado: ${escapeHtml(exp.created_at || "—")}</span>
+          <span class="tag">Actualizado: ${escapeHtml(exp.updated_at || exp.created_at || "—")}</span>
           <span class="tag">${recordCount} records</span>
           <button class="btn-doc" onclick="event.stopPropagation(); openDocModal('experiment', ${exp.id}, '${escapeHtml(exp.project_name)}')">Documentacion</button>
           <button class="btn-ai" onclick="event.stopPropagation(); openAiMetrics('experiment', ${exp.id}, '${escapeHtml(exp.project_name)}')">Analisis IA</button>
@@ -410,6 +413,7 @@
           <td>${fmt(r.views)}</td>
           <td>${fmt(r.purchase)}</td>
           <td>${escapeHtml(r.created_at || "")}</td>
+          <td>${escapeHtml(r.updated_at || r.created_at || "")}</td>
         `;
         tr.onclick = () => {
           [...tbody.querySelectorAll("tr")].forEach(row => row.classList.remove("selected"));

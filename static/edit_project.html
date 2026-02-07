@@ -1,0 +1,407 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Editar proyecto — Centro Experimental</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/design-system.css">
+</head>
+<body>
+  <div class="app-container" role="main">
+    <div class="top-bar">
+      <div>
+        <h1 class="top-bar__title">Editar proyecto</h1>
+        <p class="top-bar__subtitle">Edita la hipótesis y configuración del proyecto con un flujo guiado.</p>
+      </div>
+      <div class="top-bar__actions">
+        <a class="btn-link" href="/" aria-label="Volver a formularios">Formularios</a>
+        <a class="btn-link" href="/static/projects.html" aria-label="Lista de proyectos">Lista de proyectos</a>
+        <button id="btnReload" class="btn-secondary" aria-label="Recargar datos">Recargar</button>
+      </div>
+    </div>
+
+    <div class="card mt-lg">
+      <div class="section-header">
+        <div>
+          <h2>Encuentra el proyecto</h2>
+          <div class="text-sm text-muted mt-sm">Filtra por proyecto y métrica X para cargar el experimento correcto.</div>
+        </div>
+        <span class="tag">Paso 1</span>
+      </div>
+      <div class="grid grid-3 mt-md">
+        <div class="field-group">
+          <label for="projectFilter">Proyecto</label>
+          <select id="projectFilter"></select>
+        </div>
+        <div class="field-group">
+          <label for="metricFilter">Métrica X</label>
+          <select id="metricFilter"></select>
+        </div>
+        <div class="field-group" style="display:flex; align-items:end;">
+          <button id="btnLoad" class="btn-secondary" aria-label="Cargar experimento">Cargar</button>
+        </div>
+      </div>
+      <div class="text-sm text-muted mt-sm">Tip: usa los filtros para encontrar la hipótesis exacta del proyecto.</div>
+    </div>
+
+    <div class="card mt-lg hidden" id="projectSummary">
+      <div class="section-header">
+        <h2>Resumen</h2>
+        <span class="tag" id="expMeta">—</span>
+      </div>
+      <div class="grid grid-3 mt-md">
+        <div class="stat-chip">
+          <div class="stat-chip__label">Proyecto</div>
+          <div class="stat-chip__value" id="sumProject">—</div>
+          <div class="stat-chip__meta" id="sumProjectMeta"></div>
+        </div>
+        <div class="stat-chip">
+          <div class="stat-chip__label">Métrica X</div>
+          <div class="stat-chip__value" id="sumMetricX">—</div>
+          <div class="stat-chip__meta" id="sumMetricMeta"></div>
+        </div>
+        <div class="stat-chip">
+          <div class="stat-chip__label">Estado</div>
+          <div class="stat-chip__value" id="sumStatus">—</div>
+          <div class="stat-chip__meta" id="sumStatusMeta"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card mt-lg">
+      <div class="section-header">
+        <h2>Checklist de edición</h2>
+        <span class="tag">Paso 2</span>
+      </div>
+      <div class="grid grid-3 mt-md">
+        <div class="stat-chip">
+          <div class="stat-chip__label">Hipótesis</div>
+          <div class="stat-chip__value">Clara y medible</div>
+          <div class="stat-chip__meta">Si X entonces Y.</div>
+        </div>
+        <div class="stat-chip">
+          <div class="stat-chip__label">Métrica Y</div>
+          <div class="stat-chip__value">Consistente</div>
+          <div class="stat-chip__meta">Define umbral.</div>
+        </div>
+        <div class="stat-chip">
+          <div class="stat-chip__label">Volumen mínimo</div>
+          <div class="stat-chip__value">Config.</div>
+          <div class="stat-chip__meta">Evalúa con data suficiente.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card mt-lg hidden" id="projectForm">
+      <div class="section-header">
+        <div>
+          <h2>Editar proyecto</h2>
+          <div class="text-sm text-muted mt-sm">Actualiza hipótesis, variable X y métricas de validación.</div>
+        </div>
+        <div class="flex gap-sm">
+          <button id="btnSave" class="btn-success">Guardar cambios</button>
+          <button id="btnReset" class="btn-ghost">Restaurar valores</button>
+        </div>
+      </div>
+
+      <div class="grid grid-2 mt-md">
+        <div class="field-group">
+          <label for="hypothesis_type">Tipo de hipótesis</label>
+          <select id="hypothesis_type">
+            <option value="">-- seleccionar --</option>
+            <option value="acquisition">Acquisition</option>
+            <option value="activation">Activation</option>
+            <option value="retention">Retention</option>
+            <option value="monetization">Monetization</option>
+            <option value="trust_credibility">Trust / Credibility</option>
+            <option value="message_market_fit">Message-Market Fit</option>
+            <option value="channel_fit">Channel Fit</option>
+            <option value="pricing">Pricing</option>
+            <option value="funnel_friction">Funnel Friction</option>
+          </select>
+        </div>
+        <div class="field-group">
+          <label for="experiment_status">Estado</label>
+          <select id="experiment_status">
+            <option value="draft">Draft</option>
+            <option value="running">Running</option>
+            <option value="validated">Validated</option>
+            <option value="invalidated">Invalidated</option>
+            <option value="pivot_candidate">Pivot Candidate</option>
+            <option value="archived">Archived</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="field-group mt-md">
+        <label for="hypothesis">Hipótesis</label>
+        <textarea id="hypothesis" placeholder="Si X entonces Y..."></textarea>
+      </div>
+
+      <div class="grid grid-2 mt-md">
+        <div class="field-group">
+          <label for="independent_variable">Variable X</label>
+          <input id="independent_variable" type="text" />
+        </div>
+        <div class="field-group">
+          <label for="primary_metric">Métrica Y</label>
+          <select id="primary_metric">
+            <option value="">-- seleccionar --</option>
+            <option value="ctr">CTR</option>
+            <option value="cpc">CPC</option>
+            <option value="initiate_checkout_rate">Initiate Checkout Rate</option>
+            <option value="view_content_rate">View Content Rate</option>
+            <option value="lead_rate">Lead Rate</option>
+            <option value="purchase_rate">Purchase Rate</option>
+            <option value="clicks">Clicks</option>
+            <option value="views_profile">Views Profile</option>
+            <option value="inicia_test">IniciaTest</option>
+            <option value="engagement">Engagement</option>
+            <option value="views">Views</option>
+            <option value="likes">Likes</option>
+            <option value="comments">Comments</option>
+            <option value="shares">Shares</option>
+            <option value="saves">Saves</option>
+            <option value="views_finish_pct">Views Finish %</option>
+            <option value="retention_pct">Retention %</option>
+            <option value="avg_watch_time">Avg Watch Time</option>
+            <option value="live_viewers_peak">Live Peak Viewers</option>
+            <option value="live_avg_viewers">Live Avg Viewers</option>
+            <option value="live_new_followers">Live New Followers</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="grid grid-3 mt-md">
+        <div class="field-group">
+          <label for="threshold_operator">Operador umbral</label>
+          <select id="threshold_operator">
+            <option value="">-- seleccionar --</option>
+            <option value=">=">&gt;=</option>
+            <option value="<=">&lt;=</option>
+            <option value=">">&gt;</option>
+            <option value="<">&lt;</option>
+          </select>
+        </div>
+        <div class="field-group">
+          <label for="threshold_value">Valor umbral</label>
+          <input id="threshold_value" type="number" step="0.01" />
+        </div>
+        <div class="field-group">
+          <label for="threshold_type">Tipo umbral</label>
+          <select id="threshold_type">
+            <option value="">-- seleccionar --</option>
+            <option value="percentage">%</option>
+            <option value="absolute">entero</option>
+            <option value="decimal">decimal</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="grid grid-2 mt-md">
+        <div class="field-group">
+          <label for="volume_min_value">Volumen mínimo</label>
+          <input id="volume_min_value" type="number" />
+        </div>
+        <div class="field-group">
+          <label for="volume_unit">Unidad volumen</label>
+          <select id="volume_unit">
+            <option value="">-- seleccionar --</option>
+            <option value="clicks">Clicks</option>
+            <option value="ctr">CTR</option>
+            <option value="cpc">CPC</option>
+            <option value="initiate_checkout_rate">Initiate Checkout Rate</option>
+            <option value="view_content_rate">View Content Rate</option>
+            <option value="lead_rate">Lead Rate</option>
+            <option value="purchase_rate">Purchase Rate</option>
+            <option value="views">Views</option>
+            <option value="likes">Likes</option>
+            <option value="comments">Comments</option>
+            <option value="shares">Shares</option>
+            <option value="saves">Saves</option>
+            <option value="views_finish_pct">Views Finish %</option>
+            <option value="retention_pct">Retention %</option>
+            <option value="avg_watch_time">Avg Watch Time</option>
+            <option value="live_viewers_peak">Live Peak Viewers</option>
+            <option value="live_avg_viewers">Live Avg Viewers</option>
+            <option value="live_new_followers">Seguidores</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast-container" id="toastContainer"></div>
+
+<script>
+  const API_BASE = "";
+  const $ = (id) => document.getElementById(id);
+  let experiments = [];
+  let currentExperiment = null;
+
+  function showToast(message, type = "success") {
+    const container = $("toastContainer");
+    const toast = document.createElement("div");
+    toast.className = `toast toast--${type}`;
+    toast.textContent = message;
+    container.appendChild(toast);
+    setTimeout(() => toast.remove(), 3000);
+  }
+
+  function asIntOrNull(value) {
+    if (value === "" || value === null || value === undefined) return null;
+    const n = Number(value);
+    return Number.isFinite(n) ? n : null;
+  }
+
+  function asFloatOrNull(value) {
+    if (value === "" || value === null || value === undefined) return null;
+    const n = Number(value);
+    return Number.isFinite(n) ? n : null;
+  }
+
+  function uniqueSorted(values) {
+    return [...new Set(values.filter(Boolean))].sort((a, b) => a.localeCompare(b, "es"));
+  }
+
+  async function apiGet(path) {
+    const response = await fetch(API_BASE + path);
+    if (!response.ok) throw new Error(await response.text());
+    return response.json();
+  }
+
+  async function apiPatch(path, body) {
+    const response = await fetch(API_BASE + path, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!response.ok) throw new Error(await response.text());
+    return response.json();
+  }
+
+  function fillSelect(selectEl, options, placeholder = "-- seleccionar --") {
+    const prev = selectEl.value;
+    selectEl.innerHTML = "";
+    const opt = document.createElement("option");
+    opt.value = "";
+    opt.textContent = placeholder;
+    selectEl.appendChild(opt);
+    options.forEach((value) => {
+      const option = document.createElement("option");
+      option.value = value;
+      option.textContent = value;
+      selectEl.appendChild(option);
+    });
+    if (prev && [...selectEl.options].some((o) => o.value === prev)) {
+      selectEl.value = prev;
+    }
+  }
+
+  function syncFilters() {
+    fillSelect($("projectFilter"), uniqueSorted(experiments.map((exp) => exp.project_name)), "(todos)");
+    const project = $("projectFilter").value;
+    const metricOptions = experiments
+      .filter((exp) => !project || exp.project_name === project)
+      .map((exp) => exp.independent_variable || "Sin definir");
+    fillSelect($("metricFilter"), uniqueSorted(metricOptions), "(todas)");
+  }
+
+  function findExperiment() {
+    const project = $("projectFilter").value;
+    const metric = $("metricFilter").value;
+    return experiments.find((exp) => {
+      if (project && exp.project_name !== project) return false;
+      const metricValue = exp.independent_variable || "Sin definir";
+      if (metric && metricValue !== metric) return false;
+      return true;
+    });
+  }
+
+  function fillForm(exp) {
+    $("hypothesis_type").value = exp.hypothesis_type || "";
+    $("experiment_status").value = exp.experiment_status || "draft";
+    $("hypothesis").value = exp.hypothesis || "";
+    $("independent_variable").value = exp.independent_variable || "";
+    $("primary_metric").value = exp.primary_metric || "";
+    $("threshold_operator").value = exp.threshold_operator || "";
+    $("threshold_value").value = exp.threshold_value ?? "";
+    $("threshold_type").value = exp.threshold_type || "";
+    $("volume_min_value").value = exp.volume_min_value ?? "";
+    $("volume_unit").value = exp.volume_unit || "";
+  }
+
+  function updateSummary(exp) {
+    $("expMeta").textContent = `Experimento #${exp.id}`;
+    $("sumProject").textContent = exp.project_name;
+    $("sumProjectMeta").textContent = exp.traffic_type || "—";
+    $("sumMetricX").textContent = exp.independent_variable || "Sin definir";
+    $("sumMetricMeta").textContent = exp.hypothesis_type || "—";
+    $("sumStatus").textContent = exp.experiment_status || "draft";
+    $("sumStatusMeta").textContent = `Actualizado: ${exp.updated_at || exp.created_at || "—"}`;
+  }
+
+  async function loadExperiment() {
+    const exp = findExperiment();
+    if (!exp) {
+      showToast("No se encontró la combinación seleccionada.", "error");
+      return;
+    }
+    currentExperiment = exp;
+    $("projectSummary").classList.remove("hidden");
+    $("projectForm").classList.remove("hidden");
+    updateSummary(exp);
+    fillForm(exp);
+  }
+
+  async function saveExperiment() {
+    if (!currentExperiment) return;
+    const body = {
+      hypothesis: $("hypothesis").value.trim(),
+      hypothesis_type: $("hypothesis_type").value || null,
+      independent_variable: $("independent_variable").value.trim() || null,
+      primary_metric: $("primary_metric").value || null,
+      threshold_operator: $("threshold_operator").value || null,
+      threshold_value: asFloatOrNull($("threshold_value").value),
+      threshold_type: $("threshold_type").value || null,
+      experiment_status: $("experiment_status").value || null,
+      volume_min_value: asIntOrNull($("volume_min_value").value),
+      volume_unit: $("volume_unit").value || null,
+    };
+
+    try {
+      const updated = await apiPatch(`/experiments/${currentExperiment.id}`, body);
+      currentExperiment = updated;
+      experiments = experiments.map((exp) => (exp.id === updated.id ? updated : exp));
+      updateSummary(updated);
+      showToast("Proyecto actualizado", "success");
+    } catch (error) {
+      showToast(String(error), "error");
+    }
+  }
+
+  function resetForm() {
+    if (!currentExperiment) return;
+    fillForm(currentExperiment);
+  }
+
+  async function loadAll() {
+    try {
+      experiments = await apiGet("/experiments/");
+      syncFilters();
+    } catch (error) {
+      showToast("Error cargando datos: " + String(error), "error");
+    }
+  }
+
+  $("projectFilter").addEventListener("change", syncFilters);
+  $("btnLoad").addEventListener("click", loadExperiment);
+  $("btnSave").addEventListener("click", saveExperiment);
+  $("btnReset").addEventListener("click", resetForm);
+  $("btnReload").addEventListener("click", loadAll);
+
+  loadAll();
+</script>
+</body>
+</html>
