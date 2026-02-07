@@ -29,7 +29,7 @@
     <!-- Filters Card -->
     <div class="card fade-in mt-lg">
       <h2 class="card__title mb-lg">Filtros y Configuracion</h2>
-      <div class="grid grid-3">
+      <div class="grid grid-4">
         <div class="field-group">
           <label for="trafficFilter">Traffic</label>
           <select id="trafficFilter">
@@ -39,6 +39,14 @@
             <option value="mixed">mixed</option>
             <option value="live">live</option>
           </select>
+        </div>
+        <div class="field-group">
+          <label for="projectFilter">Proyecto</label>
+          <select id="projectFilter"></select>
+        </div>
+        <div class="field-group">
+          <label for="metricXFilter">Metrica X</label>
+          <select id="metricXFilter"></select>
         </div>
         <div class="field-group">
           <label for="experimentFilter">Experimento</label>
@@ -384,14 +392,58 @@
   let selectedRecordId = null;
 
   // Helpers
+  function uniqueSorted(values){
+    return [...new Set(values.filter(Boolean))].sort((a, b) => a.localeCompare(b, "es"));
+  }
+
+  function fillFilterSelect(selectEl, options, keepValue=true, allLabel="(todos)"){
+    const prev = keepValue ? selectEl.value : "";
+    selectEl.innerHTML = "";
+    const optAll = document.createElement("option");
+    optAll.value = "";
+    optAll.textContent = allLabel;
+    selectEl.appendChild(optAll);
+    for (const value of options){
+      const opt = document.createElement("option");
+      opt.value = value;
+      opt.textContent = value;
+      selectEl.appendChild(opt);
+    }
+    if (keepValue && prev && [...selectEl.options].some(o => o.value === prev)) {
+      selectEl.value = prev;
+    } else {
+      selectEl.value = "";
+    }
+  }
+
   function byTrafficExp(exps, traffic){
     if (!traffic || traffic === "all") return exps;
     return exps.filter(e => e.traffic_type === traffic);
   }
 
-  function fillExperimentsSelect(){
+  function getFilteredExperiments(){
     const traffic = $("trafficFilter").value;
-    const filtered = byTrafficExp(experiments, traffic);
+    const project = $("projectFilter").value;
+    const metricX = $("metricXFilter").value;
+
+    let filtered = byTrafficExp(experiments, traffic);
+    if (project) filtered = filtered.filter(e => e.project_name === project);
+    if (metricX) filtered = filtered.filter(e => e.independent_variable === metricX);
+    return filtered;
+  }
+
+  function fillProjectAndMetricFilters(){
+    const traffic = $("trafficFilter").value;
+    const trafficFiltered = byTrafficExp(experiments, traffic);
+    fillFilterSelect($("projectFilter"), uniqueSorted(trafficFiltered.map(e => e.project_name)), true, "(todos)");
+
+    const project = $("projectFilter").value;
+    const metricCandidates = trafficFiltered.filter(e => !project || e.project_name === project);
+    fillFilterSelect($("metricXFilter"), uniqueSorted(metricCandidates.map(e => e.independent_variable)), true, "(todas)");
+  }
+
+  function fillExperimentsSelect(){
+    const filtered = getFilteredExperiments();
 
     const sel = $("experimentFilter");
     const prev = sel.value;
@@ -1180,6 +1232,7 @@
 
       // Reload experiments to reflect new status
       experiments = await apiGet("/experiments/");
+      fillProjectAndMetricFilters();
       fillExperimentsSelect();
       $("experimentFilter").value = expIdStr;
       updateHypothesisPanel();
@@ -1221,6 +1274,8 @@
 
   async function refreshView(){
     const traffic = $("trafficFilter").value;
+    const project = $("projectFilter").value;
+    const metricX = $("metricXFilter").value;
     const expIdStr = $("experimentFilter").value;
 
     const expMap = new Map(experiments.map(e => [e.id, e]));
@@ -1235,6 +1290,12 @@
     let filteredExperiments = experiments.slice();
     if (traffic !== "all"){
       filteredExperiments = filteredExperiments.filter(e => e.traffic_type === traffic);
+    }
+    if (project){
+      filteredExperiments = filteredExperiments.filter(e => e.project_name === project);
+    }
+    if (metricX){
+      filteredExperiments = filteredExperiments.filter(e => e.independent_variable === metricX);
     }
 
     if (expIdStr){
@@ -1256,7 +1317,20 @@
 
   // Eventos
   $("btnReload").addEventListener("click", loadAll);
-  $("trafficFilter").addEventListener("change", () => { fillExperimentsSelect(); refreshView(); });
+  $("trafficFilter").addEventListener("change", () => {
+    fillProjectAndMetricFilters();
+    fillExperimentsSelect();
+    refreshView();
+  });
+  $("projectFilter").addEventListener("change", () => {
+    fillProjectAndMetricFilters();
+    fillExperimentsSelect();
+    refreshView();
+  });
+  $("metricXFilter").addEventListener("change", () => {
+    fillExperimentsSelect();
+    refreshView();
+  });
   $("experimentFilter").addEventListener("change", refreshView);
   $("limit").addEventListener("change", loadAll);
 

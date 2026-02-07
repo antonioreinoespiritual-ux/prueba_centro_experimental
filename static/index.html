@@ -210,6 +210,17 @@
           <span class="badge badge-live">solo experiments: live</span>
         </div>
 
+        <div class="grid grid-2">
+          <div class="field-group">
+            <label for="live_project_filter">Proyecto</label>
+            <select id="live_project_filter"></select>
+          </div>
+          <div class="field-group">
+            <label for="live_metric_x_filter">Metrica X</label>
+            <select id="live_metric_x_filter"></select>
+          </div>
+        </div>
+
         <div class="field-group">
           <label for="live_experiment_id">Experiment (live)</label>
           <select id="live_experiment_id"></select>
@@ -329,6 +340,17 @@
         <div class="card__header">
           <h2 class="card__title">Crear record (ORGANICO)</h2>
           <span class="badge badge-organic">solo experiments: organic</span>
+        </div>
+
+        <div class="grid grid-2">
+          <div class="field-group">
+            <label for="organic_project_filter">Proyecto</label>
+            <select id="organic_project_filter"></select>
+          </div>
+          <div class="field-group">
+            <label for="organic_metric_x_filter">Metrica X</label>
+            <select id="organic_metric_x_filter"></select>
+          </div>
         </div>
 
         <div class="field-group">
@@ -479,6 +501,17 @@
         <div class="card__header">
           <h2 class="card__title">Crear record (PAID)</h2>
           <span class="badge badge-paid">solo experiments: paid</span>
+        </div>
+
+        <div class="grid grid-2">
+          <div class="field-group">
+            <label for="paid_project_filter">Proyecto</label>
+            <select id="paid_project_filter"></select>
+          </div>
+          <div class="field-group">
+            <label for="paid_metric_x_filter">Metrica X</label>
+            <select id="paid_metric_x_filter"></select>
+          </div>
         </div>
 
         <div class="field-group">
@@ -813,6 +846,30 @@
     return r.json();
   }
 
+  function uniqueSorted(values){
+    return [...new Set(values.filter(Boolean))].sort((a, b) => a.localeCompare(b, "es"));
+  }
+
+  function fillFilterSelect(selectEl, options, keepValue=true, allLabel="(todos)"){
+    const prev = keepValue ? selectEl.value : "";
+    selectEl.innerHTML = "";
+    const optAll = document.createElement("option");
+    optAll.value = "";
+    optAll.textContent = allLabel;
+    selectEl.appendChild(optAll);
+    for (const value of options){
+      const opt = document.createElement("option");
+      opt.value = value;
+      opt.textContent = value;
+      selectEl.appendChild(opt);
+    }
+    if (keepValue && prev && [...selectEl.options].some(o => o.value === prev)) {
+      selectEl.value = prev;
+    } else {
+      selectEl.value = "";
+    }
+  }
+
   // Auto-fill session ID when experiment is selected
   async function autoFillSessionId(selectId, sessionInputId, prefix) {
     const expId = Number($(selectId).value);
@@ -848,19 +905,29 @@
     }
   }
 
+  function updateRecordFormFilters({ prefix, trafficType, sessionPrefix }){
+    const formExps = experimentsCache.filter(e => e.traffic_type === trafficType);
+    const projectSel = $(`${prefix}_project_filter`);
+    const metricSel = $(`${prefix}_metric_x_filter`);
+    const expSel = $(`${prefix}_experiment_id`);
+
+    fillFilterSelect(projectSel, uniqueSorted(formExps.map(e => e.project_name)), true, "(todos)");
+    const project = projectSel.value;
+    const byProject = formExps.filter(e => !project || e.project_name === project);
+    fillFilterSelect(metricSel, uniqueSorted(byProject.map(e => e.independent_variable)), true, "(todas)");
+    const metricX = metricSel.value;
+    const filtered = byProject.filter(e => !metricX || e.independent_variable === metricX);
+
+    fillExperimentSelect(expSel, filtered, true);
+    if (filtered.length) {
+      autoFillSessionId(`${prefix}_experiment_id`, `${prefix}_session_id`, sessionPrefix);
+    }
+  }
+
   function syncFormSelects(){
-    const organicExps = experimentsCache.filter(e => e.traffic_type === "organic");
-    const paidExps = experimentsCache.filter(e => e.traffic_type === "paid");
-    const liveExps = experimentsCache.filter(e => e.traffic_type === "live");
-
-    fillExperimentSelect($("organic_experiment_id"), organicExps, true);
-    fillExperimentSelect($("paid_experiment_id"), paidExps, true);
-    fillExperimentSelect($("live_experiment_id"), liveExps, true);
-
-    // Auto-fill session IDs for initial selections
-    if (liveExps.length) autoFillSessionId("live_experiment_id", "live_session_id", "l");
-    if (organicExps.length) autoFillSessionId("organic_experiment_id", "organic_session_id", "s");
-    if (paidExps.length) autoFillSessionId("paid_experiment_id", "paid_session_id", "p");
+    updateRecordFormFilters({ prefix: "organic", trafficType: "organic", sessionPrefix: "s" });
+    updateRecordFormFilters({ prefix: "paid", trafficType: "paid", sessionPrefix: "p" });
+    updateRecordFormFilters({ prefix: "live", trafficType: "live", sessionPrefix: "l" });
 
     // Update record section: all experiments
     const updSel = $("upd_experiment_id");
@@ -1212,6 +1279,12 @@
   $("live_experiment_id").addEventListener("change", () => autoFillSessionId("live_experiment_id", "live_session_id", "l"));
   $("organic_experiment_id").addEventListener("change", () => autoFillSessionId("organic_experiment_id", "organic_session_id", "s"));
   $("paid_experiment_id").addEventListener("change", () => autoFillSessionId("paid_experiment_id", "paid_session_id", "p"));
+  $("live_project_filter").addEventListener("change", () => updateRecordFormFilters({ prefix: "live", trafficType: "live", sessionPrefix: "l" }));
+  $("organic_project_filter").addEventListener("change", () => updateRecordFormFilters({ prefix: "organic", trafficType: "organic", sessionPrefix: "s" }));
+  $("paid_project_filter").addEventListener("change", () => updateRecordFormFilters({ prefix: "paid", trafficType: "paid", sessionPrefix: "p" }));
+  $("live_metric_x_filter").addEventListener("change", () => updateRecordFormFilters({ prefix: "live", trafficType: "live", sessionPrefix: "l" }));
+  $("organic_metric_x_filter").addEventListener("change", () => updateRecordFormFilters({ prefix: "organic", trafficType: "organic", sessionPrefix: "s" }));
+  $("paid_metric_x_filter").addEventListener("change", () => updateRecordFormFilters({ prefix: "paid", trafficType: "paid", sessionPrefix: "p" }));
 
   // init
   refreshAll().catch(e => { setStatus("error", true); showToast(String(e), 'error'); });
