@@ -268,7 +268,9 @@
       for (const exp of experiments) {
         const opt = document.createElement("option");
         opt.value = String(exp.id);
-        opt.textContent = `${exp.project_name} (${exp.traffic_type}) - ID: ${exp.id}`;
+        const hypType = exp.hypothesis_type ? ` · ${exp.hypothesis_type}` : "";
+        const hypText = exp.hypothesis ? ` · H: ${exp.hypothesis.slice(0, 40)}${exp.hypothesis.length > 40 ? "…" : ""}` : "";
+        opt.textContent = `${exp.project_name}${hypType} (${exp.traffic_type}) - ID: ${exp.id}${hypText}`;
         selA.appendChild(opt.cloneNode(true));
         selB.appendChild(opt);
       }
