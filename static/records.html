@@ -166,6 +166,7 @@
           <h2>Tarjeta del récord</h2>
           <button class="btn-doc" id="btnRecordDoc" style="display:none;" onclick="openDocModal('record', currentRecordId, currentRecordName)">Documentacion</button>
           <button class="btn-ai" id="btnRecordAi" style="display:none;" onclick="openAiMetrics('record', currentRecordId, currentRecordName)">Analisis IA</button>
+          <button class="btn-ai" id="btnRecordAiCombined" style="display:none;" onclick="openAiCombined('record', currentRecordId, currentRecordName)">Analisis IA Completo</button>
         </div>
         <div id="recordEmpty" class="text-muted text-sm mt-sm">Selecciona un récord para ver el detalle completo.</div>
         <div id="recordCard" style="display:none;" class="mt-md">
@@ -474,6 +475,7 @@
     $("recordCard").style.display = "block";
     $("btnRecordDoc").style.display = "";
     $("btnRecordAi").style.display = "";
+    $("btnRecordAiCombined").style.display = "";
 
     $("cardRecordName").textContent = r.record_name || r.session_id || "—";
     $("cardRecordMeta").textContent = `Record #${r.id} · ${r.created_at || "—"}`;
@@ -626,11 +628,30 @@
     runAiAnalysis();
   }
 
+  function openAiCombined(entityType, entityId, title) {
+    aiEntityType = entityType;
+    aiEntityId = entityId;
+    aiCurrentType = "combined";
+    $("aiModalTitle").textContent = "Analisis IA — Completo";
+    $("aiSource").textContent = "Fuente: Metricas + Documentacion + Historial IA";
+    $("aiOutput").textContent = "";
+    $("aiLoading").style.display = "block";
+    $("btnAiReanalyze").style.display = "none";
+    $("aiHistory").style.display = "none";
+    $("aiModal").style.display = "flex";
+    runAiAnalysis();
+  }
+
   async function runAiAnalysis() {
     try {
-      const endpoint = aiCurrentType === "metrics"
-        ? `/ai/analyze/metrics/${aiEntityType}/${aiEntityId}`
-        : `/ai/analyze/notes/${aiEntityType}/${aiEntityId}`;
+      let endpoint = "";
+      if (aiCurrentType === "metrics") {
+        endpoint = `/ai/analyze/metrics/${aiEntityType}/${aiEntityId}`;
+      } else if (aiCurrentType === "notes") {
+        endpoint = `/ai/analyze/notes/${aiEntityType}/${aiEntityId}`;
+      } else if (aiCurrentType === "combined") {
+        endpoint = `/ai/analyze/combined/${aiEntityType}/${aiEntityId}`;
+      }
       const result = await apiPost(endpoint, {});
       $("aiLoading").style.display = "none";
       $("aiOutput").innerHTML = formatAiOutput(result.output);

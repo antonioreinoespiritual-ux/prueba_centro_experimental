@@ -138,6 +138,7 @@
           <h3>Detalle del Record</h3>
           <button class="btn-doc" id="btnRecordDoc" style="display:none;" onclick="openRecordDoc()">Documentacion</button>
           <button class="btn-ai" id="btnRecordAi" style="display:none;" onclick="openRecordAiMetrics()">Analisis IA</button>
+          <button class="btn-ai" id="btnRecordAiCombined" style="display:none;" onclick="openRecordAiCombined()">Analisis IA Completo</button>
         </div>
         <div id="recordDetailEmpty" class="text-muted text-sm mt-md">Selecciona un record para ver su detalle.</div>
         <div id="recordDetail" style="display:none;" class="mt-md">
@@ -293,6 +294,7 @@
           <span class="tag">${recordCount} records</span>
           <button class="btn-doc" onclick="event.stopPropagation(); openDocModal('experiment', ${exp.id}, '${escapeHtml(exp.project_name)}')">Documentacion</button>
           <button class="btn-ai" onclick="event.stopPropagation(); openAiMetrics('experiment', ${exp.id}, '${escapeHtml(exp.project_name)}')">Analisis IA</button>
+          <button class="btn-ai" onclick="event.stopPropagation(); openAiCombined('experiment', ${exp.id}, '${escapeHtml(exp.project_name)}')">Analisis IA Completo</button>
         </div>
       </div>`;
     }
@@ -361,6 +363,7 @@
     $("recordDetail").style.display = "block";
     $("btnRecordDoc").style.display = "";
     $("btnRecordAi").style.display = "";
+    $("btnRecordAiCombined").style.display = "";
 
     $("rdName").textContent = r.record_name || r.session_id || "—";
     $("rdNameMeta").textContent = `Record #${r.id} · ${r.created_at || "—"}`;
@@ -514,6 +517,25 @@
     openAiMetrics("record", currentRecordForDoc.id, currentRecordForDoc.record_name || currentRecordForDoc.session_id);
   }
 
+  function openAiCombined(entityType, entityId, title) {
+    aiEntityType = entityType;
+    aiEntityId = entityId;
+    aiCurrentType = "combined";
+    $("aiModalTitle").textContent = "Analisis IA — Completo";
+    $("aiSource").textContent = "Fuente: Metricas + Documentacion + Historial IA";
+    $("aiOutput").textContent = "";
+    $("aiLoading").style.display = "block";
+    $("btnAiReanalyze").style.display = "none";
+    $("aiHistory").style.display = "none";
+    $("aiModal").style.display = "flex";
+    runAiAnalysis();
+  }
+
+  function openRecordAiCombined() {
+    if (!currentRecordForDoc) return;
+    openAiCombined("record", currentRecordForDoc.id, currentRecordForDoc.record_name || currentRecordForDoc.session_id);
+  }
+
   function openAiNotes() {
     if (!docEntityType || !docEntityId) return;
     aiEntityType = docEntityType;
@@ -532,9 +554,14 @@
 
   async function runAiAnalysis() {
     try {
-      const endpoint = aiCurrentType === "metrics"
-        ? `/ai/analyze/metrics/${aiEntityType}/${aiEntityId}`
-        : `/ai/analyze/notes/${aiEntityType}/${aiEntityId}`;
+      let endpoint = "";
+      if (aiCurrentType === "metrics") {
+        endpoint = `/ai/analyze/metrics/${aiEntityType}/${aiEntityId}`;
+      } else if (aiCurrentType === "notes") {
+        endpoint = `/ai/analyze/notes/${aiEntityType}/${aiEntityId}`;
+      } else if (aiCurrentType === "combined") {
+        endpoint = `/ai/analyze/combined/${aiEntityType}/${aiEntityId}`;
+      }
       const result = await apiPost(endpoint, {});
       $("aiLoading").style.display = "none";
       $("aiOutput").innerHTML = formatAiOutput(result.output);
