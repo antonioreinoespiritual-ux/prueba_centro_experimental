@@ -5,7 +5,7 @@ from datetime import datetime
 import re
 
 from sqlalchemy.orm import Session
-from sqlalchemy import select, desc, delete
+from sqlalchemy import select, desc, delete, update
 
 from . import models, schemas
 
@@ -158,6 +158,16 @@ def delete_project(db: Session, project_name: str):
     db.execute(delete(models.Experiment).where(models.Experiment.id.in_(exp_ids)))
     db.commit()
     return len(exp_ids)
+
+
+def rename_project(db: Session, project_name: str, new_project_name: str):
+    result = db.execute(
+        update(models.Experiment)
+        .where(models.Experiment.project_name == project_name)
+        .values(project_name=new_project_name, updated_at=datetime.utcnow())
+    )
+    db.commit()
+    return result.rowcount or 0
 
 
 # ------------------------------------------------------------------ #

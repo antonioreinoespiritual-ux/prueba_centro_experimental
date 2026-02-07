@@ -23,11 +23,28 @@
         <a class="btn-link" href="/static/projects.html" aria-label="Ver lista de proyectos">Lista de proyectos</a>
         <a class="btn-link" href="/static/records.html" aria-label="Ver lista de records">Lista de records</a>
         <a class="btn-link" href="/static/hypotheses.html" aria-label="Lista de hipotesis">Lista de hipotesis</a>
-        <a class="btn-link" href="/static/edit_project.html" aria-label="Editar proyectos">Editar proyectos</a>
+        <button class="btn-link" id="btnOpenEditModal" aria-label="Editar">Editar</button>
         <a class="btn-link btn-warning" href="/static/delete_hypotheses.html" aria-label="Eliminar hipotesis">Eliminar hipotesis</a>
         <a class="btn-link btn-warning" href="/static/delete_records.html" aria-label="Eliminar records">Eliminar records</a>
         <a class="btn-link btn-warning" href="/static/delete_projects.html" aria-label="Eliminar proyectos">Eliminar proyectos</a>
         <button id="btnRefresh" class="btn-secondary" aria-label="Actualizar listas">Actualizar listas</button>
+      </div>
+    </div>
+
+    <div class="modal-backdrop hidden" id="editModal" aria-hidden="true">
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="editModalTitle">
+        <div class="modal__header">
+          <div>
+            <div class="modal__title" id="editModalTitle">¿Qué quieres editar?</div>
+            <div class="text-sm text-muted mt-sm">Elige la opción para abrir el flujo correspondiente.</div>
+          </div>
+          <button class="btn-secondary" id="btnCloseEditModal" aria-label="Cerrar modal">Cerrar</button>
+        </div>
+        <div class="grid grid-3">
+          <a class="btn-primary" href="/static/edit_project.html" aria-label="Editar proyecto">Proyecto</a>
+          <a class="btn-primary" href="/static/edit_record.html" aria-label="Editar record">Record</a>
+          <a class="btn-primary" href="/static/edit_hypothesis.html" aria-label="Editar hipótesis">Hipótesis (Experimento)</a>
+        </div>
       </div>
     </div>
 
@@ -847,6 +864,7 @@
   const API_BASE = "";
   const $ = (id) => document.getElementById(id);
   const statusEl = $("status");
+  const editModal = $("editModal");
 
   let experimentsCache = [];
 
@@ -902,6 +920,16 @@
     });
     if (!r.ok) throw new Error(await r.text());
     return r.json();
+  }
+
+  function openEditModal() {
+    editModal.classList.remove("hidden");
+    editModal.setAttribute("aria-hidden", "false");
+  }
+
+  function closeEditModal() {
+    editModal.classList.add("hidden");
+    editModal.setAttribute("aria-hidden", "true");
   }
 
   function uniqueSorted(values){
@@ -1394,6 +1422,11 @@
   $("live_metric_x_filter").addEventListener("change", () => updateRecordFormFilters({ prefix: "live", trafficType: "live", sessionPrefix: "l" }));
   $("organic_metric_x_filter").addEventListener("change", () => updateRecordFormFilters({ prefix: "organic", trafficType: "organic", sessionPrefix: "s" }));
   $("paid_metric_x_filter").addEventListener("change", () => updateRecordFormFilters({ prefix: "paid", trafficType: "paid", sessionPrefix: "p" }));
+  $("btnOpenEditModal").addEventListener("click", openEditModal);
+  $("btnCloseEditModal").addEventListener("click", closeEditModal);
+  editModal.addEventListener("click", (event) => {
+    if (event.target === editModal) closeEditModal();
+  });
 
   // init
   refreshAll().catch(e => { setStatus("error", true); showToast(String(e), 'error'); });

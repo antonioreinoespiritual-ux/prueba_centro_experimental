@@ -189,6 +189,10 @@ class ExperimentUpdate(BaseModel):
     volume_unit: Optional[VolumeUnit] = None
 
 
+class ProjectRename(BaseModel):
+    new_project_name: str = Field(min_length=1, max_length=200)
+
+
 class ExperimentOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

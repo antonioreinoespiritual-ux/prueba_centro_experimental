@@ -36,6 +36,26 @@ def delete_project(project_name: str, db: Session = Depends(get_db)):
     return {"deleted": True, "project_name": project_name, "experiments_deleted": deleted_count}
 
 
+@router.patch("/projects/{project_name}")
+def rename_project(
+    project_name: str,
+    payload: schemas.ProjectRename,
+    db: Session = Depends(get_db),
+):
+    new_project_name = payload.new_project_name.strip()
+    if not new_project_name:
+        raise HTTPException(status_code=400, detail="New project name is required")
+    updated_count = crud.rename_project(db, project_name, new_project_name)
+    if not updated_count:
+        raise HTTPException(status_code=404, detail="Project not found")
+    return {
+        "updated": True,
+        "project_name": project_name,
+        "new_project_name": new_project_name,
+        "experiments_updated": updated_count,
+    }
+
+
 @router.get("/{experiment_id}", response_model=schemas.ExperimentOut)
 def get_experiment(experiment_id: int, db: Session = Depends(get_db)):
     exp = crud.get_experiment(db, experiment_id)
