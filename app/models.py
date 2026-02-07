@@ -93,6 +93,7 @@ class ExperimentRecord(Base):
     # --- Creative / Execution fields (new) ---
     execution_type: Mapped[str | None] = mapped_column(String(30), nullable=True)
     record_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    publico: Mapped[str | None] = mapped_column(String(200), nullable=True)
     hook_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     hook_type: Mapped[str | None] = mapped_column(String(30), nullable=True)
     cta_text: Mapped[str | None] = mapped_column(Text, nullable=True)

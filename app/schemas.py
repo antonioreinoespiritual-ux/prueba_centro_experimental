@@ -292,6 +292,7 @@ class RecordCreate(BaseModel):
     # creative / execution fields (new)
     execution_type: Optional[ExecutionType] = None
     record_name: Optional[str] = Field(default=None, max_length=200)
+    publico: Optional[str] = Field(default=None, max_length=200)
     hook_text: Optional[str] = Field(default=None, max_length=2000)
     hook_type: Optional[HookType] = None
     cta_text: Optional[str] = Field(default=None, max_length=500)
@@ -330,6 +331,7 @@ class RecordUpdate(BaseModel):
 
     hook_text: Optional[str] = Field(default=None, max_length=2000)
     record_name: Optional[str] = Field(default=None, max_length=200)
+    publico: Optional[str] = Field(default=None, max_length=200)
     hook_type: Optional[HookType] = None
     cta_text: Optional[str] = Field(default=None, max_length=500)
     cta_type: Optional[CtaType] = None
@@ -379,6 +381,7 @@ class RecordOut(BaseModel):
     # creative / execution fields (new)
     execution_type: Optional[str] = None
     record_name: Optional[str] = None
+    publico: Optional[str] = None
     hook_text: Optional[str] = None
     hook_type: Optional[str] = None
     cta_text: Optional[str] = None

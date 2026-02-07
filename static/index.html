@@ -271,6 +271,10 @@
           <label for="live_record_name">Nombre del record</label>
           <input id="live_record_name" placeholder="Live A / Variante 1" />
         </div>
+        <div class="field-group mt-md">
+          <label for="live_publico">Publico (opcional)</label>
+          <input id="live_publico" placeholder="Ej: Mujeres 25-34, interés fitness" />
+        </div>
 
         <div class="field-section">CREATIVE / EJECUCION</div>
         <div class="grid grid-2">
@@ -407,6 +411,10 @@
         <div class="field-group mt-md">
           <label for="organic_record_name">Nombre del record</label>
           <input id="organic_record_name" placeholder="Organico A / Variante 1" />
+        </div>
+        <div class="field-group mt-md">
+          <label for="organic_publico">Publico (opcional)</label>
+          <input id="organic_publico" placeholder="Ej: Audiencia orgánica, estudiantes" />
         </div>
 
         <div class="field-section">CREATIVE / EJECUCION</div>
@@ -573,6 +581,10 @@
         <div class="field-group mt-md">
           <label for="paid_record_name">Nombre del record</label>
           <input id="paid_record_name" placeholder="Paid A / Variante 1" />
+        </div>
+        <div class="field-group mt-md">
+          <label for="paid_publico">Publico (opcional)</label>
+          <input id="paid_publico" placeholder="Ej: Retargeting, hombres 30-45" />
         </div>
 
         <div class="field-section">CREATIVE / EJECUCION</div>
@@ -752,6 +764,10 @@
           <div class="field-group">
             <label for="upd_record_name">Nombre del record</label>
             <input id="upd_record_name" type="text" />
+          </div>
+          <div class="field-group">
+            <label for="upd_publico">Publico</label>
+            <input id="upd_publico" type="text" />
           </div>
           <div class="field-group">
             <label for="upd_clicks">Clicks</label>
@@ -1109,6 +1125,7 @@
         experiment_id: expId,
         session_id: $("organic_session_id").value.trim(),
         record_name: $("organic_record_name").value.trim() || null,
+        publico: $("organic_publico").value.trim() || null,
         clicks: asIntOrNull($("organic_clicks").value),
         views: asIntOrNull($("organic_views").value),
         views_profile: asIntOrNull($("organic_views_profile").value),
@@ -1139,7 +1156,7 @@
 
       await apiPost("/records/", body);
 
-      ["organic_session_id","organic_record_name","organic_clicks","organic_views","organic_views_profile",
+      ["organic_session_id","organic_record_name","organic_publico","organic_clicks","organic_views","organic_views_profile",
        "organic_inicia_test","organic_initiate_checkouts","organic_view_content","organic_lead_form",
        "organic_purchase","organic_piece_type",
        "organic_likes","organic_comments","organic_shares","organic_saves",
@@ -1167,6 +1184,7 @@
         experiment_id: expId,
         session_id: $("live_session_id").value.trim(),
         record_name: $("live_record_name").value.trim() || null,
+        publico: $("live_publico").value.trim() || null,
         clicks: asIntOrNull($("live_clicks").value),
         views: asIntOrNull($("live_views").value),
         views_profile: asIntOrNull($("live_views_profile").value),
@@ -1193,7 +1211,7 @@
 
       await apiPost("/records/", body);
 
-      ["live_session_id","live_record_name","live_clicks","live_views","live_views_profile",
+      ["live_session_id","live_record_name","live_publico","live_clicks","live_views","live_views_profile",
        "live_inicia_test","live_viewers_peak","live_avg_viewers","live_duration","live_new_followers",
        "live_likes","live_comments","live_shares","live_saves",
        "live_hook_text","live_cta_text","live_creative_id","live_contexto_record"
@@ -1218,6 +1236,7 @@
         experiment_id: expId,
         session_id: $("paid_session_id").value.trim(),
         record_name: $("paid_record_name").value.trim() || null,
+        publico: $("paid_publico").value.trim() || null,
         clicks: asIntOrNull($("paid_clicks").value),
         views: asIntOrNull($("paid_views").value),
         views_profile: asIntOrNull($("paid_views_profile").value),
@@ -1246,7 +1265,7 @@
 
       await apiPost("/records/", body);
 
-      ["paid_session_id","paid_record_name","paid_clicks","paid_views","paid_views_profile",
+      ["paid_session_id","paid_record_name","paid_publico","paid_clicks","paid_views","paid_views_profile",
        "paid_inicia_test","paid_initiate_checkouts","paid_view_content","paid_lead","paid_purchase",
        "paid_cpc","paid_ctr",
        "paid_video_duration","paid_campaign_id","paid_ad_set_id","paid_ad_id",
@@ -1332,7 +1351,7 @@
 
       // Fill fields with current values
       const fields = [
-        "record_name","clicks","views","views_profile","inicia_test","initiate_checkouts",
+        "record_name","publico","clicks","views","views_profile","inicia_test","initiate_checkouts",
         "view_content","lead_form","purchase",
         "likes","comments","shares","saves",
         "live_viewers_peak","live_avg_viewers","live_duration","live_new_followers",
@@ -1358,6 +1377,7 @@
       const body = {};
       const fields = [
         ["record_name", (v) => v.trim() || null],
+        ["publico", (v) => v.trim() || null],
         ["clicks", asIntOrNull], ["views", asIntOrNull],
         ["views_profile", asIntOrNull], ["inicia_test", asIntOrNull],
         ["initiate_checkouts", asIntOrNull], ["view_content", asIntOrNull],

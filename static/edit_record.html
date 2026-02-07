@@ -75,6 +75,10 @@
           <input id="record_name" type="text" />
         </div>
         <div class="field-group">
+          <label for="publico">Publico</label>
+          <input id="publico" type="text" />
+        </div>
+        <div class="field-group">
           <label for="hook_text">Hook</label>
           <input id="hook_text" type="text" />
         </div>
@@ -287,7 +291,7 @@
 
   function fillForm(record) {
     const fields = [
-      "record_name", "hook_text", "hook_type", "cta_text", "cta_type",
+      "record_name", "publico", "hook_text", "hook_type", "cta_text", "cta_type",
       "clicks", "views", "views_profile", "inicia_test", "ctr", "cpc",
       "initiate_checkouts", "view_content",
       "lead_form", "purchase", "likes", "comments", "shares", "saves",
@@ -336,6 +340,7 @@
     if (!currentRecord) return;
     const fields = [
       ["record_name", (v) => v.trim() || null],
+      ["publico", (v) => v.trim() || null],
       ["hook_text", (v) => v.trim() || null],
       ["hook_type", (v) => v || null],
       ["cta_text", (v) => v.trim() || null],

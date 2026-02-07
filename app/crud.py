@@ -181,6 +181,7 @@ def create_record(db: Session, data: schemas.RecordCreate):
     campaign_id = (data.campaign_id or "").strip() or None
     ad_set_id = (data.ad_set_id or "").strip() or None
     ad_id = (data.ad_id or "").strip() or None
+    publico = (data.publico or "").strip() or None
     hook_text = (data.hook_text or "").strip() or None
     cta_text = (data.cta_text or "").strip() or None
     creative_id = (data.creative_id or "").strip() or None
@@ -231,6 +232,7 @@ def create_record(db: Session, data: schemas.RecordCreate):
         # creative / execution
         execution_type=data.execution_type,
         record_name=(data.record_name or "").strip() or None,
+        publico=publico,
         hook_text=hook_text,
         hook_type=data.hook_type,
         cta_text=cta_text,

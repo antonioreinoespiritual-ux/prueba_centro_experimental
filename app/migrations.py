@@ -48,6 +48,7 @@ def ensure_schema() -> None:
     record_columns = [
         ("execution_type", "VARCHAR(30)"),
         ("record_name", "VARCHAR(200)"),
+        ("publico", "VARCHAR(200)"),
         ("hook_text", "TEXT"),
         ("hook_type", "VARCHAR(30)"),
         ("cta_text", "TEXT"),
