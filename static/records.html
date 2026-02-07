@@ -148,9 +148,10 @@
           <table>
             <thead>
               <tr>
-                <th>ID</th>
-                <th>Experimento</th>
+                <th>ID (Session)</th>
                 <th>Record</th>
+                <th>Metrica X</th>
+                <th>Proyecto</th>
                 <th>Status</th>
                 <th>Canal</th>
                 <th>Clicks</th>
@@ -489,9 +490,10 @@
       const statusClass = r.record_status || "collecting";
       const traffic = exp?.traffic_type || "mixed";
       tr.innerHTML = `
-        <td>${r.id}</td>
-        <td>${r.experiment_id}</td>
-        <td>${escapeHtml(r.record_name || r.session_id)}</td>
+        <td>${escapeHtml(r.session_id || "—")}</td>
+        <td>${escapeHtml(r.record_name || "—")}</td>
+        <td>${escapeHtml(exp?.independent_variable || "—")}</td>
+        <td>${escapeHtml(exp?.project_name || "—")}</td>
         <td><span class="badge badge-${statusClass}">${statusClass}</span></td>
         <td><span class="badge badge-${traffic}">${traffic}</span></td>
         <td>${fmt(r.clicks)}</td>
