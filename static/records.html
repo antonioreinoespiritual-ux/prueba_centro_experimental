@@ -50,8 +50,12 @@
           <input id="f_search" placeholder="texto libre..." />
         </div>
         <div>
-          <label>Experimento</label>
-          <select id="f_experiment"></select>
+          <label>Proyecto</label>
+          <select id="f_project"></select>
+        </div>
+        <div>
+          <label>Metrica X</label>
+          <select id="f_metric_x"></select>
         </div>
         <div>
           <label>Canal</label>
@@ -337,15 +341,33 @@
     return r.json();
   }
 
-  function fillExperimentFilter(){
-    const sel = $("f_experiment");
-    sel.innerHTML = '<option value="">todos</option>';
-    for (const e of experiments){
+  function uniqueSorted(values){
+    return [...new Set(values.filter(Boolean))].sort((a, b) => a.localeCompare(b, "es"));
+  }
+
+  function fillFilterSelect(selectEl, options, allLabel = "todos"){
+    const prev = selectEl.value;
+    selectEl.innerHTML = "";
+    const optAll = document.createElement("option");
+    optAll.value = "";
+    optAll.textContent = allLabel;
+    selectEl.appendChild(optAll);
+    for (const value of options){
       const opt = document.createElement("option");
-      opt.value = String(e.id);
-      opt.textContent = `${e.id} — ${e.project_name}`;
-      sel.appendChild(opt);
+      opt.value = value;
+      opt.textContent = value;
+      selectEl.appendChild(opt);
     }
+    if (prev && [...selectEl.options].some(o => o.value === prev)) {
+      selectEl.value = prev;
+    }
+  }
+
+  function fillProjectMetricFilters(){
+    fillFilterSelect($("f_project"), uniqueSorted(experiments.map(e => e.project_name)));
+    const project = $("f_project").value;
+    const metricCandidates = experiments.filter(e => !project || e.project_name === project);
+    fillFilterSelect($("f_metric_x"), uniqueSorted(metricCandidates.map(e => e.independent_variable)));
   }
 
   function getExperimentById(id){
@@ -363,7 +385,8 @@
     let filtered = records.slice();
 
     const search = $("f_search").value.trim().toLowerCase();
-    const expId = $("f_experiment").value;
+    const project = $("f_project").value;
+    const metricX = $("f_metric_x").value;
     const traffic = $("f_traffic").value;
     const status = $("f_status").value;
     const exec = $("f_execution").value;
@@ -378,9 +401,12 @@
     const sort = $("f_sort").value;
     const limit = Math.max(1, Number($("f_limit").value) || 5000);
 
-    if (expId){
-      const expIdNum = Number(expId);
-      filtered = filtered.filter(r => r.experiment_id === expIdNum);
+    if (project){
+      filtered = filtered.filter(r => (getExperimentById(r.experiment_id)?.project_name || "") === project);
+    }
+
+    if (metricX){
+      filtered = filtered.filter(r => (getExperimentById(r.experiment_id)?.independent_variable || "") === metricX);
     }
 
     if (traffic){
@@ -524,11 +550,12 @@
   }
 
   function clearFilters(){
-    ["f_search","f_experiment","f_traffic","f_status","f_execution","f_from","f_to",
+    ["f_search","f_project","f_metric_x","f_traffic","f_status","f_execution","f_from","f_to",
      "f_clicks_min","f_clicks_max","f_views_min","f_views_max","f_purchase_min","f_purchase_max"
     ].forEach(id => $(id).value = "");
     $("f_sort").value = "created_desc";
     $("f_limit").value = "5000";
+    fillProjectMetricFilters();
   }
 
   function refresh(){
@@ -538,7 +565,7 @@
 
   async function loadAll(){
     experiments = await apiGet("/experiments/");
-    fillExperimentFilter();
+    fillProjectMetricFilters();
     const limit = Math.max(1, Number($("f_limit").value) || 5000);
     records = await apiGet(`/records/?limit=${encodeURIComponent(limit)}`);
     refresh();
@@ -547,6 +574,8 @@
   $("btnApplyFilters").onclick = refresh;
   $("btnClearFilters").onclick = () => { clearFilters(); refresh(); };
   $("btnReload").onclick = loadAll;
+  $("f_project").addEventListener("change", () => { fillProjectMetricFilters(); refresh(); });
+  $("f_metric_x").addEventListener("change", refresh);
 
   // ---------- DOCUMENTATION MODAL ----------
   let docEntityType = null;
