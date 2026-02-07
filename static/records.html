@@ -146,7 +146,10 @@
 
       <!-- Record Detail Card -->
       <div class="card">
-        <h2>Tarjeta del récord</h2>
+        <div class="flex justify-between items-center">
+          <h2>Tarjeta del récord</h2>
+          <button class="btn-doc" id="btnRecordDoc" style="display:none;" onclick="openDocModal('record', currentRecordId, currentRecordName)">Documentacion</button>
+        </div>
         <div id="recordEmpty" class="text-muted text-sm mt-sm">Selecciona un récord para ver el detalle completo.</div>
         <div id="recordCard" style="display:none;" class="mt-md">
           <div class="grid grid-3">
@@ -206,6 +209,23 @@
 
   </div>
 
+  <!-- Documentation Modal -->
+  <div class="modal-backdrop" id="docModal" style="display:none;">
+    <div class="doc-panel">
+      <div class="doc-panel__header">
+        <h2 class="doc-panel__title" id="docModalTitle">Documentacion</h2>
+        <button class="btn-ghost" onclick="closeDocModal()">Cerrar</button>
+      </div>
+      <div class="doc-note-form">
+        <textarea id="docNewNote" placeholder="Escribe una nueva nota cualitativa..."></textarea>
+        <button id="btnAddNote" onclick="addDocNote()">Agregar Nota</button>
+      </div>
+      <div id="docNotesList"></div>
+    </div>
+  </div>
+
+  <div class="toast-container" id="toastContainer"></div>
+
 <script>
   const API_BASE = "";
   const $ = (id) => document.getElementById(id);
@@ -213,6 +233,8 @@
 
   let experiments = [];
   let records = [];
+  let currentRecordId = null;
+  let currentRecordName = "";
 
   function escapeHtml(s) {
     return String(s)
@@ -234,8 +256,27 @@
     return d.toISOString().slice(0,10);
   }
 
+  function showToast(message, type = 'success') {
+    const container = $('toastContainer');
+    const toast = document.createElement('div');
+    toast.className = `toast toast--${type}`;
+    toast.textContent = message;
+    container.appendChild(toast);
+    setTimeout(() => toast.remove(), 3000);
+  }
+
   async function apiGet(path) {
     const r = await fetch(API_BASE + path);
+    if (!r.ok) throw new Error(await r.text());
+    return r.json();
+  }
+
+  async function apiPost(path, body) {
+    const r = await fetch(API_BASE + path, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
     if (!r.ok) throw new Error(await r.text());
     return r.json();
   }
@@ -384,8 +425,11 @@
 
   function renderCard(r){
     const exp = getExperimentById(r.experiment_id);
+    currentRecordId = r.id;
+    currentRecordName = r.record_name || r.session_id || `Record #${r.id}`;
     $("recordEmpty").style.display = "none";
     $("recordCard").style.display = "block";
+    $("btnRecordDoc").style.display = "";
 
     $("cardRecordName").textContent = r.record_name || r.session_id || "—";
     $("cardRecordMeta").textContent = `Record #${r.id} · ${r.created_at || "—"}`;
@@ -440,6 +484,68 @@
   $("btnApplyFilters").onclick = refresh;
   $("btnClearFilters").onclick = () => { clearFilters(); refresh(); };
   $("btnReload").onclick = loadAll;
+
+  // ---------- DOCUMENTATION MODAL ----------
+  let docEntityType = null;
+  let docEntityId = null;
+
+  function openDocModal(entityType, entityId, title) {
+    docEntityType = entityType;
+    docEntityId = entityId;
+    $("docModalTitle").textContent = `Documentacion — ${title}`;
+    $("docNewNote").value = "";
+    $("docModal").style.display = "flex";
+    loadDocNotes();
+  }
+
+  function closeDocModal() {
+    $("docModal").style.display = "none";
+    docEntityType = null;
+    docEntityId = null;
+  }
+
+  async function loadDocNotes() {
+    try {
+      const doc = await apiGet(`/documentation/${docEntityType}/${docEntityId}`);
+      const container = $("docNotesList");
+      if (!doc.notes || doc.notes.length === 0) {
+        container.innerHTML = '<div class="doc-empty">No hay notas de documentacion aun.</div>';
+        return;
+      }
+      let html = "";
+      for (const note of doc.notes) {
+        const date = new Date(note.created_at).toLocaleString("es-ES");
+        const updated = note.updated_at ? ` (editada: ${new Date(note.updated_at).toLocaleString("es-ES")})` : "";
+        html += `<div class="doc-note">
+          <div class="doc-note__body">${escapeHtml(note.body)}</div>
+          <div class="doc-note__meta">
+            <span>${date}${updated}</span>
+            <span class="tag">Nota #${note.id}</span>
+          </div>
+        </div>`;
+      }
+      container.innerHTML = html;
+    } catch (e) {
+      $("docNotesList").innerHTML = '<div class="doc-empty">Error al cargar documentacion.</div>';
+    }
+  }
+
+  async function addDocNote() {
+    const body = $("docNewNote").value.trim();
+    if (!body) { showToast("Escribe una nota antes de agregar.", "error"); return; }
+    try {
+      await apiPost(`/documentation/${docEntityType}/${docEntityId}/notes`, { body });
+      $("docNewNote").value = "";
+      showToast("Nota agregada", "success");
+      loadDocNotes();
+    } catch (e) {
+      showToast("Error al agregar nota: " + String(e), "error");
+    }
+  }
+
+  $("docModal").addEventListener("click", function(e) {
+    if (e.target === this) closeDocModal();
+  });
 
   loadAll().catch(err => alert(String(err)));
 </script>

@@ -120,7 +120,10 @@
       </div>
 
       <div class="card" id="recordDetailPanel">
-        <h3>Detalle del Record</h3>
+        <div class="flex justify-between items-center">
+          <h3>Detalle del Record</h3>
+          <button class="btn-doc" id="btnRecordDoc" style="display:none;" onclick="openRecordDoc()">Documentacion</button>
+        </div>
         <div id="recordDetailEmpty" class="text-muted text-sm mt-md">Selecciona un record para ver su detalle.</div>
         <div id="recordDetail" style="display:none;" class="mt-md">
           <div class="grid grid-3">
@@ -142,6 +145,21 @@
       </div>
     </div>
 
+  </div>
+
+  <!-- Documentation Modal -->
+  <div class="modal-backdrop" id="docModal" style="display:none;">
+    <div class="doc-panel">
+      <div class="doc-panel__header">
+        <h2 class="doc-panel__title" id="docModalTitle">Documentacion</h2>
+        <button class="btn-ghost" onclick="closeDocModal()">Cerrar</button>
+      </div>
+      <div class="doc-note-form">
+        <textarea id="docNewNote" placeholder="Escribe una nueva nota cualitativa..."></textarea>
+        <button id="btnAddNote" onclick="addDocNote()">Agregar Nota</button>
+      </div>
+      <div id="docNotesList"></div>
+    </div>
   </div>
 
   <div class="toast-container" id="toastContainer"></div>
@@ -232,6 +250,7 @@
           ${exp.primary_metric ? `<span class="tag">Y: ${exp.primary_metric}</span>` : ''}
           ${exp.threshold_operator && exp.threshold_value !== null ? `<span class="tag">Umbral: ${exp.threshold_operator} ${exp.threshold_value}${exp.threshold_type === 'percentage' ? '%' : ''}</span>` : ''}
           <span class="tag">${recordCount} records</span>
+          <button class="btn-doc" onclick="event.stopPropagation(); openDocModal('experiment', ${exp.id}, '${escapeHtml(exp.project_name)}')">Documentacion</button>
         </div>
       </div>`;
     }
@@ -295,8 +314,10 @@
 
   // ---------- SHOW RECORD DETAIL ----------
   function showRecordDetail(exp, r) {
+    currentRecordForDoc = r;
     $("recordDetailEmpty").style.display = "none";
     $("recordDetail").style.display = "block";
+    $("btnRecordDoc").style.display = "";
 
     $("rdName").textContent = r.record_name || r.session_id || "—";
     $("rdNameMeta").textContent = `Record #${r.id} · ${r.created_at || "—"}`;
@@ -344,6 +365,87 @@
   $("fStatus").addEventListener("change", renderHypList);
   $("fChannel").addEventListener("change", renderHypList);
   $("fSearch").addEventListener("input", renderHypList);
+
+  // ---------- DOCUMENTATION MODAL ----------
+  let docEntityType = null;
+  let docEntityId = null;
+  let currentRecordForDoc = null;
+
+  async function apiPost(path, body) {
+    const r = await fetch(API_BASE + path, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!r.ok) throw new Error(await r.text());
+    return r.json();
+  }
+
+  function openDocModal(entityType, entityId, title) {
+    docEntityType = entityType;
+    docEntityId = entityId;
+    $("docModalTitle").textContent = `Documentacion — ${title}`;
+    $("docNewNote").value = "";
+    $("docModal").style.display = "flex";
+    loadDocNotes();
+  }
+
+  function closeDocModal() {
+    $("docModal").style.display = "none";
+    docEntityType = null;
+    docEntityId = null;
+  }
+
+  function openRecordDoc() {
+    if (!currentRecordForDoc) return;
+    openDocModal("record", currentRecordForDoc.id, currentRecordForDoc.record_name || currentRecordForDoc.session_id);
+  }
+
+  async function loadDocNotes() {
+    try {
+      const doc = await apiGet(`/documentation/${docEntityType}/${docEntityId}`);
+      const container = $("docNotesList");
+      if (!doc.notes || doc.notes.length === 0) {
+        container.innerHTML = '<div class="doc-empty">No hay notas de documentacion aun.</div>';
+        return;
+      }
+      let html = "";
+      for (const note of doc.notes) {
+        const date = new Date(note.created_at).toLocaleString("es-ES");
+        const updated = note.updated_at ? ` (editada: ${new Date(note.updated_at).toLocaleString("es-ES")})` : "";
+        html += `<div class="doc-note">
+          <div class="doc-note__body">${escapeHtml(note.body)}</div>
+          <div class="doc-note__meta">
+            <span>${date}${updated}</span>
+            <span class="tag">Nota #${note.id}</span>
+          </div>
+        </div>`;
+      }
+      container.innerHTML = html;
+    } catch (e) {
+      $("docNotesList").innerHTML = '<div class="doc-empty">Error al cargar documentacion.</div>';
+    }
+  }
+
+  async function addDocNote() {
+    const body = $("docNewNote").value.trim();
+    if (!body) { showToast("Escribe una nota antes de agregar.", "error"); return; }
+    try {
+      await apiPost(`/documentation/${docEntityType}/${docEntityId}/notes`, { body });
+      $("docNewNote").value = "";
+      showToast("Nota agregada", "success");
+      loadDocNotes();
+      // Update the note count badge in hypothesis cards if applicable
+      if (docEntityType === "experiment") renderHypList();
+    } catch (e) {
+      showToast("Error al agregar nota: " + String(e), "error");
+    }
+  }
+
+  // Close modal on backdrop click
+  $("docModal").addEventListener("click", function(e) {
+    if (e.target === this) closeDocModal();
+  });
 
   // Init
   loadAll();

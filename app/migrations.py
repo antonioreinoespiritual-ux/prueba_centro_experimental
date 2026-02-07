@@ -60,5 +60,31 @@ def ensure_schema() -> None:
         if not _column_exists(cur, "experiment_records", col_name):
             cur.execute(f"ALTER TABLE experiment_records ADD COLUMN {col_name} {col_type}")
 
+    # --- Documentation tables ---
+    cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='documentation'")
+    if not cur.fetchone():
+        cur.execute("""
+            CREATE TABLE documentation (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                entity_type VARCHAR(20) NOT NULL,
+                entity_id INTEGER NOT NULL,
+                created_at DATETIME NOT NULL DEFAULT (datetime('now')),
+                updated_at DATETIME,
+                UNIQUE(entity_type, entity_id)
+            )
+        """)
+
+    cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='documentation_note'")
+    if not cur.fetchone():
+        cur.execute("""
+            CREATE TABLE documentation_note (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                documentation_id INTEGER NOT NULL REFERENCES documentation(id),
+                body TEXT NOT NULL,
+                created_at DATETIME NOT NULL DEFAULT (datetime('now')),
+                updated_at DATETIME
+            )
+        """)
+
     conn.commit()
     conn.close()

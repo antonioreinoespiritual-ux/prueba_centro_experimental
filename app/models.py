@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import String, Integer, DateTime, ForeignKey, Float, Text
+from sqlalchemy import String, Integer, DateTime, ForeignKey, Float, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .database import Base
@@ -96,3 +96,35 @@ class ExperimentRecord(Base):
     updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, onupdate=datetime.utcnow)
 
     experiment: Mapped["Experiment"] = relationship("Experiment", back_populates="records")
+
+
+class Documentation(Base):
+    __tablename__ = "documentation"
+    __table_args__ = (
+        UniqueConstraint("entity_type", "entity_id", name="uq_documentation_entity"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    entity_type: Mapped[str] = mapped_column(String(20), nullable=False)  # 'experiment' | 'record'
+    entity_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, onupdate=datetime.utcnow)
+
+    notes: Mapped[list["DocumentationNote"]] = relationship(
+        "DocumentationNote",
+        back_populates="documentation",
+        cascade="all, delete-orphan",
+        order_by="desc(DocumentationNote.created_at)",
+    )
+
+
+class DocumentationNote(Base):
+    __tablename__ = "documentation_note"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    documentation_id: Mapped[int] = mapped_column(ForeignKey("documentation.id"), nullable=False, index=True)
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, onupdate=datetime.utcnow)
+
+    documentation: Mapped["Documentation"] = relationship("Documentation", back_populates="notes")

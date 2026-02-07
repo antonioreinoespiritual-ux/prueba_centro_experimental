@@ -97,11 +97,47 @@ CtaType = Literal[
 RecordStatus = Literal["collecting", "closed"]
 
 
+EntityType = Literal["experiment", "record"]
+
+
+# ---------- Documentation ----------
+class DocumentationNoteCreate(BaseModel):
+    body: str = Field(min_length=1, max_length=50000)
+
+
+class DocumentationNoteUpdate(BaseModel):
+    body: str = Field(min_length=1, max_length=50000)
+
+
+class DocumentationNoteOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    documentation_id: int
+    body: str
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+
+class DocumentationOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    entity_type: str
+    entity_id: int
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    notes: list[DocumentationNoteOut] = []
+
+
 # ---------- Experiments ----------
 class ExperimentCreate(BaseModel):
     project_name: str = Field(min_length=1, max_length=200)
     hypothesis: str = Field(min_length=1, max_length=5000)
     traffic_type: TrafficType
+
+    # Contexto cualitativo (documentacion, NO metrica)
+    contexto: Optional[str] = Field(default=None, max_length=50000)
 
     # Lean hypothesis fields
     hypothesis_type: Optional[HypothesisType] = None
@@ -183,6 +219,9 @@ class ExperimentAnalysis(BaseModel):
 class RecordCreate(BaseModel):
     experiment_id: int
     session_id: str = Field(min_length=1, max_length=200)
+
+    # Contexto cualitativo (documentacion, NO metrica)
+    contexto_record: Optional[str] = Field(default=None, max_length=50000)
 
     # comunes
     clicks: Optional[int] = Field(default=None, ge=0)

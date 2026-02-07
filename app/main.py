@@ -10,7 +10,7 @@ load_env()
 
 from .database import Base, engine
 from .migrations import ensure_schema
-from .routers import experiments, records
+from .routers import experiments, records, documentation
 ensure_schema()
 Base.metadata.create_all(bind=engine)
 
@@ -27,3 +27,4 @@ def home():
 
 app.include_router(experiments.router, prefix="/experiments", tags=["experiments"])
 app.include_router(records.router, prefix="/records", tags=["records"])
+app.include_router(documentation.router, prefix="/documentation", tags=["documentation"])

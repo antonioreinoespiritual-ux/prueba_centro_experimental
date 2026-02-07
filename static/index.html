@@ -149,6 +149,11 @@
           </div>
         </div>
 
+        <div class="field-group mt-lg">
+          <label for="contexto">Contexto cualitativo (documentacion, opcional)</label>
+          <textarea id="contexto" placeholder="Contexto estrategico, razon de la hipotesis, observaciones previas, insight del mercado..."></textarea>
+        </div>
+
         <div class="mt-lg">
           <button id="btnCreateExperiment" aria-label="Crear experimento">Crear Experimento</button>
         </div>
@@ -257,6 +262,11 @@
         <div class="field-group mt-md">
           <label for="live_creative_id">Creative ID (opcional)</label>
           <input id="live_creative_id" placeholder="live_2024_001" />
+        </div>
+
+        <div class="field-group mt-md">
+          <label for="live_contexto_record">Contexto cualitativo (opcional)</label>
+          <textarea id="live_contexto_record" placeholder="Observaciones, contexto del live, notas cualitativas..." style="min-height:60px;"></textarea>
         </div>
 
         <div class="field-section">METRICAS</div>
@@ -373,6 +383,11 @@
         <div class="field-group mt-md">
           <label for="organic_creative_id">Creative ID (opcional)</label>
           <input id="organic_creative_id" placeholder="vid_2024_001" />
+        </div>
+
+        <div class="field-group mt-md">
+          <label for="organic_contexto_record">Contexto cualitativo (opcional)</label>
+          <textarea id="organic_contexto_record" placeholder="Observaciones, contexto del contenido, notas cualitativas..." style="min-height:60px;"></textarea>
         </div>
 
         <div class="field-section">METRICAS</div>
@@ -518,6 +533,11 @@
         <div class="field-group mt-md">
           <label for="paid_creative_id">Creative ID (opcional)</label>
           <input id="paid_creative_id" placeholder="ad_2024_001" />
+        </div>
+
+        <div class="field-group mt-md">
+          <label for="paid_contexto_record">Contexto cualitativo (opcional)</label>
+          <textarea id="paid_contexto_record" placeholder="Observaciones, contexto del anuncio, notas cualitativas..." style="min-height:60px;"></textarea>
         </div>
 
         <div class="field-section">METRICAS</div>
@@ -885,11 +905,12 @@
         volume_min_value: asIntOrNull($("volume_min_value").value),
         volume_unit: $("volume_unit").value || null,
         experiment_status: "draft",
+        contexto: $("contexto").value.trim() || null,
       };
       if (!body.project_name || !body.hypothesis) throw new Error("project_name y hypothesis son obligatorios.");
       await apiPost("/experiments/", body);
       await refreshAll();
-      ["project_name","hypothesis","independent_variable","threshold_value","volume_min_value"].forEach(id => $(id).value = "");
+      ["project_name","hypothesis","independent_variable","threshold_value","volume_min_value","contexto"].forEach(id => $(id).value = "");
       $("hypothesis_type").value = "";
       $("primary_metric").value = "";
       $("threshold_operator").value = "";
@@ -929,6 +950,7 @@
         avg_watch_time: asFloatOrNull($("organic_avg_watch_time").value),
         video_duration: asFloatOrNull($("organic_video_duration").value),
         execution_type: "organic_video",
+        contexto_record: $("organic_contexto_record").value.trim() || null,
         hook_text: $("organic_hook_text").value.trim() || null,
         hook_type: $("organic_hook_type").value || null,
         cta_text: $("organic_cta_text").value.trim() || null,
@@ -944,7 +966,7 @@
        "organic_likes","organic_comments","organic_shares","organic_saves",
        "organic_video_url","organic_views_finish_pct","organic_retention_pct",
        "organic_avg_watch_time","organic_video_duration",
-       "organic_hook_text","organic_cta_text","organic_creative_id"
+       "organic_hook_text","organic_cta_text","organic_creative_id","organic_contexto_record"
       ].forEach(id => $(id).value = "");
       $("organic_hook_type").value = "";
       $("organic_cta_type").value = "";
@@ -978,6 +1000,7 @@
         saves: asIntOrNull($("live_saves").value),
         organic_piece_type: null,
         execution_type: "live_session",
+        contexto_record: $("live_contexto_record").value.trim() || null,
         hook_text: $("live_hook_text").value.trim() || null,
         hook_type: $("live_hook_type").value || null,
         cta_text: $("live_cta_text").value.trim() || null,
@@ -992,7 +1015,7 @@
       ["live_session_id","live_record_name","live_clicks","live_views","live_viewers_peak",
        "live_avg_viewers","live_duration","live_new_followers",
        "live_likes","live_comments","live_shares","live_saves",
-       "live_hook_text","live_cta_text","live_creative_id"
+       "live_hook_text","live_cta_text","live_creative_id","live_contexto_record"
       ].forEach(id => $(id).value = "");
       $("live_hook_type").value = "";
       $("live_cta_type").value = "";
@@ -1028,6 +1051,7 @@
         ad_id: $("paid_ad_id").value.trim() || null,
         organic_piece_type: null,
         execution_type: "paid_ad",
+        contexto_record: $("paid_contexto_record").value.trim() || null,
         hook_text: $("paid_hook_text").value.trim() || null,
         hook_type: $("paid_hook_type").value || null,
         cta_text: $("paid_cta_text").value.trim() || null,
@@ -1042,7 +1066,7 @@
       ["paid_session_id","paid_record_name","paid_clicks","paid_views","paid_initiate_checkouts",
        "paid_view_content","paid_lead","paid_purchase","paid_cpc","paid_ctr",
        "paid_video_duration","paid_campaign_id","paid_ad_set_id","paid_ad_id",
-       "paid_hook_text","paid_cta_text","paid_creative_id"
+       "paid_hook_text","paid_cta_text","paid_creative_id","paid_contexto_record"
       ].forEach(id => $(id).value = "");
       $("paid_hook_type").value = "";
       $("paid_cta_type").value = "";

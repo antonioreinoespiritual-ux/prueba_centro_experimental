@@ -34,6 +34,12 @@ def create_experiment(db: Session, data: schemas.ExperimentCreate):
     db.add(obj)
     db.commit()
     db.refresh(obj)
+
+    # Auto-create documentation with initial note if contexto is provided
+    contexto = (getattr(data, "contexto", None) or "").strip()
+    if contexto:
+        create_documentation_note(db, "experiment", obj.id, contexto)
+
     return obj
 
 
@@ -132,6 +138,12 @@ def create_record(db: Session, data: schemas.RecordCreate):
     db.add(obj)
     db.commit()
     db.refresh(obj)
+
+    # Auto-create documentation with initial note if contexto_record is provided
+    contexto_record = (getattr(data, "contexto_record", None) or "").strip()
+    if contexto_record:
+        create_documentation_note(db, "record", obj.id, contexto_record)
+
     return obj
 
 
@@ -191,6 +203,56 @@ def get_records(
     if experiment_id:
         q = q.where(models.ExperimentRecord.experiment_id == experiment_id)
     return list(db.execute(q).scalars().all())
+
+
+# ------------------------------------------------------------------ #
+#  DOCUMENTATION (qualitative, separate from metrics)
+# ------------------------------------------------------------------ #
+
+def get_or_create_documentation(db: Session, entity_type: str, entity_id: int) -> models.Documentation:
+    q = select(models.Documentation).where(
+        models.Documentation.entity_type == entity_type,
+        models.Documentation.entity_id == entity_id,
+    )
+    doc = db.execute(q).scalar_one_or_none()
+    if doc:
+        return doc
+    doc = models.Documentation(entity_type=entity_type, entity_id=entity_id)
+    db.add(doc)
+    db.commit()
+    db.refresh(doc)
+    return doc
+
+
+def get_documentation(db: Session, entity_type: str, entity_id: int):
+    q = select(models.Documentation).where(
+        models.Documentation.entity_type == entity_type,
+        models.Documentation.entity_id == entity_id,
+    )
+    return db.execute(q).scalar_one_or_none()
+
+
+def create_documentation_note(db: Session, entity_type: str, entity_id: int, body: str) -> models.DocumentationNote:
+    doc = get_or_create_documentation(db, entity_type, entity_id)
+    note = models.DocumentationNote(documentation_id=doc.id, body=body)
+    db.add(note)
+    doc.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(note)
+    db.refresh(doc)
+    return note
+
+
+def update_documentation_note(db: Session, note_id: int, body: str):
+    q = select(models.DocumentationNote).where(models.DocumentationNote.id == note_id)
+    note = db.execute(q).scalar_one_or_none()
+    if not note:
+        return None
+    note.body = body
+    note.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(note)
+    return note
 
 
 # ------------------------------------------------------------------ #
