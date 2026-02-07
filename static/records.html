@@ -50,6 +50,10 @@
           <input id="f_search" placeholder="texto libre..." />
         </div>
         <div>
+          <label>Proyecto</label>
+          <select id="f_project"></select>
+        </div>
+        <div>
           <label>Experimento</label>
           <select id="f_experiment"></select>
         </div>
@@ -145,7 +149,7 @@
             <thead>
               <tr>
                 <th>ID</th>
-                <th>Experimento</th>
+                <th>Proyecto / Hipótesis</th>
                 <th>Record</th>
                 <th>Status</th>
                 <th>Canal</th>
@@ -331,9 +335,26 @@
     for (const e of experiments){
       const opt = document.createElement("option");
       opt.value = String(e.id);
-      opt.textContent = `${e.id} — ${e.project_name}`;
+      const hypType = e.hypothesis_type ? ` · ${e.hypothesis_type}` : "";
+      opt.textContent = `${e.id} — ${e.project_name}${hypType}`;
       sel.appendChild(opt);
     }
+  }
+
+  function fillProjectFilter(){
+    const sel = $("f_project");
+    const prev = sel.value;
+    const names = [...new Set(experiments.map(e => e.project_name).filter(Boolean))].sort(
+      (a, b) => a.localeCompare(b, "es")
+    );
+    sel.innerHTML = '<option value="">todos</option>';
+    for (const name of names) {
+      const opt = document.createElement("option");
+      opt.value = name;
+      opt.textContent = name;
+      sel.appendChild(opt);
+    }
+    if (prev) sel.value = prev;
   }
 
   function getExperimentById(id){
@@ -351,6 +372,7 @@
     let filtered = records.slice();
 
     const search = $("f_search").value.trim().toLowerCase();
+    const project = $("f_project").value;
     const expId = $("f_experiment").value;
     const traffic = $("f_traffic").value;
     const status = $("f_status").value;
@@ -365,6 +387,10 @@
     const purchaseMax = parseNumberField("f_purchase_max");
     const sort = $("f_sort").value;
     const limit = Math.max(1, Number($("f_limit").value) || 5000);
+
+    if (project) {
+      filtered = filtered.filter(r => (getExperimentById(r.experiment_id)?.project_name || "") === project);
+    }
 
     if (expId){
       const expIdNum = Number(expId);
@@ -418,6 +444,7 @@
 
     if (search){
       filtered = filtered.filter(r => {
+        const exp = getExperimentById(r.experiment_id);
         const hay = [
           r.session_id,
           r.record_name,
@@ -425,6 +452,9 @@
           r.cta_text,
           r.organic_piece_type,
           r.video_url,
+          exp?.project_name,
+          exp?.hypothesis_type,
+          exp?.hypothesis,
         ].filter(Boolean).join(" ").toLowerCase();
         return hay.includes(search);
       });
@@ -450,9 +480,12 @@
       tr.style.cursor = "pointer";
       const statusClass = r.record_status || "collecting";
       const traffic = exp?.traffic_type || "mixed";
+      const expLabel = exp
+        ? `<div>${escapeHtml(exp.project_name)}</div><div class="text-muted text-sm">${escapeHtml(exp.hypothesis_type || "Hipótesis")}</div>`
+        : "—";
       tr.innerHTML = `
         <td>${r.id}</td>
-        <td>${r.experiment_id}</td>
+        <td>${expLabel}</td>
         <td>${escapeHtml(r.record_name || r.session_id)}</td>
         <td><span class="badge badge-${statusClass}">${statusClass}</span></td>
         <td><span class="badge badge-${traffic}">${traffic}</span></td>
@@ -481,7 +514,9 @@
     $("cardRecordMeta").textContent = `Record #${r.id} · ${r.created_at || "—"}`;
 
     $("cardExperiment").textContent = exp ? `${exp.project_name}` : "—";
-    $("cardExperimentMeta").textContent = exp ? `Hypótesis: ${exp.hypothesis_type || "—"} · Y: ${exp.primary_metric || "—"}` : "—";
+    $("cardExperimentMeta").textContent = exp
+      ? `Hipótesis: ${exp.hypothesis_type || "—"} · ${exp.hypothesis || "Sin detalle"} · Y: ${exp.primary_metric || "—"}`
+      : "—";
 
     const status = r.record_status || "collecting";
     $("cardStatus").innerHTML = `<span class="badge badge-${status}">${status}</span>`;
@@ -510,6 +545,7 @@
     ["f_search","f_experiment","f_traffic","f_status","f_execution","f_from","f_to",
      "f_clicks_min","f_clicks_max","f_views_min","f_views_max","f_purchase_min","f_purchase_max"
     ].forEach(id => $(id).value = "");
+    $("f_project").value = "";
     $("f_sort").value = "created_desc";
     $("f_limit").value = "5000";
   }
@@ -522,6 +558,7 @@
   async function loadAll(){
     experiments = await apiGet("/experiments/");
     fillExperimentFilter();
+    fillProjectFilter();
     const limit = Math.max(1, Number($("f_limit").value) || 5000);
     records = await apiGet(`/records/?limit=${encodeURIComponent(limit)}`);
     refresh();

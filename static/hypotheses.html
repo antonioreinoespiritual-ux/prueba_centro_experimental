@@ -59,6 +59,10 @@
     <div class="card fade-in">
       <div class="grid grid-4">
         <div class="field-group">
+          <label for="fProject">Proyecto</label>
+          <select id="fProject"></select>
+        </div>
+        <div class="field-group">
           <label for="fType">Tipo de hipotesis</label>
           <select id="fType">
             <option value="">Todos</option>
@@ -243,11 +247,13 @@
   // ---------- FILTERS ----------
   function getFiltered() {
     let list = experiments.slice();
+    const project = $("fProject").value;
     const type = $("fType").value;
     const status = $("fStatus").value;
     const channel = $("fChannel").value;
     const search = $("fSearch").value.trim().toLowerCase();
 
+    if (project) list = list.filter(e => e.project_name === project);
     if (type) list = list.filter(e => e.hypothesis_type === type);
     if (status) list = list.filter(e => e.experiment_status === status);
     if (channel) list = list.filter(e => e.traffic_type === channel);
@@ -276,15 +282,17 @@
       const channel = exp.traffic_type || "mixed";
       const recordCount = allRecords.filter(r => r.experiment_id === exp.id).length;
       const isSelected = selectedExpId === exp.id;
+      const title = escapeHtml(`Hipótesis #${exp.id} — ${exp.project_name}`);
 
       html += `<div class="card hyp-card${isSelected ? ' selected' : ''}" data-id="${exp.id}" onclick="selectHypothesis(${exp.id})">
         <div class="flex justify-between items-center">
-          <h3 style="font-size:var(--text-lg);">${escapeHtml(exp.project_name)}</h3>
+          <h3 style="font-size:var(--text-lg);">Hipótesis #${exp.id}</h3>
           <div class="flex gap-sm">
             <span class="badge badge-${status}">${status}</span>
             <span class="badge badge-${channel}">${channel}</span>
           </div>
         </div>
+        <div class="text-muted text-sm mt-sm">Proyecto: ${escapeHtml(exp.project_name)}</div>
         <div class="hyp-text">${escapeHtml(exp.hypothesis || "Sin hipotesis definida")}</div>
         <div class="hyp-meta">
           ${exp.hypothesis_type ? `<span class="tag">${exp.hypothesis_type}</span>` : ''}
@@ -292,9 +300,9 @@
           ${exp.primary_metric ? `<span class="tag">Y: ${exp.primary_metric}</span>` : ''}
           ${exp.threshold_operator && exp.threshold_value !== null ? `<span class="tag">Umbral: ${exp.threshold_operator} ${exp.threshold_value}${exp.threshold_type === 'percentage' ? '%' : ''}</span>` : ''}
           <span class="tag">${recordCount} records</span>
-          <button class="btn-doc" onclick="event.stopPropagation(); openDocModal('experiment', ${exp.id}, '${escapeHtml(exp.project_name)}')">Documentacion</button>
-          <button class="btn-ai" onclick="event.stopPropagation(); openAiMetrics('experiment', ${exp.id}, '${escapeHtml(exp.project_name)}')">Analisis IA</button>
-          <button class="btn-ai" onclick="event.stopPropagation(); openAiCombined('experiment', ${exp.id}, '${escapeHtml(exp.project_name)}')">Analisis IA Completo</button>
+          <button class="btn-doc" onclick="event.stopPropagation(); openDocModal('experiment', ${exp.id}, '${title}')">Documentacion</button>
+          <button class="btn-ai" onclick="event.stopPropagation(); openAiMetrics('experiment', ${exp.id}, '${title}')">Analisis IA</button>
+          <button class="btn-ai" onclick="event.stopPropagation(); openAiCombined('experiment', ${exp.id}, '${title}')">Analisis IA Completo</button>
         </div>
       </div>`;
     }
@@ -312,7 +320,7 @@
 
     const records = allRecords.filter(r => r.experiment_id === expId);
     $("recordsSection").style.display = "";
-    $("recordsTitle").textContent = `Records — ${exp.project_name}`;
+    $("recordsTitle").textContent = `Records — ${exp.project_name} · Hipótesis #${exp.id}`;
     $("recordsCount").textContent = `${records.length} records`;
 
     const tbody = $("tblRecords");
@@ -369,7 +377,9 @@
     $("rdNameMeta").textContent = `Record #${r.id} · ${r.created_at || "—"}`;
 
     $("rdExp").textContent = exp ? exp.project_name : "—";
-    $("rdExpMeta").textContent = exp ? `Tipo: ${exp.hypothesis_type || "—"} · Y: ${exp.primary_metric || "—"}` : "—";
+    $("rdExpMeta").textContent = exp
+      ? `Hipótesis: ${exp.hypothesis_type || "—"} · ${exp.hypothesis || "Sin detalle"} · Y: ${exp.primary_metric || "—"}`
+      : "—";
 
     const status = r.record_status || "collecting";
     $("rdStatus").innerHTML = `<span class="badge badge-${status}">${status}</span>`;
@@ -399,6 +409,7 @@
     try {
       experiments = await apiGet("/experiments/");
       allRecords = await apiGet("/records/?limit=50000");
+      syncProjectFilter();
       renderHypList();
     } catch (e) {
       showToast("Error cargando datos: " + String(e), "error");
@@ -407,6 +418,23 @@
   }
 
   // ---------- EVENTS ----------
+  function syncProjectFilter() {
+    const sel = $("fProject");
+    const prev = sel.value;
+    const names = [...new Set(experiments.map(e => e.project_name).filter(Boolean))].sort(
+      (a, b) => a.localeCompare(b, "es")
+    );
+    sel.innerHTML = '<option value="">Todos</option>';
+    for (const name of names) {
+      const opt = document.createElement("option");
+      opt.value = name;
+      opt.textContent = name;
+      sel.appendChild(opt);
+    }
+    if (prev) sel.value = prev;
+  }
+
+  $("fProject").addEventListener("change", renderHypList);
   $("fType").addEventListener("change", renderHypList);
   $("fStatus").addEventListener("change", renderHypList);
   $("fChannel").addEventListener("change", renderHypList);

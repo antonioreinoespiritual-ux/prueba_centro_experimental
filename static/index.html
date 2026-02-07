@@ -852,7 +852,9 @@
       opt.value = String(e.id);
       const statusTag = e.experiment_status ? ` [${e.experiment_status}]` : "";
       const varX = e.independent_variable ? ` | X: ${e.independent_variable}` : "";
-      opt.textContent = `${e.id} — ${e.project_name}${statusTag}${varX}`;
+      const hypType = e.hypothesis_type ? ` | Tipo: ${e.hypothesis_type}` : "";
+      const hypText = e.hypothesis ? ` | H: ${e.hypothesis.slice(0, 60)}${e.hypothesis.length > 60 ? "…" : ""}` : "";
+      opt.textContent = `${e.id} — ${e.project_name}${statusTag}${hypType}${varX}${hypText}`;
       selectEl.appendChild(opt);
     }
 
