@@ -98,7 +98,7 @@ RecordStatus = Literal["collecting", "closed"]
 
 
 EntityType = Literal["experiment", "record"]
-AIAnalysisType = Literal["metrics", "notes"]
+AIAnalysisType = Literal["metrics", "notes", "combined"]
 
 
 # ---------- Documentation ----------

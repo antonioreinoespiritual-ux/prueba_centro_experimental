@@ -5,7 +5,7 @@ import json
 import requests
 
 from .config import get_groq_api_key, get_groq_api_url, get_groq_model
-from .models import Experiment, ExperimentRecord, Documentation
+from .models import Experiment, ExperimentRecord, Documentation, AIAnalysis
 from .schemas import ExperimentEvaluation
 
 
@@ -204,6 +204,7 @@ def generate_experiment_analysis(
 # ------------------------------------------------------------------ #
 METRICS_PROMPT_VERSION = "v1.0"
 NOTES_PROMPT_VERSION = "v1.0"
+COMBINED_PROMPT_VERSION = "v1.0"
 
 
 # ------------------------------------------------------------------ #
@@ -373,6 +374,20 @@ def _build_notes_input(
     }
 
 
+def _build_ai_history_snapshot(analyses: list[AIAnalysis]) -> list[dict]:
+    history = []
+    for analysis in analyses:
+        history.append({
+            "analysis_id": analysis.id,
+            "analysis_type": analysis.analysis_type,
+            "model": analysis.model,
+            "prompt_version": analysis.prompt_version,
+            "created_at": analysis.created_at.isoformat() if analysis.created_at else None,
+            "output": analysis.output,
+        })
+    return history
+
+
 _NOTES_SYSTEM_PROMPT = (
     "Eres un analista cualitativo senior y experto en documentación de experimentos. "
     "Analiza EXCLUSIVAMENTE la documentación cualitativa (contexto inicial y notas) "
@@ -419,6 +434,104 @@ def generate_notes_analysis(
         ],
         "temperature": 0.2,
         "max_tokens": 1200,
+    }
+
+    content = _call_groq(payload)
+    return content, input_snapshot
+
+
+# ------------------------------------------------------------------ #
+#  IA COMBINADA — Metrics + Documentation + AI history
+# ------------------------------------------------------------------ #
+
+def _build_combined_input(
+    experiment: Experiment,
+    evaluation: ExperimentEvaluation,
+    records: list[ExperimentRecord],
+    focus_record: ExperimentRecord | None,
+    experiment_doc: Documentation | None,
+    record_doc: Documentation | None,
+    experiment_ai_history: list[AIAnalysis],
+    record_ai_history: list[AIAnalysis],
+) -> dict:
+    exp_metrics = _build_metrics_input(experiment, evaluation, records)
+    combined = {
+        "experiment": exp_metrics.get("experiment", {}),
+        "evaluation": exp_metrics.get("evaluation", {}),
+        "flags": exp_metrics.get("flags", {}),
+        "records_count": exp_metrics.get("records_count", 0),
+        "records": exp_metrics.get("records", []),
+        "focus_record": _record_to_payload(focus_record) if focus_record else None,
+        "documentation": {
+            "experiment": _build_notes_input("experiment", experiment.id, experiment_doc),
+            "record": _build_notes_input("record", focus_record.id, record_doc) if focus_record else None,
+        },
+        "ai_history": {
+            "experiment": _build_ai_history_snapshot(experiment_ai_history),
+            "record": _build_ai_history_snapshot(record_ai_history) if focus_record else [],
+        },
+    }
+    return combined
+
+
+_COMBINED_SYSTEM_PROMPT = (
+    "Eres un estratega senior de experimentos y analista integral. "
+    "Analiza EN CONJUNTO métricas cuantitativas, documentación cualitativa "
+    "y el historial de análisis IA disponibles. "
+    "Integra el contexto de la hipótesis y explica cómo se alinea o no con el record. "
+    "Responde SIEMPRE en español.\n\n"
+    "Tu output DEBE seguir esta estructura:\n"
+    "1. **Fuente usada: Métricas + Documentación + Historial IA**\n"
+    "2. **Resumen integral**: visión general del experimento y el record (si aplica)\n"
+    "3. **Hallazgos alineados record ↔ hipótesis**: qué valida o contradice la hipótesis\n"
+    "4. **Tensiones o contradicciones**: discrepancias entre métricas y notas\n"
+    "5. **Recomendaciones accionables** (máximo 6): decisiones alineadas record/hipótesis\n"
+    "6. **Siguientes pasos + documentación**: qué medir, qué documentar y por qué\n\n"
+    "IMPORTANTE: Si falta información, indica explícitamente qué falta."
+)
+
+
+def generate_combined_analysis(
+    experiment: Experiment,
+    evaluation: ExperimentEvaluation,
+    records: list[ExperimentRecord],
+    focus_record: ExperimentRecord | None,
+    experiment_doc: Documentation | None,
+    record_doc: Documentation | None,
+    experiment_ai_history: list[AIAnalysis],
+    record_ai_history: list[AIAnalysis],
+) -> tuple[str, str]:
+    """Generate combined AI analysis. Returns (output_text, input_snapshot_json)."""
+    api_key = get_groq_api_key()
+    if not api_key:
+        raise ValueError("Missing GROQ_API_KEY. Define it in the .env file.")
+
+    input_data = _build_combined_input(
+        experiment=experiment,
+        evaluation=evaluation,
+        records=records,
+        focus_record=focus_record,
+        experiment_doc=experiment_doc,
+        record_doc=record_doc,
+        experiment_ai_history=experiment_ai_history,
+        record_ai_history=record_ai_history,
+    )
+    input_snapshot = json.dumps(input_data, ensure_ascii=False, indent=2)
+
+    payload = {
+        "model": get_groq_model(),
+        "messages": [
+            {"role": "system", "content": _COMBINED_SYSTEM_PROMPT},
+            {
+                "role": "user",
+                "content": (
+                    "Entrega un análisis integral basado en el siguiente contexto JSON:\n"
+                    f"{input_snapshot}"
+                ),
+            },
+        ],
+        "temperature": 0.2,
+        "max_tokens": 1400,
     }
 
     content = _call_groq(payload)

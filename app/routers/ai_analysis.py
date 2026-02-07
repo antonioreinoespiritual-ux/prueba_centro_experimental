@@ -123,6 +123,77 @@ def analyze_notes(
 
 
 # ------------------------------------------------------------------ #
+#  POST /ai/analyze/combined/{entity_type}/{entity_id}
+# ------------------------------------------------------------------ #
+
+@router.post(
+    "/analyze/combined/{entity_type}/{entity_id}",
+    response_model=schemas.AIAnalysisResponse,
+)
+def analyze_combined(
+    entity_type: schemas.EntityType,
+    entity_id: int,
+    db: Session = Depends(get_db),
+):
+    """AI analysis combining metrics + documentation + AI history."""
+    focus_record = None
+    record_doc = None
+    record_ai_history = []
+
+    if entity_type == "experiment":
+        exp = crud.get_experiment(db, entity_id)
+        if not exp:
+            raise HTTPException(status_code=404, detail="Experiment not found")
+        evaluation = crud.evaluate_experiment(db, entity_id)
+        records = crud.get_records(db, experiment_id=entity_id, limit=50000)
+        experiment_doc = crud.get_documentation(db, "experiment", entity_id)
+        experiment_ai_history = crud.get_ai_analyses(db, "experiment", entity_id)
+    elif entity_type == "record":
+        focus_record = crud.get_record(db, entity_id)
+        if not focus_record:
+            raise HTTPException(status_code=404, detail="Record not found")
+        exp = crud.get_experiment(db, focus_record.experiment_id)
+        if not exp:
+            raise HTTPException(status_code=404, detail="Parent experiment not found")
+        evaluation = crud.evaluate_experiment(db, exp.id)
+        records = crud.get_records(db, experiment_id=exp.id, limit=50000)
+        experiment_doc = crud.get_documentation(db, "experiment", exp.id)
+        experiment_ai_history = crud.get_ai_analyses(db, "experiment", exp.id)
+        record_doc = crud.get_documentation(db, "record", focus_record.id)
+        record_ai_history = crud.get_ai_analyses(db, "record", focus_record.id)
+    else:
+        raise HTTPException(status_code=400, detail="Invalid entity_type")
+
+    try:
+        output, input_snapshot = ai.generate_combined_analysis(
+            experiment=exp,
+            evaluation=evaluation,
+            records=records,
+            focus_record=focus_record,
+            experiment_doc=experiment_doc,
+            record_doc=record_doc,
+            experiment_ai_history=experiment_ai_history,
+            record_ai_history=record_ai_history,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    except ai.GroqError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+
+    analysis = crud.create_ai_analysis(
+        db=db,
+        entity_type=entity_type,
+        entity_id=entity_id,
+        analysis_type="combined",
+        model=get_groq_model(),
+        prompt_version=ai.COMBINED_PROMPT_VERSION,
+        input_snapshot=input_snapshot,
+        output=output,
+    )
+    return schemas.AIAnalysisResponse(ai_analysis_id=analysis.id, output=output)
+
+
+# ------------------------------------------------------------------ #
 #  GET /ai/analysis/{entity_type}/{entity_id}
 # ------------------------------------------------------------------ #
 
