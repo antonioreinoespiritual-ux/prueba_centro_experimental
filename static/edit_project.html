@@ -23,7 +23,14 @@
     </div>
 
     <div class="card mt-lg">
-      <div class="grid grid-3">
+      <div class="section-header">
+        <div>
+          <h2>Editar proyecto</h2>
+          <div class="text-sm text-muted mt-sm">Paso 1: selecciona el proyecto · Paso 2: escribe el nuevo nombre · Paso 3: guarda.</div>
+        </div>
+        <span class="tag">Flujo rápido</span>
+      </div>
+      <div class="grid grid-3 mt-md">
         <div class="field-group">
           <label for="projectFilter">Proyecto</label>
           <select id="projectFilter"></select>
@@ -31,12 +38,37 @@
         <div class="field-group">
           <label for="projectRename">Nuevo nombre</label>
           <input id="projectRename" type="text" placeholder="Nuevo nombre del proyecto" />
+          <div class="text-sm text-muted mt-sm">Tip: usa un nombre claro y consistente para todos los experimentos.</div>
         </div>
         <div class="field-group" style="display:flex; align-items:end;">
           <button id="btnSave" class="btn-success" aria-label="Guardar cambios">Guardar cambios</button>
         </div>
       </div>
       <div class="text-sm text-muted mt-sm">Tip: el cambio se aplica a todas las hipótesis y récords asociados.</div>
+    </div>
+
+    <div class="card mt-lg">
+      <div class="section-header">
+        <h2>Checklist rápido</h2>
+        <span class="tag">Antes de guardar</span>
+      </div>
+      <div class="grid grid-3 mt-md">
+        <div class="stat-chip">
+          <div class="stat-chip__label">1. Proyecto correcto</div>
+          <div class="stat-chip__value">Seleccionado</div>
+          <div class="stat-chip__meta">Usa el selector de arriba.</div>
+        </div>
+        <div class="stat-chip">
+          <div class="stat-chip__label">2. Nombre claro</div>
+          <div class="stat-chip__value">Definido</div>
+          <div class="stat-chip__meta">Evita abreviaciones confusas.</div>
+        </div>
+        <div class="stat-chip">
+          <div class="stat-chip__label">3. Impacto</div>
+          <div class="stat-chip__value">Global</div>
+          <div class="stat-chip__meta">Actualiza todas las hipótesis.</div>
+        </div>
+      </div>
     </div>
 
     <div class="card mt-lg hidden" id="projectSummary">

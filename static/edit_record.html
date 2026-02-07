@@ -22,7 +22,14 @@
     </div>
 
     <div class="card mt-lg">
-      <div class="grid grid-3">
+      <div class="section-header">
+        <div>
+          <h2>Encuentra el récord</h2>
+          <div class="text-sm text-muted mt-sm">Puedes pegar el ID o venir desde la lista con el botón Editar.</div>
+        </div>
+        <span class="tag">Paso 1</span>
+      </div>
+      <div class="grid grid-3 mt-md">
         <div class="field-group">
           <label for="recordId">Record ID</label>
           <input id="recordId" type="number" min="1" placeholder="123" />
@@ -60,9 +67,36 @@
       </div>
     </div>
 
+    <div class="card mt-lg">
+      <div class="section-header">
+        <h2>Checklist de edición</h2>
+        <span class="tag">Paso 2</span>
+      </div>
+      <div class="grid grid-3 mt-md">
+        <div class="stat-chip">
+          <div class="stat-chip__label">Identidad</div>
+          <div class="stat-chip__value">Nombre + Público</div>
+          <div class="stat-chip__meta">Ayuda a segmentar resultados.</div>
+        </div>
+        <div class="stat-chip">
+          <div class="stat-chip__label">Métricas</div>
+          <div class="stat-chip__value">Actualizadas</div>
+          <div class="stat-chip__meta">Clicks, views, CTR, CPC.</div>
+        </div>
+        <div class="stat-chip">
+          <div class="stat-chip__label">Estado</div>
+          <div class="stat-chip__value">Abierto/Cerrado</div>
+          <div class="stat-chip__meta">Cierra cuando no reciba tráfico.</div>
+        </div>
+      </div>
+    </div>
+
     <div class="card mt-lg hidden" id="recordForm">
       <div class="section-header">
-        <h2>Detalles del récord</h2>
+        <div>
+          <h2>Detalles del récord</h2>
+          <div class="text-sm text-muted mt-sm">Actualiza campos y métricas. Guarda y listo.</div>
+        </div>
         <div class="flex gap-sm">
           <button id="btnClose" class="btn-warning">Cerrar récord</button>
           <button id="btnReopen" class="btn-secondary">Reabrir récord</button>
@@ -77,6 +111,7 @@
         <div class="field-group">
           <label for="publico">Publico</label>
           <input id="publico" type="text" />
+          <div class="text-sm text-muted mt-sm">Ej: Retargeting, estudiantes 18-24.</div>
         </div>
         <div class="field-group">
           <label for="hook_text">Hook</label>

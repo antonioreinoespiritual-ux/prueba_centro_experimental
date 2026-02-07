@@ -22,7 +22,14 @@
     </div>
 
     <div class="card mt-lg">
-      <div class="grid grid-3">
+      <div class="section-header">
+        <div>
+          <h2>Selecciona el experimento</h2>
+          <div class="text-sm text-muted mt-sm">Usa filtros rápidos para encontrar la métrica X exacta.</div>
+        </div>
+        <span class="tag">Paso 1</span>
+      </div>
+      <div class="grid grid-3 mt-md">
         <div class="field-group">
           <label for="projectFilter">Proyecto</label>
           <select id="projectFilter"></select>
@@ -62,9 +69,36 @@
       </div>
     </div>
 
+    <div class="card mt-lg">
+      <div class="section-header">
+        <h2>Checklist de claridad</h2>
+        <span class="tag">Recomendado</span>
+      </div>
+      <div class="grid grid-3 mt-md">
+        <div class="stat-chip">
+          <div class="stat-chip__label">Hipótesis</div>
+          <div class="stat-chip__value">Si X entonces Y</div>
+          <div class="stat-chip__meta">Una sola idea por experimento.</div>
+        </div>
+        <div class="stat-chip">
+          <div class="stat-chip__label">Métrica Y</div>
+          <div class="stat-chip__value">Consistente</div>
+          <div class="stat-chip__meta">Define umbral y tipo.</div>
+        </div>
+        <div class="stat-chip">
+          <div class="stat-chip__label">Volumen mínimo</div>
+          <div class="stat-chip__value">Configurado</div>
+          <div class="stat-chip__meta">Evalúa cuando tengas datos.</div>
+        </div>
+      </div>
+    </div>
+
     <div class="card mt-lg hidden" id="projectForm">
       <div class="section-header">
-        <h2>Editar hipótesis</h2>
+        <div>
+          <h2>Editar hipótesis</h2>
+          <div class="text-sm text-muted mt-sm">Actualiza el enunciado, variable X y métricas de validación.</div>
+        </div>
         <div class="flex gap-sm">
           <button id="btnSave" class="btn-success">Guardar cambios</button>
           <button id="btnReset" class="btn-ghost">Restaurar valores</button>
