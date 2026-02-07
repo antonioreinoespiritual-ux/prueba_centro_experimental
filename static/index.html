@@ -671,24 +671,26 @@
 
       <div class="grid grid-3">
         <div class="field-group">
-          <label for="upd_experiment_id">Experimento</label>
-          <select id="upd_experiment_id">
-            <option value="">-- seleccionar --</option>
-          </select>
+          <label for="upd_project_filter">Proyecto</label>
+          <select id="upd_project_filter"></select>
         </div>
         <div class="field-group">
-          <label for="upd_record_id">Record ID</label>
+          <label for="upd_metric_x_filter">Metrica X</label>
+          <select id="upd_metric_x_filter"></select>
+        </div>
+        <div class="field-group">
+          <label for="upd_record_id">Record</label>
           <select id="upd_record_id">
             <option value="">-- seleccionar --</option>
           </select>
         </div>
-        <div class="field-group">
-          <label>Accion</label>
-          <div class="flex gap-sm mt-sm">
-            <button id="btnLoadRecord" class="btn-secondary w-full" aria-label="Cargar record">Cargar</button>
-            <button id="btnCloseRecord" class="btn-warning w-full" aria-label="Cerrar record">Cerrar Record</button>
-            <button id="btnReopenRecord" class="btn-secondary w-full" aria-label="Reabrir record">Reabrir</button>
-          </div>
+      </div>
+      <div class="field-group mt-md">
+        <label>Accion</label>
+        <div class="flex gap-sm mt-sm">
+          <button id="btnLoadRecord" class="btn-secondary w-full" aria-label="Cargar record">Cargar</button>
+          <button id="btnCloseRecord" class="btn-warning w-full" aria-label="Cerrar record">Cerrar Record</button>
+          <button id="btnReopenRecord" class="btn-secondary w-full" aria-label="Reabrir record">Reabrir</button>
         </div>
       </div>
 
@@ -963,24 +965,23 @@
     }
   }
 
+  function updateUpdateRecordFilters(){
+    const projectSel = $("upd_project_filter");
+    const metricSel = $("upd_metric_x_filter");
+    fillFilterSelect(projectSel, uniqueSorted(experimentsCache.map(e => e.project_name)), true, "(todos)");
+    const project = projectSel.value;
+    const metricCandidates = experimentsCache.filter(e => !project || e.project_name === project);
+    fillFilterSelect(metricSel, uniqueSorted(metricCandidates.map(e => e.independent_variable)), true, "(todas)");
+  }
+
   function syncFormSelects(){
     syncProjectNameOptions();
     updateProjectModeVisibility();
     updateRecordFormFilters({ prefix: "organic", trafficType: "organic", sessionPrefix: "s" });
     updateRecordFormFilters({ prefix: "paid", trafficType: "paid", sessionPrefix: "p" });
     updateRecordFormFilters({ prefix: "live", trafficType: "live", sessionPrefix: "l" });
-
-    // Update record section: all experiments
-    const updSel = $("upd_experiment_id");
-    const prev = updSel.value;
-    updSel.innerHTML = '<option value="">-- seleccionar --</option>';
-    for (const e of experimentsCache) {
-      const opt = document.createElement("option");
-      opt.value = String(e.id);
-      opt.textContent = `${e.id} — ${e.project_name} (${e.traffic_type})`;
-      updSel.appendChild(opt);
-    }
-    if (prev) updSel.value = prev;
+    updateUpdateRecordFilters();
+    refreshRecordList().catch(e => { setStatus("error", true); showToast(String(e), 'error'); });
   }
 
   async function refreshAll() {
@@ -1195,21 +1196,35 @@
   // ==================== UPDATE RECORD ====================
 
   async function refreshRecordList() {
-    const expId = Number($("upd_experiment_id").value);
     const recordSelect = $("upd_record_id");
     recordSelect.innerHTML = '<option value="">-- seleccionar --</option>';
-    if (!expId) return;
-    const records = await apiGet(`/records/?experiment_id=${expId}&limit=5000`);
+    const project = $("upd_project_filter").value;
+    const metricX = $("upd_metric_x_filter").value;
+    const filteredExps = experimentsCache.filter(e => {
+      if (project && e.project_name !== project) return false;
+      if (metricX && e.independent_variable !== metricX) return false;
+      return true;
+    });
+    if (!filteredExps.length) return;
+    const recordsByExp = await Promise.all(
+      filteredExps.map(exp => apiGet(`/records/?experiment_id=${exp.id}&limit=5000`))
+    );
+    const records = recordsByExp.flat().sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
     for (const rec of records) {
       const opt = document.createElement("option");
       opt.value = String(rec.id);
       const statusTag = rec.record_status ? ` [${rec.record_status}]` : "";
-      opt.textContent = `${rec.id} — ${rec.session_id}${statusTag}`;
+      const name = rec.record_name || rec.session_id;
+      opt.textContent = `${rec.id} — ${name}${statusTag}`;
       recordSelect.appendChild(opt);
     }
   }
 
-  $("upd_experiment_id").onchange = () => {
+  $("upd_project_filter").onchange = () => {
+    updateUpdateRecordFilters();
+    refreshRecordList().catch(e => { setStatus("error", true); showToast(String(e), 'error'); });
+  };
+  $("upd_metric_x_filter").onchange = () => {
     refreshRecordList().catch(e => { setStatus("error", true); showToast(String(e), 'error'); });
   };
 
