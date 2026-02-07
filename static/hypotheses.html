@@ -100,6 +100,16 @@
           <input id="fSearch" placeholder="proyecto, hipotesis, variable..." />
         </div>
       </div>
+      <div class="grid grid-2 mt-md">
+        <div class="field-group">
+          <label for="fProject">Proyecto</label>
+          <select id="fProject"></select>
+        </div>
+        <div class="field-group">
+          <label for="fMetricX">Metrica X</label>
+          <select id="fMetricX"></select>
+        </div>
+      </div>
     </div>
 
     <!-- Hypothesis List -->
@@ -225,6 +235,39 @@
     return Math.abs(x) >= 1000 ? x.toLocaleString("es-ES") : String(x);
   }
 
+  function uniqueSorted(values) {
+    return [...new Set(values.filter(Boolean))].sort((a, b) => a.localeCompare(b, "es"));
+  }
+
+  function fillFilterSelect(selectEl, options, keepValue=true, allLabel="Todos") {
+    const prev = keepValue ? selectEl.value : "";
+    selectEl.innerHTML = "";
+    const optAll = document.createElement("option");
+    optAll.value = "";
+    optAll.textContent = allLabel;
+    selectEl.appendChild(optAll);
+    for (const value of options) {
+      const opt = document.createElement("option");
+      opt.value = value;
+      opt.textContent = value;
+      selectEl.appendChild(opt);
+    }
+    if (keepValue && prev && [...selectEl.options].some(o => o.value === prev)) {
+      selectEl.value = prev;
+    } else {
+      selectEl.value = "";
+    }
+  }
+
+  function syncProjectMetricFilters() {
+    const projectSelect = $("fProject");
+    fillFilterSelect(projectSelect, uniqueSorted(experiments.map(e => e.project_name)), true, "Todos");
+
+    const project = projectSelect.value;
+    const metricCandidates = experiments.filter(e => !project || e.project_name === project);
+    fillFilterSelect($("fMetricX"), uniqueSorted(metricCandidates.map(e => e.independent_variable)), true, "Todas");
+  }
+
   async function apiGet(path) {
     const r = await fetch(API_BASE + path);
     if (!r.ok) throw new Error(await r.text());
@@ -246,11 +289,15 @@
     const type = $("fType").value;
     const status = $("fStatus").value;
     const channel = $("fChannel").value;
+    const project = $("fProject").value;
+    const metricX = $("fMetricX").value;
     const search = $("fSearch").value.trim().toLowerCase();
 
     if (type) list = list.filter(e => e.hypothesis_type === type);
     if (status) list = list.filter(e => e.experiment_status === status);
     if (channel) list = list.filter(e => e.traffic_type === channel);
+    if (project) list = list.filter(e => e.project_name === project);
+    if (metricX) list = list.filter(e => e.independent_variable === metricX);
     if (search) list = list.filter(e => {
       const hay = [e.project_name, e.hypothesis, e.independent_variable, e.primary_metric, e.hypothesis_type].filter(Boolean).join(" ").toLowerCase();
       return hay.includes(search);
@@ -402,6 +449,7 @@
     try {
       experiments = await apiGet("/experiments/");
       allRecords = await apiGet("/records/?limit=50000");
+      syncProjectMetricFilters();
       renderHypList();
     } catch (e) {
       showToast("Error cargando datos: " + String(e), "error");
@@ -414,6 +462,11 @@
   $("fStatus").addEventListener("change", renderHypList);
   $("fChannel").addEventListener("change", renderHypList);
   $("fSearch").addEventListener("input", renderHypList);
+  $("fProject").addEventListener("change", () => {
+    syncProjectMetricFilters();
+    renderHypList();
+  });
+  $("fMetricX").addEventListener("change", renderHypList);
 
   // ---------- DOCUMENTATION MODAL ----------
   let docEntityType = null;
