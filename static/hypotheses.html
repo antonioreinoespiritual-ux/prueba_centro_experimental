@@ -16,8 +16,9 @@
     .record-row { cursor: pointer; transition: background var(--transition-fast); }
     .record-row:hover { background: var(--glass-bg-hover) !important; }
     .record-row.selected { background: var(--accent-subtle) !important; border-left: 3px solid var(--accent); }
-    .detail-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 2000; padding: var(--space-xl); animation: fadeIn 200ms ease; }
-    .detail-panel { background: var(--surface-2); border: 1px solid var(--glass-border); border-radius: var(--radius-xl); padding: var(--space-xl); width: 100%; max-width: 800px; max-height: 85vh; overflow: auto; box-shadow: var(--shadow-lg); }
+    .records-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 2000; padding: var(--space-xl); animation: fadeIn 200ms ease; }
+    .records-modal__panel { background: var(--surface-2); border: 1px solid var(--glass-border); border-radius: var(--radius-xl); padding: var(--space-xl); width: 100%; max-width: 1200px; max-height: 85vh; overflow: auto; box-shadow: var(--shadow-lg); }
+    .records-modal__header { display: flex; justify-content: space-between; align-items: center; gap: var(--space-md); }
     .split-layout { display: grid; grid-template-columns: 1fr 1.4fr; gap: var(--space-lg); margin-top: var(--space-lg); }
     @media (max-width: 980px) { .split-layout { grid-template-columns: 1fr; } }
     .records-panel { max-height: 70vh; overflow-y: auto; }
@@ -117,56 +118,67 @@
       <div class="state-loading"><div class="state-loading__spinner"></div>Cargando hipotesis...</div>
     </div>
 
-    <!-- Split: Records table + Record detail -->
-    <div id="recordsSection" class="split-layout" style="display:none;">
-      <div class="card records-panel">
-        <div class="section-header">
-          <h3 id="recordsTitle">Records</h3>
-          <span class="tag" id="recordsCount">0 records</span>
+    <!-- Records Modal -->
+    <div id="recordsModal" class="records-modal" style="display:none;">
+      <div class="records-modal__panel">
+        <div class="records-modal__header">
+          <div>
+            <h3 id="recordsTitle">Records</h3>
+            <span class="tag" id="recordsCount">0 records</span>
+          </div>
+          <button class="btn-ghost" onclick="closeRecordsModal()">Cerrar</button>
         </div>
-        <div class="table-wrapper mt-md">
-          <table>
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Record</th>
-                <th>Status</th>
-                <th>Clicks</th>
-                <th>Views</th>
-                <th>Purchase</th>
-                <th>Created</th>
-              </tr>
-            </thead>
-            <tbody id="tblRecords"></tbody>
-          </table>
-        </div>
-        <div id="recordsEmpty" class="text-muted text-sm mt-md" style="display:none;">Esta hipotesis no tiene records aun.</div>
-      </div>
+        <div class="split-layout">
+          <div class="card records-panel">
+            <div class="table-wrapper mt-md">
+              <table>
+                <thead>
+                  <tr>
+                    <th>ID (Session)</th>
+                    <th>Record</th>
+                    <th>Metrica X</th>
+                    <th>Proyecto</th>
+                    <th>Status</th>
+                    <th>Clicks</th>
+                    <th>Views</th>
+                    <th>Purchase</th>
+                    <th>Created</th>
+                  </tr>
+                </thead>
+                <tbody id="tblRecords"></tbody>
+              </table>
+            </div>
+            <div id="recordsEmpty" class="text-muted text-sm mt-md" style="display:none;">Esta hipotesis no tiene records aun.</div>
+          </div>
 
-      <div class="card" id="recordDetailPanel">
-        <div class="flex justify-between items-center">
-          <h3>Detalle del Record</h3>
-          <button class="btn-doc" id="btnRecordDoc" style="display:none;" onclick="openRecordDoc()">Documentacion</button>
-          <button class="btn-ai" id="btnRecordAi" style="display:none;" onclick="openRecordAiMetrics()">Analisis IA</button>
-          <button class="btn-ai" id="btnRecordAiCombined" style="display:none;" onclick="openRecordAiCombined()">Analisis IA Completo</button>
-        </div>
-        <div id="recordDetailEmpty" class="text-muted text-sm mt-md">Selecciona un record para ver su detalle.</div>
-        <div id="recordDetail" style="display:none;" class="mt-md">
-          <div class="grid grid-3">
-            <div class="stat-chip"><div class="stat-chip__label">Record</div><div class="stat-chip__value" id="rdName">—</div><div class="stat-chip__meta" id="rdNameMeta"></div></div>
-            <div class="stat-chip"><div class="stat-chip__label">Experimento</div><div class="stat-chip__value" id="rdExp">—</div><div class="stat-chip__meta" id="rdExpMeta"></div></div>
-            <div class="stat-chip"><div class="stat-chip__label">Estado</div><div class="stat-chip__value" id="rdStatus">—</div><div class="stat-chip__meta" id="rdStatusMeta"></div></div>
-          </div>
-          <div class="grid grid-3 mt-md">
-            <div class="stat-chip"><div class="stat-chip__label">Clicks / Views</div><div class="stat-chip__value" id="rdTraffic">—</div><div class="stat-chip__meta" id="rdTrafficMeta"></div></div>
-            <div class="stat-chip"><div class="stat-chip__label">Funnel</div><div class="stat-chip__value" id="rdFunnel">—</div><div class="stat-chip__meta" id="rdFunnelMeta"></div></div>
-            <div class="stat-chip"><div class="stat-chip__label">Engagement</div><div class="stat-chip__value" id="rdEngagement">—</div><div class="stat-chip__meta">(Likes + Comments + Shares) / Views x 1000</div></div>
-            <div class="stat-chip"><div class="stat-chip__label">Creative</div><div class="stat-chip__value" id="rdCreative">—</div><div class="stat-chip__meta" id="rdCreativeMeta"></div></div>
-          </div>
-          <div class="grid grid-3 mt-md">
-            <div class="stat-chip"><div class="stat-chip__label">Video</div><div class="stat-chip__value" id="rdVideo">—</div><div class="stat-chip__meta" id="rdVideoMeta"></div></div>
-            <div class="stat-chip"><div class="stat-chip__label">Live</div><div class="stat-chip__value" id="rdLive">—</div><div class="stat-chip__meta" id="rdLiveMeta"></div></div>
-            <div class="stat-chip"><div class="stat-chip__label">IDs campana</div><div class="stat-chip__value" id="rdCampaign">—</div><div class="stat-chip__meta" id="rdCampaignMeta"></div></div>
+          <div class="card" id="recordDetailPanel">
+            <div class="flex justify-between items-center">
+              <h3>Detalle del Record</h3>
+              <div class="flex gap-sm">
+                <button class="btn-doc" id="btnRecordDoc" style="display:none;" onclick="openRecordDoc()">Documentacion</button>
+                <button class="btn-ai" id="btnRecordAi" style="display:none;" onclick="openRecordAiMetrics()">Analisis IA</button>
+                <button class="btn-ai" id="btnRecordAiCombined" style="display:none;" onclick="openRecordAiCombined()">Analisis IA Completo</button>
+              </div>
+            </div>
+            <div id="recordDetailEmpty" class="text-muted text-sm mt-md">Selecciona un record para ver su detalle.</div>
+            <div id="recordDetail" style="display:none;" class="mt-md">
+              <div class="grid grid-3">
+                <div class="stat-chip"><div class="stat-chip__label">Record</div><div class="stat-chip__value" id="rdName">—</div><div class="stat-chip__meta" id="rdNameMeta"></div></div>
+                <div class="stat-chip"><div class="stat-chip__label">Experimento</div><div class="stat-chip__value" id="rdExp">—</div><div class="stat-chip__meta" id="rdExpMeta"></div></div>
+                <div class="stat-chip"><div class="stat-chip__label">Estado</div><div class="stat-chip__value" id="rdStatus">—</div><div class="stat-chip__meta" id="rdStatusMeta"></div></div>
+              </div>
+              <div class="grid grid-3 mt-md">
+                <div class="stat-chip"><div class="stat-chip__label">Clicks / Views</div><div class="stat-chip__value" id="rdTraffic">—</div><div class="stat-chip__meta" id="rdTrafficMeta"></div></div>
+                <div class="stat-chip"><div class="stat-chip__label">Funnel</div><div class="stat-chip__value" id="rdFunnel">—</div><div class="stat-chip__meta" id="rdFunnelMeta"></div></div>
+                <div class="stat-chip"><div class="stat-chip__label">Engagement</div><div class="stat-chip__value" id="rdEngagement">—</div><div class="stat-chip__meta">(Likes + Comments + Shares) / Views x 1000</div></div>
+                <div class="stat-chip"><div class="stat-chip__label">Creative</div><div class="stat-chip__value" id="rdCreative">—</div><div class="stat-chip__meta" id="rdCreativeMeta"></div></div>
+              </div>
+              <div class="grid grid-3 mt-md">
+                <div class="stat-chip"><div class="stat-chip__label">Video</div><div class="stat-chip__value" id="rdVideo">—</div><div class="stat-chip__meta" id="rdVideoMeta"></div></div>
+                <div class="stat-chip"><div class="stat-chip__label">Live</div><div class="stat-chip__value" id="rdLive">—</div><div class="stat-chip__meta" id="rdLiveMeta"></div></div>
+                <div class="stat-chip"><div class="stat-chip__label">IDs campana</div><div class="stat-chip__value" id="rdCampaign">—</div><div class="stat-chip__meta" id="rdCampaignMeta"></div></div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -369,7 +381,7 @@
     renderHypList(); // refresh selection state
 
     const records = allRecords.filter(r => r.experiment_id === expId);
-    $("recordsSection").style.display = "";
+    $("recordsModal").style.display = "flex";
     $("recordsTitle").textContent = `Records — ${exp.project_name}`;
     $("recordsCount").textContent = `${records.length} records`;
 
@@ -389,8 +401,10 @@
         tr.className = "record-row";
         const statusClass = r.record_status || "collecting";
         tr.innerHTML = `
-          <td>${r.id}</td>
-          <td>${escapeHtml(r.record_name || r.session_id)}</td>
+          <td>${escapeHtml(r.session_id || "—")}</td>
+          <td>${escapeHtml(r.record_name || "—")}</td>
+          <td>${escapeHtml(exp.independent_variable || "—")}</td>
+          <td>${escapeHtml(exp.project_name || "—")}</td>
           <td><span class="badge badge-${statusClass}">${statusClass}</span></td>
           <td>${fmt(r.clicks)}</td>
           <td>${fmt(r.views)}</td>
@@ -410,8 +424,15 @@
     $("recordDetail").style.display = "none";
     $("recordDetailEmpty").style.display = "block";
 
-    // Scroll to records
-    $("recordsSection").scrollIntoView({ behavior: "smooth", block: "start" });
+    $("recordsModal").scrollTop = 0;
+  }
+
+  function closeRecordsModal() {
+    $("recordsModal").style.display = "none";
+    $("recordDetail").style.display = "none";
+    $("recordDetailEmpty").style.display = "block";
+    selectedExpId = null;
+    renderHypList();
   }
 
   // ---------- SHOW RECORD DETAIL ----------
@@ -475,11 +496,20 @@
   $("fStatus").addEventListener("change", renderHypList);
   $("fChannel").addEventListener("change", renderHypList);
   $("fSearch").addEventListener("input", renderHypList);
+  $("fSearch").addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      renderHypList();
+    }
+  });
   $("fProject").addEventListener("change", () => {
     syncProjectMetricFilters();
     renderHypList();
   });
   $("fMetricX").addEventListener("change", renderHypList);
+  $("recordsModal").addEventListener("click", function(e) {
+    if (e.target === this) closeRecordsModal();
+  });
 
   // ---------- DOCUMENTATION MODAL ----------
   let docEntityType = null;

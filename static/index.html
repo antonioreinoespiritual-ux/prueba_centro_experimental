@@ -237,10 +237,7 @@
           </div>
         </div>
 
-        <div class="field-group">
-          <label for="live_experiment_id">Experiment (live)</label>
-          <select id="live_experiment_id"></select>
-        </div>
+        <input id="live_experiment_id" type="hidden" />
 
         <div class="field-group mt-md">
           <label for="live_session_id">Session id / Live id</label>
@@ -369,10 +366,7 @@
           </div>
         </div>
 
-        <div class="field-group">
-          <label for="organic_experiment_id">Experiment (organic)</label>
-          <select id="organic_experiment_id"></select>
-        </div>
+        <input id="organic_experiment_id" type="hidden" />
 
         <div class="field-group mt-md">
           <label for="organic_session_id">Session id / Video id</label>
@@ -530,10 +524,7 @@
           </div>
         </div>
 
-        <div class="field-group">
-          <label for="paid_experiment_id">Experiment (paid)</label>
-          <select id="paid_experiment_id"></select>
-        </div>
+        <input id="paid_experiment_id" type="hidden" />
 
         <div class="field-group mt-md">
           <label for="paid_session_id">Session id / Ad id</label>
@@ -679,7 +670,7 @@
           <select id="upd_metric_x_filter"></select>
         </div>
         <div class="field-group">
-          <label for="upd_record_id">Record</label>
+          <label for="upd_record_id">Nombre del record</label>
           <select id="upd_record_id">
             <option value="">-- seleccionar --</option>
           </select>
@@ -911,9 +902,8 @@
     $("project_name_group").style.display = isExisting ? "none" : "";
   }
 
-  // Auto-fill session ID when experiment is selected
-  async function autoFillSessionId(selectId, sessionInputId, prefix) {
-    const expId = Number($(selectId).value);
+  // Auto-fill session ID when metric X is selected
+  async function autoFillSessionId(expId, sessionInputId, prefix) {
     if (!expId) return;
     try {
       const recs = await apiGet(`/records/?experiment_id=${expId}&limit=50000`);
@@ -924,44 +914,36 @@
     }
   }
 
-  function fillExperimentSelect(selectEl, experiments, keepValue=true) {
-    const prev = keepValue ? selectEl.value : "";
-    selectEl.innerHTML = "";
-
-    for (const e of experiments) {
-      const opt = document.createElement("option");
-      opt.value = String(e.id);
-      const statusTag = e.experiment_status ? ` [${e.experiment_status}]` : "";
-      const varX = e.independent_variable ? ` | X: ${e.independent_variable}` : "";
-      opt.textContent = `${e.id} — ${e.project_name}${statusTag}${varX}`;
-      selectEl.appendChild(opt);
+  function pickExperimentForRecord({ prefix, trafficType }) {
+    const project = $(`${prefix}_project_filter`).value;
+    const metricX = $(`${prefix}_metric_x_filter`).value;
+    const candidates = experimentsCache.filter(e => {
+      if (e.traffic_type !== trafficType) return false;
+      if (project && e.project_name !== project) return false;
+      if (metricX && e.independent_variable !== metricX) return false;
+      return true;
+    });
+    if (!candidates.length) {
+      $(`${prefix}_experiment_id`).value = "";
+      return null;
     }
-
-    if (keepValue && prev) {
-      const stillExists = [...selectEl.options].some(o => o.value === prev);
-      if (stillExists) selectEl.value = prev;
-    }
-    if (!selectEl.value && selectEl.options.length > 0) {
-      selectEl.selectedIndex = 0;
-    }
+    const chosen = candidates.slice().sort((a, b) => b.id - a.id)[0];
+    $(`${prefix}_experiment_id`).value = String(chosen.id);
+    return chosen;
   }
 
   function updateRecordFormFilters({ prefix, trafficType, sessionPrefix }){
     const formExps = experimentsCache.filter(e => e.traffic_type === trafficType);
     const projectSel = $(`${prefix}_project_filter`);
     const metricSel = $(`${prefix}_metric_x_filter`);
-    const expSel = $(`${prefix}_experiment_id`);
 
     fillFilterSelect(projectSel, uniqueSorted(formExps.map(e => e.project_name)), true, "(todos)");
     const project = projectSel.value;
     const byProject = formExps.filter(e => !project || e.project_name === project);
     fillFilterSelect(metricSel, uniqueSorted(byProject.map(e => e.independent_variable)), true, "(todas)");
-    const metricX = metricSel.value;
-    const filtered = byProject.filter(e => !metricX || e.independent_variable === metricX);
-
-    fillExperimentSelect(expSel, filtered, true);
-    if (filtered.length) {
-      autoFillSessionId(`${prefix}_experiment_id`, `${prefix}_session_id`, sessionPrefix);
+    const chosen = pickExperimentForRecord({ prefix, trafficType });
+    if (chosen) {
+      autoFillSessionId(chosen.id, `${prefix}_session_id`, sessionPrefix);
     }
   }
 
@@ -1338,9 +1320,6 @@
     }
   };
 
-  $("live_experiment_id").addEventListener("change", () => autoFillSessionId("live_experiment_id", "live_session_id", "l"));
-  $("organic_experiment_id").addEventListener("change", () => autoFillSessionId("organic_experiment_id", "organic_session_id", "s"));
-  $("paid_experiment_id").addEventListener("change", () => autoFillSessionId("paid_experiment_id", "paid_session_id", "p"));
   $("project_mode").addEventListener("change", updateProjectModeVisibility);
   $("live_project_filter").addEventListener("change", () => updateRecordFormFilters({ prefix: "live", trafficType: "live", sessionPrefix: "l" }));
   $("organic_project_filter").addEventListener("change", () => updateRecordFormFilters({ prefix: "organic", trafficType: "organic", sessionPrefix: "s" }));
