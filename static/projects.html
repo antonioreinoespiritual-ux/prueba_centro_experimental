@@ -1,0 +1,462 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Lista de proyectos — Centro Experimental</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/design-system.css">
+</head>
+<body>
+  <div class="app-container" role="main">
+    <div class="top-bar">
+      <div>
+        <h1 class="top-bar__title">Lista de proyectos</h1>
+        <p class="top-bar__subtitle">
+          Backend: <code id="apiBase" class="text-mono"></code> <span class="badge" id="status">listo</span>
+        </p>
+      </div>
+      <div class="top-bar__actions">
+        <a class="btn-link" href="/" aria-label="Volver a formularios">Volver a formularios</a>
+        <a class="btn-link" href="/static/dashboard.html" aria-label="Ir al dashboard">Dashboard</a>
+        <a class="btn-link" href="/static/records.html" aria-label="Ir a records">Lista de records</a>
+        <button id="btnReload" class="btn-secondary" aria-label="Recargar datos">Recargar</button>
+      </div>
+    </div>
+
+    <div class="card mt-lg">
+      <div class="section-header">
+        <h2>Proyectos</h2>
+        <span class="tag" id="projectCount">0 proyectos</span>
+      </div>
+      <div class="text-sm text-muted mt-sm">Haz clic en un proyecto para ver sus métricas X y abrir los récords en modal.</div>
+      <div class="table-wrapper mt-md">
+        <table>
+          <thead>
+            <tr>
+              <th>Nombre de proyecto</th>
+            </tr>
+          </thead>
+          <tbody id="tblProjects"></tbody>
+        </table>
+      </div>
+      <div id="projectsEmpty" class="text-sm text-muted mt-md">No hay proyectos cargados.</div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop hidden" id="projectModal" aria-hidden="true">
+    <div class="modal">
+      <div class="modal__header">
+        <div>
+          <div class="modal__title" id="projectModalTitle">Proyecto</div>
+          <div class="text-sm text-muted" id="projectModalSubtitle"></div>
+        </div>
+        <button class="btn-secondary" id="btnCloseProjectModal" aria-label="Cerrar modal">Cerrar</button>
+      </div>
+      <div class="section-header">
+        <h3>Métricas X del proyecto</h3>
+        <span class="tag" id="projectMetricsCount">0 métricas</span>
+      </div>
+      <div class="table-wrapper mt-md">
+        <table>
+          <thead>
+            <tr>
+              <th>Métrica X</th>
+              <th>Hipótesis</th>
+              <th>Métrica Y</th>
+              <th>Umbral</th>
+              <th>Estado</th>
+              <th>Récords</th>
+            </tr>
+          </thead>
+          <tbody id="tblProjectMetrics"></tbody>
+        </table>
+      </div>
+      <div id="projectMetricsEmpty" class="text-sm text-muted mt-md">Este proyecto no tiene experimentos cargados.</div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop hidden" id="recordsModal" aria-hidden="true">
+    <div class="modal">
+      <div class="modal__header">
+        <div>
+          <div class="modal__title" id="recordsModalTitle">Récords</div>
+          <div class="text-sm text-muted" id="recordsModalSubtitle"></div>
+        </div>
+        <button class="btn-secondary" id="btnCloseRecordsModal" aria-label="Cerrar modal">Cerrar</button>
+      </div>
+      <div class="section-header">
+        <h3>Récords del experimento</h3>
+        <span class="tag" id="recordsCount">0 récords</span>
+      </div>
+      <div class="grid grid-2 mt-md">
+        <div>
+          <div class="table-wrapper">
+            <table>
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Record</th>
+                  <th>Status</th>
+                  <th>Clicks</th>
+                  <th>Views</th>
+                  <th>Purchase</th>
+                  <th>Created</th>
+                </tr>
+              </thead>
+              <tbody id="tblRecords"></tbody>
+            </table>
+          </div>
+          <div id="recordsEmpty" class="text-sm text-muted mt-md">Este experimento aún no tiene récords.</div>
+        </div>
+        <div class="card">
+          <h4>Detalle del récord</h4>
+          <div id="recordDetailEmpty" class="text-sm text-muted mt-md">Selecciona un récord para ver su tarjeta.</div>
+          <div id="recordDetailCard" class="hidden mt-lg">
+            <div class="grid grid-3">
+              <div class="stat-chip">
+                <div class="stat-chip__label">Record</div>
+                <div class="stat-chip__value" id="detailRecordName">—</div>
+                <div class="stat-chip__meta" id="detailRecordMeta"></div>
+              </div>
+              <div class="stat-chip">
+                <div class="stat-chip__label">Experimento</div>
+                <div class="stat-chip__value" id="detailExperiment">—</div>
+                <div class="stat-chip__meta" id="detailExperimentMeta"></div>
+              </div>
+              <div class="stat-chip">
+                <div class="stat-chip__label">Estado</div>
+                <div class="stat-chip__value" id="detailStatus">—</div>
+                <div class="stat-chip__meta" id="detailStatusMeta"></div>
+              </div>
+            </div>
+            <div class="grid grid-3 mt-md">
+              <div class="stat-chip">
+                <div class="stat-chip__label">Clicks / Views</div>
+                <div class="stat-chip__value" id="detailTraffic">—</div>
+                <div class="stat-chip__meta" id="detailTrafficMeta"></div>
+              </div>
+              <div class="stat-chip">
+                <div class="stat-chip__label">Funnel</div>
+                <div class="stat-chip__value" id="detailFunnel">—</div>
+                <div class="stat-chip__meta" id="detailFunnelMeta"></div>
+              </div>
+              <div class="stat-chip">
+                <div class="stat-chip__label">Creative</div>
+                <div class="stat-chip__value" id="detailCreative">—</div>
+                <div class="stat-chip__meta" id="detailCreativeMeta"></div>
+              </div>
+            </div>
+            <div class="grid grid-3 mt-md">
+              <div class="stat-chip">
+                <div class="stat-chip__label">Video</div>
+                <div class="stat-chip__value" id="detailVideo">—</div>
+                <div class="stat-chip__meta" id="detailVideoMeta"></div>
+              </div>
+              <div class="stat-chip">
+                <div class="stat-chip__label">Live</div>
+                <div class="stat-chip__value" id="detailLive">—</div>
+                <div class="stat-chip__meta" id="detailLiveMeta"></div>
+              </div>
+              <div class="stat-chip">
+                <div class="stat-chip__label">IDs campaña</div>
+                <div class="stat-chip__value" id="detailCampaign">—</div>
+                <div class="stat-chip__meta" id="detailCampaignMeta"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+  const API_BASE = "";
+  const $ = (id) => document.getElementById(id);
+
+  $("apiBase").textContent = location.origin;
+
+  let experiments = [];
+  let currentProject = null;
+  let currentExperiment = null;
+  let currentRecords = [];
+  let activeRecordId = null;
+
+  function escapeHtml(value) {
+    return String(value ?? "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;");
+  }
+
+  function fmt(value) {
+    if (value === null || value === undefined) return "—";
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) return "—";
+    return Math.abs(parsed) >= 1000 ? parsed.toLocaleString("es-ES") : String(parsed);
+  }
+
+  function fmtFloat(value, digits = 2) {
+    if (value === null || value === undefined) return "—";
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) return "—";
+    return parsed.toFixed(digits);
+  }
+
+  function toDateOnly(value) {
+    if (!value) return "—";
+    const dt = new Date(value);
+    if (Number.isNaN(dt.getTime())) return "—";
+    return dt.toISOString().slice(0, 10);
+  }
+
+  async function apiGet(path) {
+    const response = await fetch(API_BASE + path);
+    if (!response.ok) {
+      throw new Error(await response.text());
+    }
+    return response.json();
+  }
+
+  function setStatus(text, isError = false) {
+    const status = $("status");
+    status.textContent = text;
+    status.classList.toggle("badge-danger", isError);
+  }
+
+  function uniqueSorted(values) {
+    return [...new Set(values.filter(Boolean))].sort((a, b) => a.localeCompare(b, "es"));
+  }
+
+  function renderProjects() {
+    const tbody = $("tblProjects");
+    tbody.innerHTML = "";
+    const projectNames = uniqueSorted(experiments.map((exp) => exp.project_name));
+
+    $("projectCount").textContent = `${projectNames.length} proyectos`;
+    $("projectsEmpty").style.display = projectNames.length ? "none" : "block";
+
+    for (const projectName of projectNames) {
+      const row = document.createElement("tr");
+      row.tabIndex = 0;
+      row.setAttribute("role", "button");
+      row.innerHTML = `<td>${escapeHtml(projectName)}</td>`;
+      row.addEventListener("click", () => openProjectModal(projectName));
+      row.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          openProjectModal(projectName);
+        }
+      });
+      tbody.appendChild(row);
+    }
+  }
+
+  function openProjectModal(projectName) {
+    currentProject = projectName;
+    const filtered = experiments.filter((exp) => exp.project_name === projectName);
+
+    $("projectModalTitle").textContent = `Proyecto: ${projectName}`;
+    $("projectModalSubtitle").textContent = `${filtered.length} métricas X asociadas`;
+    $("projectMetricsCount").textContent = `${filtered.length} métricas`;
+
+    renderProjectMetrics(filtered);
+    $("projectModal").classList.remove("hidden");
+    $("projectModal").setAttribute("aria-hidden", "false");
+  }
+
+  function closeProjectModal() {
+    $("projectModal").classList.add("hidden");
+    $("projectModal").setAttribute("aria-hidden", "true");
+  }
+
+  function renderProjectMetrics(items) {
+    const tbody = $("tblProjectMetrics");
+    tbody.innerHTML = "";
+    $("projectMetricsEmpty").style.display = items.length ? "none" : "block";
+
+    if (!items.length) return;
+
+    for (const exp of items) {
+      const metricX = exp.independent_variable || "Sin definir";
+      const hypothesis = exp.hypothesis || "—";
+      const metricY = exp.primary_metric || "—";
+      const threshold = exp.validation_threshold || "—";
+      const status = exp.experiment_status || "draft";
+
+      const row = document.createElement("tr");
+      row.tabIndex = 0;
+      row.setAttribute("role", "button");
+      row.innerHTML = `
+        <td>${escapeHtml(metricX)}</td>
+        <td>${escapeHtml(hypothesis)}</td>
+        <td>${escapeHtml(metricY)}</td>
+        <td>${escapeHtml(threshold)}</td>
+        <td>${escapeHtml(status)}</td>
+        <td><span class="tag">Abrir récords</span></td>
+      `;
+      row.addEventListener("click", () => openRecordsModal(exp));
+      row.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          openRecordsModal(exp);
+        }
+      });
+      tbody.appendChild(row);
+    }
+  }
+
+  async function openRecordsModal(experiment) {
+    currentExperiment = experiment;
+    activeRecordId = null;
+    $("recordsModalTitle").textContent = `Récords — ${experiment.independent_variable || "Métrica X"}`;
+    $("recordsModalSubtitle").textContent = experiment.hypothesis || "—";
+
+    $("recordsModal").classList.remove("hidden");
+    $("recordsModal").setAttribute("aria-hidden", "false");
+
+    await loadRecords(experiment.id);
+  }
+
+  function closeRecordsModal() {
+    $("recordsModal").classList.add("hidden");
+    $("recordsModal").setAttribute("aria-hidden", "true");
+  }
+
+  async function loadRecords(experimentId) {
+    $("tblRecords").innerHTML = "";
+    $("recordsCount").textContent = "0 récords";
+    $("recordsEmpty").style.display = "none";
+    hideRecordDetail();
+
+    try {
+      currentRecords = await apiGet(`/records?experiment_id=${experimentId}&limit=50000`);
+    } catch (error) {
+      $("recordsEmpty").style.display = "block";
+      $("recordsEmpty").textContent = "No se pudieron cargar los récords.";
+      return;
+    }
+
+    $("recordsCount").textContent = `${currentRecords.length} récords`;
+    if (!currentRecords.length) {
+      $("recordsEmpty").style.display = "block";
+      return;
+    }
+
+    renderRecordsTable();
+  }
+
+  function renderRecordsTable() {
+    const tbody = $("tblRecords");
+    tbody.innerHTML = "";
+
+    currentRecords.forEach((record) => {
+      const row = document.createElement("tr");
+      row.tabIndex = 0;
+      row.setAttribute("role", "button");
+      row.innerHTML = `
+        <td>${record.id}</td>
+        <td>${escapeHtml(record.record_name || record.session_id)}</td>
+        <td>${escapeHtml(record.record_status)}</td>
+        <td>${fmt(record.clicks)}</td>
+        <td>${fmt(record.views)}</td>
+        <td>${fmt(record.purchase)}</td>
+        <td>${toDateOnly(record.created_at)}</td>
+      `;
+      row.addEventListener("click", () => showRecordDetail(record, row));
+      row.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          showRecordDetail(record, row);
+        }
+      });
+      tbody.appendChild(row);
+    });
+  }
+
+  function showRecordDetail(record, rowEl) {
+    activeRecordId = record.id;
+    document.querySelectorAll("#tblRecords tr").forEach((row) => row.classList.remove("row-active"));
+    if (rowEl) rowEl.classList.add("row-active");
+
+    $("recordDetailEmpty").classList.add("hidden");
+    $("recordDetailCard").classList.remove("hidden");
+
+    $("detailRecordName").textContent = record.record_name || record.session_id;
+    $("detailRecordMeta").textContent = record.session_id || "—";
+    $("detailExperiment").textContent = currentExperiment?.independent_variable || "—";
+    $("detailExperimentMeta").textContent = currentExperiment?.project_name || "—";
+    $("detailStatus").textContent = record.record_status || "—";
+    $("detailStatusMeta").textContent = record.execution_type || "—";
+
+    $("detailTraffic").textContent = `${fmt(record.clicks)} / ${fmt(record.views)}`;
+    $("detailTrafficMeta").textContent = `CTR ${fmtFloat(record.ctr)} · CPC ${fmtFloat(record.cpc)}`;
+
+    $("detailFunnel").textContent = `${fmt(record.initiate_checkouts)} → ${fmt(record.view_content)} → ${fmt(record.purchase)}`;
+    $("detailFunnelMeta").textContent = `Leads ${fmt(record.lead_form)}`;
+
+    $("detailCreative").textContent = record.hook_text ? record.hook_text.slice(0, 30) + (record.hook_text.length > 30 ? "…" : "") : "—";
+    $("detailCreativeMeta").textContent = record.cta_text || record.creative_id || "—";
+
+    $("detailVideo").textContent = `${fmtFloat(record.avg_watch_time)}s · ${fmtFloat(record.views_finish_pct)}%`;
+    $("detailVideoMeta").textContent = `Duración ${fmtFloat(record.video_duration)}s`;
+
+    $("detailLive").textContent = `${fmt(record.live_avg_viewers)} avg · ${fmt(record.live_viewers_peak)} peak`;
+    $("detailLiveMeta").textContent = `Seguidores ${fmt(record.live_new_followers)}`;
+
+    $("detailCampaign").textContent = record.campaign_id || "—";
+    $("detailCampaignMeta").textContent = [record.ad_set_id, record.ad_id].filter(Boolean).join(" / ") || "—";
+  }
+
+  function hideRecordDetail() {
+    $("recordDetailEmpty").classList.remove("hidden");
+    $("recordDetailCard").classList.add("hidden");
+    $("detailRecordName").textContent = "—";
+    $("detailRecordMeta").textContent = "";
+    $("detailExperiment").textContent = "—";
+    $("detailExperimentMeta").textContent = "";
+    $("detailStatus").textContent = "—";
+    $("detailStatusMeta").textContent = "";
+  }
+
+  function closeOnEscape(event) {
+    if (event.key !== "Escape") return;
+    if (!$("recordsModal").classList.contains("hidden")) {
+      closeRecordsModal();
+      return;
+    }
+    if (!$("projectModal").classList.contains("hidden")) {
+      closeProjectModal();
+    }
+  }
+
+  async function init() {
+    setStatus("cargando...");
+    try {
+      experiments = await apiGet("/experiments");
+      renderProjects();
+      setStatus("listo");
+    } catch (error) {
+      setStatus("error", true);
+      $("projectsEmpty").textContent = "No se pudieron cargar los proyectos.";
+      $("projectsEmpty").style.display = "block";
+      console.error(error);
+    }
+  }
+
+  $("btnReload").addEventListener("click", init);
+  $("btnCloseProjectModal").addEventListener("click", closeProjectModal);
+  $("btnCloseRecordsModal").addEventListener("click", closeRecordsModal);
+  $("projectModal").addEventListener("click", (event) => {
+    if (event.target === $("projectModal")) closeProjectModal();
+  });
+  $("recordsModal").addEventListener("click", (event) => {
+    if (event.target === $("recordsModal")) closeRecordsModal();
+  });
+  document.addEventListener("keydown", closeOnEscape);
+
+  init();
+</script>
+</body>
+</html>
