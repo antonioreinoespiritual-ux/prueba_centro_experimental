@@ -12,12 +12,11 @@
     <div class="top-bar">
       <div>
         <h1 class="top-bar__title">Editar proyecto</h1>
-        <p class="top-bar__subtitle">Renombra proyectos completos sin perder su flujo de experimentos.</p>
+        <p class="top-bar__subtitle">Edita la hipótesis y configuración del proyecto con un flujo guiado.</p>
       </div>
       <div class="top-bar__actions">
         <a class="btn-link" href="/" aria-label="Volver a formularios">Formularios</a>
         <a class="btn-link" href="/static/projects.html" aria-label="Lista de proyectos">Lista de proyectos</a>
-        <a class="btn-link" href="/static/edit_hypothesis.html" aria-label="Editar hipótesis">Editar hipótesis</a>
         <button id="btnReload" class="btn-secondary" aria-label="Recargar datos">Recargar</button>
       </div>
     </div>
@@ -25,10 +24,10 @@
     <div class="card mt-lg">
       <div class="section-header">
         <div>
-          <h2>Editar proyecto</h2>
-          <div class="text-sm text-muted mt-sm">Paso 1: selecciona el proyecto · Paso 2: escribe el nuevo nombre · Paso 3: guarda.</div>
+          <h2>Encuentra el proyecto</h2>
+          <div class="text-sm text-muted mt-sm">Filtra por proyecto y métrica X para cargar el experimento correcto.</div>
         </div>
-        <span class="tag">Flujo rápido</span>
+        <span class="tag">Paso 1</span>
       </div>
       <div class="grid grid-3 mt-md">
         <div class="field-group">
@@ -36,61 +35,198 @@
           <select id="projectFilter"></select>
         </div>
         <div class="field-group">
-          <label for="projectRename">Nuevo nombre</label>
-          <input id="projectRename" type="text" placeholder="Nuevo nombre del proyecto" />
-          <div class="text-sm text-muted mt-sm">Tip: usa un nombre claro y consistente para todos los experimentos.</div>
+          <label for="metricFilter">Métrica X</label>
+          <select id="metricFilter"></select>
         </div>
         <div class="field-group" style="display:flex; align-items:end;">
-          <button id="btnSave" class="btn-success" aria-label="Guardar cambios">Guardar cambios</button>
+          <button id="btnLoad" class="btn-secondary" aria-label="Cargar experimento">Cargar</button>
         </div>
       </div>
-      <div class="text-sm text-muted mt-sm">Tip: el cambio se aplica a todas las hipótesis y récords asociados.</div>
-    </div>
-
-    <div class="card mt-lg">
-      <div class="section-header">
-        <h2>Checklist rápido</h2>
-        <span class="tag">Antes de guardar</span>
-      </div>
-      <div class="grid grid-3 mt-md">
-        <div class="stat-chip">
-          <div class="stat-chip__label">1. Proyecto correcto</div>
-          <div class="stat-chip__value">Seleccionado</div>
-          <div class="stat-chip__meta">Usa el selector de arriba.</div>
-        </div>
-        <div class="stat-chip">
-          <div class="stat-chip__label">2. Nombre claro</div>
-          <div class="stat-chip__value">Definido</div>
-          <div class="stat-chip__meta">Evita abreviaciones confusas.</div>
-        </div>
-        <div class="stat-chip">
-          <div class="stat-chip__label">3. Impacto</div>
-          <div class="stat-chip__value">Global</div>
-          <div class="stat-chip__meta">Actualiza todas las hipótesis.</div>
-        </div>
-      </div>
+      <div class="text-sm text-muted mt-sm">Tip: usa los filtros para encontrar la hipótesis exacta del proyecto.</div>
     </div>
 
     <div class="card mt-lg hidden" id="projectSummary">
       <div class="section-header">
-        <h2>Resumen del proyecto</h2>
-        <span class="tag" id="projectMeta">—</span>
+        <h2>Resumen</h2>
+        <span class="tag" id="expMeta">—</span>
       </div>
       <div class="grid grid-3 mt-md">
         <div class="stat-chip">
-          <div class="stat-chip__label">Nombre actual</div>
+          <div class="stat-chip__label">Proyecto</div>
           <div class="stat-chip__value" id="sumProject">—</div>
           <div class="stat-chip__meta" id="sumProjectMeta"></div>
         </div>
         <div class="stat-chip">
-          <div class="stat-chip__label">Experimentos</div>
-          <div class="stat-chip__value" id="sumExperiments">—</div>
-          <div class="stat-chip__meta" id="sumExperimentsMeta"></div>
+          <div class="stat-chip__label">Métrica X</div>
+          <div class="stat-chip__value" id="sumMetricX">—</div>
+          <div class="stat-chip__meta" id="sumMetricMeta"></div>
         </div>
         <div class="stat-chip">
-          <div class="stat-chip__label">Última actualización</div>
-          <div class="stat-chip__value" id="sumUpdated">—</div>
-          <div class="stat-chip__meta">Basado en los experimentos</div>
+          <div class="stat-chip__label">Estado</div>
+          <div class="stat-chip__value" id="sumStatus">—</div>
+          <div class="stat-chip__meta" id="sumStatusMeta"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card mt-lg">
+      <div class="section-header">
+        <h2>Checklist de edición</h2>
+        <span class="tag">Paso 2</span>
+      </div>
+      <div class="grid grid-3 mt-md">
+        <div class="stat-chip">
+          <div class="stat-chip__label">Hipótesis</div>
+          <div class="stat-chip__value">Clara y medible</div>
+          <div class="stat-chip__meta">Si X entonces Y.</div>
+        </div>
+        <div class="stat-chip">
+          <div class="stat-chip__label">Métrica Y</div>
+          <div class="stat-chip__value">Consistente</div>
+          <div class="stat-chip__meta">Define umbral.</div>
+        </div>
+        <div class="stat-chip">
+          <div class="stat-chip__label">Volumen mínimo</div>
+          <div class="stat-chip__value">Config.</div>
+          <div class="stat-chip__meta">Evalúa con data suficiente.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card mt-lg hidden" id="projectForm">
+      <div class="section-header">
+        <div>
+          <h2>Editar proyecto</h2>
+          <div class="text-sm text-muted mt-sm">Actualiza hipótesis, variable X y métricas de validación.</div>
+        </div>
+        <div class="flex gap-sm">
+          <button id="btnSave" class="btn-success">Guardar cambios</button>
+          <button id="btnReset" class="btn-ghost">Restaurar valores</button>
+        </div>
+      </div>
+
+      <div class="grid grid-2 mt-md">
+        <div class="field-group">
+          <label for="hypothesis_type">Tipo de hipótesis</label>
+          <select id="hypothesis_type">
+            <option value="">-- seleccionar --</option>
+            <option value="acquisition">Acquisition</option>
+            <option value="activation">Activation</option>
+            <option value="retention">Retention</option>
+            <option value="monetization">Monetization</option>
+            <option value="trust_credibility">Trust / Credibility</option>
+            <option value="message_market_fit">Message-Market Fit</option>
+            <option value="channel_fit">Channel Fit</option>
+            <option value="pricing">Pricing</option>
+            <option value="funnel_friction">Funnel Friction</option>
+          </select>
+        </div>
+        <div class="field-group">
+          <label for="experiment_status">Estado</label>
+          <select id="experiment_status">
+            <option value="draft">Draft</option>
+            <option value="running">Running</option>
+            <option value="validated">Validated</option>
+            <option value="invalidated">Invalidated</option>
+            <option value="pivot_candidate">Pivot Candidate</option>
+            <option value="archived">Archived</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="field-group mt-md">
+        <label for="hypothesis">Hipótesis</label>
+        <textarea id="hypothesis" placeholder="Si X entonces Y..."></textarea>
+      </div>
+
+      <div class="grid grid-2 mt-md">
+        <div class="field-group">
+          <label for="independent_variable">Variable X</label>
+          <input id="independent_variable" type="text" />
+        </div>
+        <div class="field-group">
+          <label for="primary_metric">Métrica Y</label>
+          <select id="primary_metric">
+            <option value="">-- seleccionar --</option>
+            <option value="ctr">CTR</option>
+            <option value="cpc">CPC</option>
+            <option value="initiate_checkout_rate">Initiate Checkout Rate</option>
+            <option value="view_content_rate">View Content Rate</option>
+            <option value="lead_rate">Lead Rate</option>
+            <option value="purchase_rate">Purchase Rate</option>
+            <option value="clicks">Clicks</option>
+            <option value="views_profile">Views Profile</option>
+            <option value="inicia_test">IniciaTest</option>
+            <option value="engagement">Engagement</option>
+            <option value="views">Views</option>
+            <option value="likes">Likes</option>
+            <option value="comments">Comments</option>
+            <option value="shares">Shares</option>
+            <option value="saves">Saves</option>
+            <option value="views_finish_pct">Views Finish %</option>
+            <option value="retention_pct">Retention %</option>
+            <option value="avg_watch_time">Avg Watch Time</option>
+            <option value="live_viewers_peak">Live Peak Viewers</option>
+            <option value="live_avg_viewers">Live Avg Viewers</option>
+            <option value="live_new_followers">Live New Followers</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="grid grid-3 mt-md">
+        <div class="field-group">
+          <label for="threshold_operator">Operador umbral</label>
+          <select id="threshold_operator">
+            <option value="">-- seleccionar --</option>
+            <option value=">=">&gt;=</option>
+            <option value="<=">&lt;=</option>
+            <option value=">">&gt;</option>
+            <option value="<">&lt;</option>
+          </select>
+        </div>
+        <div class="field-group">
+          <label for="threshold_value">Valor umbral</label>
+          <input id="threshold_value" type="number" step="0.01" />
+        </div>
+        <div class="field-group">
+          <label for="threshold_type">Tipo umbral</label>
+          <select id="threshold_type">
+            <option value="">-- seleccionar --</option>
+            <option value="percentage">%</option>
+            <option value="absolute">entero</option>
+            <option value="decimal">decimal</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="grid grid-2 mt-md">
+        <div class="field-group">
+          <label for="volume_min_value">Volumen mínimo</label>
+          <input id="volume_min_value" type="number" />
+        </div>
+        <div class="field-group">
+          <label for="volume_unit">Unidad volumen</label>
+          <select id="volume_unit">
+            <option value="">-- seleccionar --</option>
+            <option value="clicks">Clicks</option>
+            <option value="ctr">CTR</option>
+            <option value="cpc">CPC</option>
+            <option value="initiate_checkout_rate">Initiate Checkout Rate</option>
+            <option value="view_content_rate">View Content Rate</option>
+            <option value="lead_rate">Lead Rate</option>
+            <option value="purchase_rate">Purchase Rate</option>
+            <option value="views">Views</option>
+            <option value="likes">Likes</option>
+            <option value="comments">Comments</option>
+            <option value="shares">Shares</option>
+            <option value="saves">Saves</option>
+            <option value="views_finish_pct">Views Finish %</option>
+            <option value="retention_pct">Retention %</option>
+            <option value="avg_watch_time">Avg Watch Time</option>
+            <option value="live_viewers_peak">Live Peak Viewers</option>
+            <option value="live_avg_viewers">Live Avg Viewers</option>
+            <option value="live_new_followers">Seguidores</option>
+          </select>
         </div>
       </div>
     </div>
@@ -102,6 +238,7 @@
   const API_BASE = "";
   const $ = (id) => document.getElementById(id);
   let experiments = [];
+  let currentExperiment = null;
 
   function showToast(message, type = "success") {
     const container = $("toastContainer");
@@ -112,15 +249,20 @@
     setTimeout(() => toast.remove(), 3000);
   }
 
-  function uniqueSorted(values) {
-    return [...new Set(values.filter(Boolean))].sort((a, b) => a.localeCompare(b, "es"));
+  function asIntOrNull(value) {
+    if (value === "" || value === null || value === undefined) return null;
+    const n = Number(value);
+    return Number.isFinite(n) ? n : null;
   }
 
-  function latestDate(values) {
-    const dates = values.filter(Boolean).map((value) => new Date(value));
-    if (!dates.length) return "—";
-    const latest = new Date(Math.max(...dates.map((date) => date.getTime())));
-    return latest.toISOString().split("T")[0];
+  function asFloatOrNull(value) {
+    if (value === "" || value === null || value === undefined) return null;
+    const n = Number(value);
+    return Number.isFinite(n) ? n : null;
+  }
+
+  function uniqueSorted(values) {
+    return [...new Set(values.filter(Boolean))].sort((a, b) => a.localeCompare(b, "es"));
   }
 
   async function apiGet(path) {
@@ -157,66 +299,106 @@
     }
   }
 
-  function updateSummary(projectName) {
-    const matching = experiments.filter((exp) => exp.project_name === projectName);
-    const total = matching.length;
-    $("projectSummary").classList.toggle("hidden", !projectName);
-    if (!projectName) return;
-    $("projectMeta").textContent = `${total} experimento${total === 1 ? "" : "s"}`;
-    $("sumProject").textContent = projectName;
-    $("sumProjectMeta").textContent = matching[0]?.traffic_type || "—";
-    $("sumExperiments").textContent = String(total);
-    $("sumExperimentsMeta").textContent = matching.map((exp) => exp.independent_variable || "Sin definir").slice(0, 3).join(" · ") || "—";
-    $("sumUpdated").textContent = latestDate(matching.map((exp) => exp.updated_at || exp.created_at));
+  function syncFilters() {
+    fillSelect($("projectFilter"), uniqueSorted(experiments.map((exp) => exp.project_name)), "(todos)");
+    const project = $("projectFilter").value;
+    const metricOptions = experiments
+      .filter((exp) => !project || exp.project_name === project)
+      .map((exp) => exp.independent_variable || "Sin definir");
+    fillSelect($("metricFilter"), uniqueSorted(metricOptions), "(todas)");
   }
 
-  async function loadAll() {
-    try {
-      experiments = await apiGet("/experiments/");
-      fillSelect($("projectFilter"), uniqueSorted(experiments.map((exp) => exp.project_name)));
-      updateSummary($("projectFilter").value);
-    } catch (error) {
-      showToast("Error cargando datos: " + String(error), "error");
-    }
+  function findExperiment() {
+    const project = $("projectFilter").value;
+    const metric = $("metricFilter").value;
+    return experiments.find((exp) => {
+      if (project && exp.project_name !== project) return false;
+      const metricValue = exp.independent_variable || "Sin definir";
+      if (metric && metricValue !== metric) return false;
+      return true;
+    });
   }
 
-  async function saveProject() {
-    const projectName = $("projectFilter").value;
-    const newName = $("projectRename").value.trim();
-    if (!projectName) {
-      showToast("Selecciona un proyecto primero.", "error");
+  function fillForm(exp) {
+    $("hypothesis_type").value = exp.hypothesis_type || "";
+    $("experiment_status").value = exp.experiment_status || "draft";
+    $("hypothesis").value = exp.hypothesis || "";
+    $("independent_variable").value = exp.independent_variable || "";
+    $("primary_metric").value = exp.primary_metric || "";
+    $("threshold_operator").value = exp.threshold_operator || "";
+    $("threshold_value").value = exp.threshold_value ?? "";
+    $("threshold_type").value = exp.threshold_type || "";
+    $("volume_min_value").value = exp.volume_min_value ?? "";
+    $("volume_unit").value = exp.volume_unit || "";
+  }
+
+  function updateSummary(exp) {
+    $("expMeta").textContent = `Experimento #${exp.id}`;
+    $("sumProject").textContent = exp.project_name;
+    $("sumProjectMeta").textContent = exp.traffic_type || "—";
+    $("sumMetricX").textContent = exp.independent_variable || "Sin definir";
+    $("sumMetricMeta").textContent = exp.hypothesis_type || "—";
+    $("sumStatus").textContent = exp.experiment_status || "draft";
+    $("sumStatusMeta").textContent = `Actualizado: ${exp.updated_at || exp.created_at || "—"}`;
+  }
+
+  async function loadExperiment() {
+    const exp = findExperiment();
+    if (!exp) {
+      showToast("No se encontró la combinación seleccionada.", "error");
       return;
     }
-    if (!newName) {
-      showToast("Ingresa el nuevo nombre del proyecto.", "error");
-      return;
-    }
-    if (newName === projectName) {
-      showToast("El nuevo nombre debe ser diferente.", "error");
-      return;
-    }
+    currentExperiment = exp;
+    $("projectSummary").classList.remove("hidden");
+    $("projectForm").classList.remove("hidden");
+    updateSummary(exp);
+    fillForm(exp);
+  }
+
+  async function saveExperiment() {
+    if (!currentExperiment) return;
+    const body = {
+      hypothesis: $("hypothesis").value.trim(),
+      hypothesis_type: $("hypothesis_type").value || null,
+      independent_variable: $("independent_variable").value.trim() || null,
+      primary_metric: $("primary_metric").value || null,
+      threshold_operator: $("threshold_operator").value || null,
+      threshold_value: asFloatOrNull($("threshold_value").value),
+      threshold_type: $("threshold_type").value || null,
+      experiment_status: $("experiment_status").value || null,
+      volume_min_value: asIntOrNull($("volume_min_value").value),
+      volume_unit: $("volume_unit").value || null,
+    };
 
     try {
-      await apiPatch(`/experiments/projects/${encodeURIComponent(projectName)}`, {
-        new_project_name: newName,
-      });
-      experiments = experiments.map((exp) =>
-        exp.project_name === projectName ? { ...exp, project_name: newName } : exp
-      );
-      fillSelect($("projectFilter"), uniqueSorted(experiments.map((exp) => exp.project_name)));
-      $("projectFilter").value = newName;
-      updateSummary(newName);
-      $("projectRename").value = "";
+      const updated = await apiPatch(`/experiments/${currentExperiment.id}`, body);
+      currentExperiment = updated;
+      experiments = experiments.map((exp) => (exp.id === updated.id ? updated : exp));
+      updateSummary(updated);
       showToast("Proyecto actualizado", "success");
     } catch (error) {
       showToast(String(error), "error");
     }
   }
 
-  $("projectFilter").addEventListener("change", (event) => {
-    updateSummary(event.target.value);
-  });
-  $("btnSave").addEventListener("click", saveProject);
+  function resetForm() {
+    if (!currentExperiment) return;
+    fillForm(currentExperiment);
+  }
+
+  async function loadAll() {
+    try {
+      experiments = await apiGet("/experiments/");
+      syncFilters();
+    } catch (error) {
+      showToast("Error cargando datos: " + String(error), "error");
+    }
+  }
+
+  $("projectFilter").addEventListener("change", syncFilters);
+  $("btnLoad").addEventListener("click", loadExperiment);
+  $("btnSave").addEventListener("click", saveExperiment);
+  $("btnReset").addEventListener("click", resetForm);
   $("btnReload").addEventListener("click", loadAll);
 
   loadAll();
