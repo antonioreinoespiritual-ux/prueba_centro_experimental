@@ -437,11 +437,20 @@ def get_ai_analyses(
 def _compute_aggregated_metric(records: list[models.ExperimentRecord], metric: str) -> tuple[float | None, int]:
     """Compute an aggregated metric across all records.
 
-    For rate metrics (ending in _rate): compute as sum(numerator)/sum(denominator).
-    For direct metrics: sum all values.
+    For rate/percentage metrics: compute a robust aggregate (median) of per-record values.
+    For direct count metrics: sum all values.
 
     Returns (aggregated_value, total_volume).
     """
+    def median(values: list[float]) -> float | None:
+        if not values:
+            return None
+        values.sort()
+        mid = len(values) // 2
+        if len(values) % 2 == 1:
+            return values[mid]
+        return (values[mid - 1] + values[mid]) / 2
+
     # Rate metrics require numerator/denominator aggregation
     rate_definitions = {
         "initiate_checkout_rate": ("initiate_checkouts", "views"),
@@ -453,43 +462,41 @@ def _compute_aggregated_metric(records: list[models.ExperimentRecord], metric: s
 
     if metric in rate_definitions:
         num_field, den_field = rate_definitions[metric]
-        total_num = 0
-        total_den = 0
+        values = []
         for r in records:
             n = getattr(r, num_field, None) or 0
             d = getattr(r, den_field, None) or 0
-            total_num += n
-            total_den += d
-        if total_den == 0:
+            if d > 0:
+                values.append((n / d) * 100)
+        aggregated = median(values)
+        if aggregated is None:
             return None, 0
-        return (total_num / total_den) * 100, total_den
+        return aggregated, len(values)
 
-    # Direct sum metrics
+    # Cost metrics: use median to avoid summing across records
     if metric == "cpc":
-        total = 0.0
-        count = 0
+        values = []
         for r in records:
             v = getattr(r, "cpc", None)
             if v is not None:
-                total += v
-                count += 1
-        if count == 0:
+                values.append(float(v))
+        aggregated = median(values)
+        if aggregated is None:
             return None, 0
-        return total / count, count
+        return aggregated, len(values)
 
     # Averaged metrics (percentages, time)
     averaged_metrics = {"views_finish_pct", "retention_pct", "avg_watch_time"}
     if metric in averaged_metrics:
-        total = 0.0
-        count = 0
+        values = []
         for r in records:
             v = getattr(r, metric, None)
             if v is not None:
-                total += v
-                count += 1
-        if count == 0:
+                values.append(float(v))
+        aggregated = median(values)
+        if aggregated is None:
             return None, 0
-        return total / count, count
+        return aggregated, len(values)
 
     # Simple sum metrics
     total = 0
@@ -539,6 +546,8 @@ def _compute_volume_total(records: list[models.ExperimentRecord], volume_unit: s
         "lead_rate": "views",
         "purchase_rate": "views",
         "views": "views",
+        "views_profile": "views_profile",
+        "inicia_test": "inicia_test",
         "likes": "likes",
         "comments": "comments",
         "shares": "shares",
@@ -575,11 +584,18 @@ def _is_count_metric(metric: str) -> bool:
     if _is_rate_metric(metric) or _is_percentage_metric(metric) or _is_average_metric(metric):
         return False
     return metric in {
+        "clicks",
         "views",
+        "views_profile",
+        "inicia_test",
         "likes",
         "comments",
         "shares",
         "saves",
+        "initiate_checkouts",
+        "view_content",
+        "lead_form",
+        "purchase",
         "live_viewers_peak",
         "live_avg_viewers",
         "live_new_followers",
