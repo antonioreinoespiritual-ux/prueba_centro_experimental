@@ -62,6 +62,22 @@ def update_record(
     return rec
 
 
+@router.post("/bulk-update/preview", response_model=schemas.BulkRecordUpdateResponse)
+def preview_bulk_update(
+    payload: schemas.BulkRecordUpdateRequest,
+    db: Session = Depends(get_db),
+):
+    return crud.bulk_update_records(db, payload.updates, apply_changes=False)
+
+
+@router.post("/bulk-update/apply", response_model=schemas.BulkRecordUpdateResponse)
+def apply_bulk_update(
+    payload: schemas.BulkRecordUpdateRequest,
+    db: Session = Depends(get_db),
+):
+    return crud.bulk_update_records(db, payload.updates, apply_changes=True)
+
+
 @router.post("/{record_id}/close", response_model=schemas.RecordOut)
 def close_record(record_id: int, db: Session = Depends(get_db)):
     """Mark a record as closed (frozen metrics)."""

@@ -171,5 +171,22 @@ def ensure_schema() -> None:
             ON ai_analysis (created_at)
         """)
 
+    # --- Record update audits ---
+    cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='record_update_audits'")
+    if not cur.fetchone():
+        cur.execute("""
+            CREATE TABLE record_update_audits (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                record_id INTEGER NOT NULL REFERENCES experiment_records(id),
+                source VARCHAR(100) NOT NULL,
+                changed_fields TEXT NOT NULL,
+                created_at DATETIME NOT NULL DEFAULT (datetime('now'))
+            )
+        """)
+        cur.execute("""
+            CREATE INDEX IF NOT EXISTS ix_record_update_audits_record_id
+            ON record_update_audits (record_id)
+        """)
+
     conn.commit()
     conn.close()

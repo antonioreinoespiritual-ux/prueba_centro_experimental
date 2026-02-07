@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+import json
 import re
 
 from sqlalchemy.orm import Session
@@ -487,6 +488,242 @@ def get_records(
     if experiment_id:
         q = q.where(models.ExperimentRecord.experiment_id == experiment_id)
     return list(db.execute(q).scalars().all())
+
+
+def _get_record_by_session_id(db: Session, session_id: str):
+    q = (
+        select(models.ExperimentRecord)
+        .where(models.ExperimentRecord.session_id == session_id)
+        .order_by(desc(models.ExperimentRecord.created_at))
+    )
+    return db.execute(q).scalars().first()
+
+
+def _get_record_by_name(db: Session, record_name: str):
+    q = (
+        select(models.ExperimentRecord)
+        .where(models.ExperimentRecord.record_name == record_name)
+        .order_by(desc(models.ExperimentRecord.created_at))
+    )
+    return db.execute(q).scalars().first()
+
+
+def create_record_update_audit(
+    db: Session,
+    record_id: int,
+    source: str,
+    changed_fields: list[str],
+) -> models.RecordUpdateAudit:
+    audit = models.RecordUpdateAudit(
+        record_id=record_id,
+        source=source,
+        changed_fields=json.dumps(changed_fields, ensure_ascii=False),
+    )
+    db.add(audit)
+    return audit
+
+
+def bulk_update_records(
+    db: Session,
+    updates: list[schemas.BulkRecordUpdateItem],
+    apply_changes: bool,
+) -> schemas.BulkRecordUpdateResponse:
+    field_aliases = {
+        "avg_watch_time_seconds": "avg_watch_time",
+        "leads": "lead_form",
+        "initiate_test": "inicia_test",
+        "initiate_checkout": "initiate_checkouts",
+        "purchases": "purchase",
+        "new_followers": "live_new_followers",
+    }
+    update_fields = set(schemas.RecordUpdate.model_fields.keys())
+    int_fields = {
+        "clicks",
+        "views",
+        "views_profile",
+        "inicia_test",
+        "likes",
+        "comments",
+        "shares",
+        "saves",
+        "initiate_checkouts",
+        "view_content",
+        "lead_form",
+        "purchase",
+        "live_viewers_peak",
+        "live_avg_viewers",
+        "live_new_followers",
+        "public_id",
+    }
+    float_fields = {
+        "views_finish_pct",
+        "retention_pct",
+        "avg_watch_time",
+        "video_duration",
+        "ctr",
+        "cpc",
+        "live_duration",
+    }
+    string_fields = {
+        "hook_text",
+        "record_name",
+        "publico",
+        "hook_type",
+        "cta_text",
+        "cta_type",
+    }
+
+    def parse_int(value: object) -> int | None:
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            raise ValueError("Valor booleano no permitido.")
+        if isinstance(value, int):
+            return value
+        if isinstance(value, float):
+            if value.is_integer():
+                return int(value)
+            raise ValueError("Valor decimal no permitido para entero.")
+        if isinstance(value, str):
+            raw = value.strip().replace(" ", "")
+            if raw.endswith("%"):
+                raw = raw[:-1].strip()
+            if not raw:
+                return None
+            raw = raw.replace(".", "").replace(",", "")
+            if not raw.isdigit():
+                raise ValueError("Valor entero invalido.")
+            return int(raw)
+        raise ValueError("Tipo no soportado para entero.")
+
+    def parse_float(value: object) -> float | None:
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            raise ValueError("Valor booleano no permitido.")
+        if isinstance(value, (int, float)):
+            return float(value)
+        if isinstance(value, str):
+            raw = value.strip().replace(" ", "")
+            if raw.endswith("%"):
+                raw = raw[:-1].strip()
+            if not raw:
+                return None
+            if re.match(r"^\d{1,3}(\.\d{3})+$", raw):
+                raw = raw.replace(".", "")
+            if "," in raw and "." not in raw:
+                raw = raw.replace(",", ".")
+            elif "," in raw and "." in raw:
+                raw = raw.replace(",", "")
+            try:
+                return float(raw)
+            except ValueError as exc:
+                raise ValueError("Valor decimal invalido.") from exc
+        raise ValueError("Tipo no soportado para decimal.")
+
+    def parse_string(value: object) -> str | None:
+        if value is None:
+            return None
+        if isinstance(value, str):
+            trimmed = value.strip()
+            return trimmed or None
+        raise ValueError("Tipo no soportado para texto.")
+
+    response = schemas.BulkRecordUpdateResponse()
+
+    for index, update in enumerate(updates, start=1):
+        identifier = None
+        record = None
+        if update.record_id:
+            identifier = f"record_id:{update.record_id}"
+            record = get_record(db, update.record_id)
+        elif update.session_id:
+            identifier = f"session_id:{update.session_id}"
+            record = _get_record_by_session_id(db, update.session_id)
+        elif update.record_name:
+            identifier = f"record_name:{update.record_name}"
+            record = _get_record_by_name(db, update.record_name)
+        else:
+            identifier = f"update_{index}"
+
+        preview_item = schemas.BulkRecordUpdatePreview(
+            record_identifier=identifier,
+            record_id=record.id if record else None,
+            status="error",
+            fields_to_update=[],
+            unknown_fields=[],
+            errors=[],
+        )
+
+        if not (update.record_id or update.session_id or update.record_name):
+            preview_item.errors.append("Falta record_id, session_id o record_name.")
+            response.errors.setdefault(identifier, []).append("Falta identificador.")
+            response.preview.append(preview_item)
+            continue
+
+        if not record:
+            preview_item.status = "not_found"
+            response.not_found.append(identifier)
+            response.preview.append(preview_item)
+            continue
+
+        parsed_fields: dict[str, object] = {}
+        for field, raw_value in update.fields.items():
+            mapped_field = field_aliases.get(field, field)
+            if not mapped_field or mapped_field not in update_fields:
+                preview_item.unknown_fields.append(field)
+                continue
+            try:
+                if mapped_field in int_fields:
+                    parsed_fields[mapped_field] = parse_int(raw_value)
+                elif mapped_field in float_fields:
+                    parsed_fields[mapped_field] = parse_float(raw_value)
+                elif mapped_field in string_fields:
+                    parsed_fields[mapped_field] = parse_string(raw_value)
+                else:
+                    preview_item.errors.append(f"Campo '{field}' no soportado.")
+            except ValueError as exc:
+                preview_item.errors.append(f"{field}: {exc}")
+
+        if preview_item.unknown_fields:
+            response.unknown_fields[identifier] = preview_item.unknown_fields
+
+        if preview_item.errors:
+            response.errors[identifier] = preview_item.errors
+
+        if not parsed_fields:
+            preview_item.errors.append("No hay campos validos para actualizar.")
+            response.errors[identifier] = preview_item.errors
+            response.preview.append(preview_item)
+            continue
+
+        preview_item.fields_to_update = sorted(parsed_fields.keys())
+        preview_item.status = "ready" if not preview_item.errors else "error"
+        response.preview.append(preview_item)
+
+        if preview_item.status != "ready":
+            continue
+
+        response.updated_count += 1
+
+        if apply_changes:
+            old_values = {field: getattr(record, field) for field in parsed_fields}
+            update_schema = schemas.RecordUpdate(**parsed_fields)
+            updated_record = update_record(db, record.id, update_schema)
+            changed_fields = [
+                field for field, old_value in old_values.items()
+                if getattr(updated_record, field) != old_value
+            ]
+            if changed_fields:
+                create_record_update_audit(
+                    db,
+                    record_id=record.id,
+                    source="manual_from_screenshot",
+                    changed_fields=changed_fields,
+                )
+                db.commit()
+
+    return response
 
 
 # ------------------------------------------------------------------ #

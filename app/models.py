@@ -125,6 +125,15 @@ class ExperimentRecord(Base):
     public: Mapped[Public | None] = relationship("Public", back_populates="records")
 
 
+class RecordUpdateAudit(Base):
+    __tablename__ = "record_update_audits"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    record_id: Mapped[int] = mapped_column(ForeignKey("experiment_records.id"), nullable=False, index=True)
+    source: Mapped[str] = mapped_column(String(100), nullable=False)
+    changed_fields: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+
 class Documentation(Base):
     __tablename__ = "documentation"
     __table_args__ = (

@@ -24,6 +24,11 @@
     .table-ellipsis { max-width: 260px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .table-ellipsis--sm { max-width: 180px; }
     .table-ellipsis--lg { max-width: 360px; }
+    .bulk-panel { background: var(--surface-2); border: 1px solid var(--glass-border); border-radius: var(--radius-xl); padding: var(--space-xl); width: 100%; max-width: 900px; max-height: 85vh; overflow: auto; box-shadow: var(--shadow-lg); }
+    .bulk-panel__header { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-lg); }
+    .bulk-panel__title { font-size: var(--text-xl); font-weight: 700; }
+    .bulk-panel__helper { font-size: var(--text-xs); color: var(--text-muted); margin-bottom: var(--space-md); }
+    .bulk-panel__preview { background: var(--surface-1); border: 1px solid var(--glass-border); border-radius: var(--radius-md); padding: var(--space-md); font-size: 0.8rem; white-space: pre-wrap; }
   </style>
 </head>
 <body>
@@ -41,6 +46,7 @@
         <a class="btn-link" href="/" aria-label="Volver a formularios">Volver a formularios</a>
         <a class="btn-link" href="/static/dashboard.html" aria-label="Ir al dashboard">Dashboard</a>
         <a class="btn-link" href="/static/publics.html" aria-label="Ir a publicos">Públicos</a>
+        <button id="btnBulkUpdate" class="btn-secondary" aria-label="Actualizacion masiva">Actualización masiva</button>
         <button id="btnReload" class="btn-secondary" aria-label="Recargar datos">Recargar</button>
       </div>
     </div>
@@ -183,6 +189,38 @@
       </div>
     </div>
 
+  </div>
+
+  <!-- Bulk Update Modal -->
+  <div class="modal-backdrop hidden" id="bulkUpdateModal">
+    <div class="bulk-panel">
+      <div class="bulk-panel__header">
+        <div>
+          <div class="bulk-panel__title">Actualización masiva</div>
+          <div class="bulk-panel__helper">Pega el JSON de updates y valida antes de aplicar.</div>
+        </div>
+        <button class="btn-ghost" id="btnCloseBulkModal">Cerrar</button>
+      </div>
+      <div class="grid grid-2 gap-md">
+        <div>
+          <label for="bulkJsonInput">JSON de updates</label>
+          <textarea id="bulkJsonInput" rows="14" placeholder='{"updates":[{"record_id":123,"fields":{"views":1200,"clicks":45}}]}'></textarea>
+          <div class="flex gap-sm mt-sm">
+            <button id="btnBulkValidate" class="btn-secondary">Validar</button>
+            <button id="btnBulkApply" class="btn-ai" disabled>Aplicar</button>
+          </div>
+          <div class="text-xs text-muted mt-sm">
+            Identificador prioritario: record_id → session_id → record_name.
+          </div>
+        </div>
+        <div>
+          <div class="section-header">
+            <h3>Previsualización</h3>
+          </div>
+          <div id="bulkPreview" class="bulk-panel__preview">Sin validar.</div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <div class="modal-backdrop hidden" id="recordModal">
@@ -402,6 +440,7 @@
   let publics = [];
   let currentRecordId = null;
   let currentRecordName = "";
+  let bulkLastPayload = null;
 
   function escapeHtml(s) {
     return String(s)
@@ -982,6 +1021,95 @@
 
   $("aiModal").addEventListener("click", function(e) {
     if (e.target === this) closeAiModal();
+  });
+
+  // ---------- BULK UPDATE ----------
+  function openBulkModal() {
+    $("bulkUpdateModal").classList.remove("hidden");
+  }
+
+  function closeBulkModal() {
+    $("bulkUpdateModal").classList.add("hidden");
+  }
+
+  function renderBulkPreview(result) {
+    const lines = [];
+    lines.push(`Actualizables: ${result.updated_count}`);
+    lines.push(`No encontrados: ${result.not_found.length}`);
+    if (result.not_found.length) {
+      lines.push(` - ${result.not_found.join(", ")}`);
+    }
+    if (Object.keys(result.unknown_fields).length) {
+      lines.push("Campos desconocidos:");
+      for (const [id, fields] of Object.entries(result.unknown_fields)) {
+        lines.push(` - ${id}: ${fields.join(", ")}`);
+      }
+    }
+    if (Object.keys(result.errors).length) {
+      lines.push("Errores:");
+      for (const [id, errs] of Object.entries(result.errors)) {
+        lines.push(` - ${id}: ${errs.join(" | ")}`);
+      }
+    }
+    if (result.preview?.length) {
+      lines.push("Detalles:");
+      result.preview.forEach(item => {
+        const fields = item.fields_to_update?.length ? item.fields_to_update.join(", ") : "—";
+        lines.push(` - ${item.record_identifier} [${item.status}]: ${fields}`);
+      });
+    }
+    $("bulkPreview").textContent = lines.join("\n");
+  }
+
+  async function validateBulkUpdates() {
+    const raw = $("bulkJsonInput").value.trim();
+    if (!raw) {
+      showToast("Pega un JSON antes de validar.", "error");
+      return;
+    }
+    try {
+      const payload = JSON.parse(raw);
+      const result = await apiPost("/records/bulk-update/preview", payload);
+      bulkLastPayload = payload;
+      renderBulkPreview(result);
+      $("btnBulkApply").disabled = result.updated_count === 0;
+      showToast("Validación completada.", "success");
+    } catch (e) {
+      $("bulkPreview").textContent = "Error al validar: " + String(e);
+      $("btnBulkApply").disabled = true;
+      showToast("Error al validar JSON.", "error");
+    }
+  }
+
+  async function applyBulkUpdates() {
+    const payload = bulkLastPayload || (() => {
+      const raw = $("bulkJsonInput").value.trim();
+      return raw ? JSON.parse(raw) : null;
+    })();
+    if (!payload) {
+      showToast("No hay payload válido para aplicar.", "error");
+      return;
+    }
+    try {
+      const result = await apiPost("/records/bulk-update/apply", payload);
+      renderBulkPreview(result);
+      $("btnBulkApply").disabled = result.updated_count === 0;
+      showToast(`Actualizados: ${result.updated_count}`, "success");
+      await loadAll();
+    } catch (e) {
+      showToast("Error al aplicar: " + String(e), "error");
+    }
+  }
+
+  $("btnBulkUpdate").addEventListener("click", openBulkModal);
+  $("btnCloseBulkModal").addEventListener("click", closeBulkModal);
+  $("btnBulkValidate").addEventListener("click", validateBulkUpdates);
+  $("btnBulkApply").addEventListener("click", applyBulkUpdates);
+
+  $("bulkUpdateModal").addEventListener("click", (event) => {
+    if (event.target === $("bulkUpdateModal")) {
+      closeBulkModal();
+    }
   });
 
   loadAll().catch(err => alert(String(err)));
