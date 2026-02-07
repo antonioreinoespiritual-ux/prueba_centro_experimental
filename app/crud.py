@@ -614,6 +614,91 @@ def _is_count_metric(metric: str) -> bool:
     }
 
 
+def _compare_threshold(op: str, value: float, target: float) -> bool:
+    if op == ">=":
+        return value >= target
+    if op == ">":
+        return value > target
+    if op == "<=":
+        return value <= target
+    if op == "<":
+        return value < target
+    return False
+
+
+def _compute_comparison_value(
+    metric: str | None,
+    threshold_type: str | None,
+    aggregated_value: float | None,
+    volume_total: int,
+) -> float | None:
+    if aggregated_value is None or not metric or not threshold_type:
+        return None
+
+    if threshold_type == "percentage":
+        if _is_rate_metric(metric) or _is_percentage_metric(metric):
+            return aggregated_value
+        if _is_count_metric(metric) and volume_total > 0:
+            return (aggregated_value / volume_total) * 100
+    elif threshold_type in {"absolute", "decimal"}:
+        if not _is_rate_metric(metric) and not _is_percentage_metric(metric):
+            return aggregated_value
+    return None
+
+
+def _evaluate_records_segment(
+    records: list[models.ExperimentRecord],
+    exp: models.Experiment,
+    op: str | None,
+    threshold_val: float | None,
+    threshold_type: str | None,
+) -> dict:
+    records_collecting = sum(1 for r in records if r.record_status == "collecting")
+    records_closed = sum(1 for r in records if r.record_status == "closed")
+    all_closed = records_collecting == 0 and len(records) > 0
+
+    aggregated_value = None
+    if exp.primary_metric and records:
+        aggregated_value, _ = _compute_aggregated_metric(records, exp.primary_metric)
+
+    volume_total = _compute_volume_total(records, exp.volume_unit)
+    min_vol = exp.volume_min_value
+    volume_sufficient = bool(min_vol and volume_total >= min_vol)
+    ready = volume_sufficient and all_closed
+
+    comparison_value = None
+    suggested_status = "inconclusive"
+    explanation = "evidencia insuficiente"
+
+    if ready and aggregated_value is not None and op and threshold_val is not None and threshold_type:
+        comparison_value = _compute_comparison_value(
+            exp.primary_metric,
+            threshold_type,
+            aggregated_value,
+            volume_total,
+        )
+        if comparison_value is not None:
+            if _compare_threshold(op, comparison_value, threshold_val):
+                suggested_status = "validated"
+                explanation = "cumple umbral"
+            else:
+                suggested_status = "invalidated"
+                explanation = "no cumple umbral"
+
+    return {
+        "aggregated_value": round(aggregated_value, 4) if aggregated_value is not None else None,
+        "comparison_value": round(comparison_value, 4) if comparison_value is not None else None,
+        "total_volume": volume_total,
+        "volume_sufficient": volume_sufficient,
+        "all_records_closed": all_closed,
+        "ready_to_evaluate": ready,
+        "suggested_status": suggested_status,
+        "explanation": explanation,
+        "records_collecting": records_collecting,
+        "records_closed": records_closed,
+    }
+
+
 def evaluate_experiment(db: Session, experiment_id: int) -> schemas.ExperimentEvaluation:
     """Evaluate a hypothesis by aggregating all its records and comparing to threshold."""
     exp = get_experiment(db, experiment_id)
@@ -621,21 +706,6 @@ def evaluate_experiment(db: Session, experiment_id: int) -> schemas.ExperimentEv
         return None
 
     records = get_records(db, experiment_id=experiment_id, limit=50000)
-
-    records_collecting = sum(1 for r in records if r.record_status == "collecting")
-    records_closed = sum(1 for r in records if r.record_status == "closed")
-    all_closed = records_collecting == 0 and len(records) > 0
-
-    aggregated_value = None
-
-    if exp.primary_metric and records:
-        aggregated_value, _ = _compute_aggregated_metric(records, exp.primary_metric)
-
-    volume_total = _compute_volume_total(records, exp.volume_unit)
-    min_vol = exp.volume_min_value
-    volume_sufficient = bool(min_vol and volume_total >= min_vol)
-
-    ready = volume_sufficient and all_closed
 
     suggested_status = None
     op = exp.threshold_operator
@@ -647,35 +717,58 @@ def evaluate_experiment(db: Session, experiment_id: int) -> schemas.ExperimentEv
         threshold_val = threshold_val if threshold_val is not None else parsed_val
         threshold_type = threshold_type or _infer_threshold_type(exp.primary_metric, parsed_percent)
 
-    if ready and aggregated_value is not None:
-        metric = exp.primary_metric
-        if op and threshold_val is not None and threshold_type and metric:
-            compare_value = None
-            if threshold_type == "percentage":
-                if _is_rate_metric(metric) or _is_percentage_metric(metric):
-                    compare_value = aggregated_value
-                elif _is_count_metric(metric):
-                    base_total = _compute_volume_total(records, exp.volume_unit)
-                    if base_total > 0:
-                        compare_value = (aggregated_value / base_total) * 100
-            elif threshold_type == "absolute":
-                if not _is_rate_metric(metric) and not _is_percentage_metric(metric):
-                    compare_value = aggregated_value
-            elif threshold_type == "decimal":
-                if not _is_rate_metric(metric) and not _is_percentage_metric(metric):
-                    compare_value = aggregated_value
+    grouped: dict[str, list[models.ExperimentRecord]] = {}
+    for record in records:
+        publico = (record.publico or "").strip() or "Sin público"
+        grouped.setdefault(publico, []).append(record)
 
-            if compare_value is not None:
-                if op == ">=" and compare_value >= threshold_val:
-                    suggested_status = "validated"
-                elif op == ">" and compare_value > threshold_val:
-                    suggested_status = "validated"
-                elif op == "<=" and compare_value <= threshold_val:
-                    suggested_status = "validated"
-                elif op == "<" and compare_value < threshold_val:
-                    suggested_status = "validated"
-                else:
-                    suggested_status = "invalidated"
+    segments: list[schemas.ExperimentEvaluationSegment] = []
+    for publico in sorted(grouped.keys()):
+        segment_values = _evaluate_records_segment(
+            grouped[publico],
+            exp,
+            op,
+            threshold_val,
+            threshold_type,
+        )
+        segments.append(
+            schemas.ExperimentEvaluationSegment(
+                publico=publico,
+                records_total=len(grouped[publico]),
+                aggregated_value=segment_values["aggregated_value"],
+                comparison_value=segment_values["comparison_value"],
+                total_volume=segment_values["total_volume"],
+                volume_sufficient=segment_values["volume_sufficient"],
+                all_records_closed=segment_values["all_records_closed"],
+                ready_to_evaluate=segment_values["ready_to_evaluate"],
+                suggested_status=segment_values["suggested_status"],
+                explanation=segment_values["explanation"],
+            )
+        )
+
+    segmented_by_public = len(segments) > 1
+
+    records_collecting = sum(1 for r in records if r.record_status == "collecting")
+    records_closed = sum(1 for r in records if r.record_status == "closed")
+    all_closed = records_collecting == 0 and len(records) > 0
+    volume_total = _compute_volume_total(records, exp.volume_unit)
+    min_vol = exp.volume_min_value
+    volume_sufficient = bool(min_vol and volume_total >= min_vol)
+
+    ready = volume_sufficient and all_closed and not segmented_by_public
+    aggregated_value = None
+    if exp.primary_metric and records and not segmented_by_public:
+        aggregated_value, _ = _compute_aggregated_metric(records, exp.primary_metric)
+
+    if ready and aggregated_value is not None and op and threshold_val is not None and threshold_type:
+        comparison_value = _compute_comparison_value(
+            exp.primary_metric,
+            threshold_type,
+            aggregated_value,
+            volume_total,
+        )
+        if comparison_value is not None:
+            suggested_status = "validated" if _compare_threshold(op, comparison_value, threshold_val) else "invalidated"
 
     return schemas.ExperimentEvaluation(
         experiment_id=experiment_id,
@@ -695,4 +788,6 @@ def evaluate_experiment(db: Session, experiment_id: int) -> schemas.ExperimentEv
         suggested_status=suggested_status,
         records_collecting=records_collecting,
         records_closed=records_closed,
+        segmented_by_public=segmented_by_public,
+        segments=segments,
     )

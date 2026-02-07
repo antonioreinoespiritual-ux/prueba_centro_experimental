@@ -234,6 +234,21 @@ class ExperimentEvaluation(BaseModel):
     suggested_status: Optional[str] = None
     records_collecting: int = 0
     records_closed: int = 0
+    segmented_by_public: bool = False
+    segments: list["ExperimentEvaluationSegment"] = []
+
+
+class ExperimentEvaluationSegment(BaseModel):
+    publico: str
+    records_total: int = 0
+    aggregated_value: Optional[float] = None
+    comparison_value: Optional[float] = None
+    total_volume: int = 0
+    volume_sufficient: bool = False
+    all_records_closed: bool = False
+    ready_to_evaluate: bool = False
+    suggested_status: str = "inconclusive"
+    explanation: str = "evidencia insuficiente"
 
 
 class ExperimentAnalysis(BaseModel):

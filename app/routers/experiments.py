@@ -98,6 +98,11 @@ def apply_evaluation(experiment_id: int, db: Session = Depends(get_db)):
     evaluation = crud.evaluate_experiment(db, experiment_id)
     if evaluation is None:
         raise HTTPException(status_code=404, detail="Experiment not found")
+    if evaluation.segmented_by_public:
+        raise HTTPException(
+            status_code=400,
+            detail="Evaluation is segmented by public. Apply status per public instead of globally.",
+        )
     if not evaluation.ready_to_evaluate:
         raise HTTPException(
             status_code=400,

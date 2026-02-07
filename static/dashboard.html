@@ -75,6 +75,7 @@
           </div>
         </div>
         <div class="eval-grid" id="evalGrid"></div>
+        <div id="evalSegments" class="mt-md"></div>
       </div>
 
       <!-- AI Analysis Modal -->
@@ -1166,11 +1167,31 @@
 
       const ev = await apiGet(`/experiments/${expId}/evaluate`);
       const grid = $("evalGrid");
+      const segmentsEl = $("evalSegments");
       grid.innerHTML = "";
+      segmentsEl.innerHTML = "";
+
+      const formatNumber = (value, suffix = "") => {
+        if (value === null || value === undefined) return "—";
+        return `${value.toFixed(4)}${suffix}`;
+      };
+
+      const statusLabel = (status) => {
+        if (status === "validated") return "validada";
+        if (status === "invalidated") return "invalidada";
+        if (status === "inconclusive") return "inconclusa";
+        return "—";
+      };
+
+      const statusStyle = (status) => {
+        if (status === "validated") return "color: var(--success-text);";
+        if (status === "invalidated") return "color: var(--danger-text);";
+        return "color: var(--text-muted);";
+      };
 
       const items = [
         ["Metrica", ev.primary_metric || "—"],
-        ["Valor Agregado", ev.aggregated_value !== null ? ev.aggregated_value.toFixed(4) : "—"],
+        ["Valor Agregado", ev.segmented_by_public ? "—" : formatNumber(ev.aggregated_value)],
         ["Umbral", ev.threshold_operator && ev.threshold_value !== null && ev.threshold_type
           ? `${ev.threshold_operator} ${ev.threshold_value} ${ev.threshold_type === "percentage" ? "%" : ev.threshold_type}`
           : "—"],
@@ -1183,7 +1204,8 @@
         ["Records Closed", String(ev.records_closed)],
         ["Todos Cerrados", ev.all_records_closed ? "SI" : "NO"],
         ["Listo para Evaluar", ev.ready_to_evaluate ? "SI" : "NO"],
-        ["Estado Sugerido", ev.suggested_status || "—"],
+        ["Evaluacion Segmentada por Publico", ev.segmented_by_public ? "SI" : "NO"],
+        ["Estado Sugerido", ev.segmented_by_public ? "—" : (ev.suggested_status || "—")],
       ];
 
       for (const [label, value] of items) {
@@ -1196,6 +1218,48 @@
         grid.appendChild(div);
       }
 
+      if (ev.segments && ev.segments.length) {
+        const heading = document.createElement("div");
+        heading.className = "text-sm text-muted mb-sm";
+        heading.textContent = "Resultado por público";
+        segmentsEl.appendChild(heading);
+
+        const wrapper = document.createElement("div");
+        wrapper.className = "table-wrapper";
+        const table = document.createElement("table");
+        table.innerHTML = `
+          <thead>
+            <tr>
+              <th>Publico</th>
+              <th>Records</th>
+              <th>Valor comparado</th>
+              <th>Estado</th>
+              <th>Explicacion</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        `;
+        const tbody = table.querySelector("tbody");
+        const suffix = ev.threshold_type === "percentage" ? "%" : "";
+
+        for (const segment of ev.segments) {
+          const row = document.createElement("tr");
+          const statusText = statusLabel(segment.suggested_status);
+          row.innerHTML = `
+            <td>${escapeHtml(segment.publico)}</td>
+            <td>${escapeHtml(String(segment.records_total))}</td>
+            <td>${escapeHtml(formatNumber(segment.comparison_value, suffix))}</td>
+            <td style="${statusStyle(segment.suggested_status)}">${escapeHtml(statusText)}</td>
+            <td>${escapeHtml(segment.explanation || "—")}</td>
+          `;
+          tbody.appendChild(row);
+        }
+
+        wrapper.appendChild(table);
+        segmentsEl.appendChild(wrapper);
+      }
+
+      $("btnApplyEval").disabled = !!ev.segmented_by_public;
       showToast("Evaluacion completada", "success");
       setStatus("evaluacion completada");
     } catch(e) {

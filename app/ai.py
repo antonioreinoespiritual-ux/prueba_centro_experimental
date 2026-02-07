@@ -285,6 +285,22 @@ def _build_metrics_input(
             "suggested_status": evaluation.suggested_status,
             "records_collecting": evaluation.records_collecting,
             "records_closed": evaluation.records_closed,
+            "segmented_by_public": evaluation.segmented_by_public,
+            "segments": [
+                {
+                    "publico": segment.publico,
+                    "records_total": segment.records_total,
+                    "aggregated_value": segment.aggregated_value,
+                    "comparison_value": segment.comparison_value,
+                    "total_volume": segment.total_volume,
+                    "volume_sufficient": segment.volume_sufficient,
+                    "all_records_closed": segment.all_records_closed,
+                    "ready_to_evaluate": segment.ready_to_evaluate,
+                    "suggested_status": segment.suggested_status,
+                    "explanation": segment.explanation,
+                }
+                for segment in evaluation.segments
+            ],
         },
         "flags": {
             "volume_insufficient": volume_insufficient,
