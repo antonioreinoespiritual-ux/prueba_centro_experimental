@@ -181,6 +181,8 @@ def create_record(db: Session, data: schemas.RecordCreate):
 
         clicks=data.clicks,
         views=data.views,
+        views_profile=data.views_profile,
+        inicia_test=data.inicia_test,
 
         # orgánico
         organic_piece_type=organic_piece_type,

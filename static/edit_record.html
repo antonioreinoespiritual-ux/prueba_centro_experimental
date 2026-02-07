@@ -122,6 +122,14 @@
           <input id="views" type="number" />
         </div>
         <div class="field-group">
+          <label for="views_profile">Views Profile</label>
+          <input id="views_profile" type="number" />
+        </div>
+        <div class="field-group">
+          <label for="inicia_test">IniciaTest</label>
+          <input id="inicia_test" type="number" />
+        </div>
+        <div class="field-group">
           <label for="ctr">CTR</label>
           <input id="ctr" type="number" step="0.0001" />
         </div>
@@ -280,7 +288,8 @@
   function fillForm(record) {
     const fields = [
       "record_name", "hook_text", "hook_type", "cta_text", "cta_type",
-      "clicks", "views", "ctr", "cpc", "initiate_checkouts", "view_content",
+      "clicks", "views", "views_profile", "inicia_test", "ctr", "cpc",
+      "initiate_checkouts", "view_content",
       "lead_form", "purchase", "likes", "comments", "shares", "saves",
       "views_finish_pct", "retention_pct", "avg_watch_time", "video_duration",
       "live_viewers_peak", "live_avg_viewers", "live_duration", "live_new_followers",
@@ -333,6 +342,8 @@
       ["cta_type", (v) => v || null],
       ["clicks", asIntOrNull],
       ["views", asIntOrNull],
+      ["views_profile", asIntOrNull],
+      ["inicia_test", asIntOrNull],
       ["ctr", asFloatOrNull],
       ["cpc", asFloatOrNull],
       ["initiate_checkouts", asIntOrNull],

@@ -300,7 +300,7 @@
         </div>
 
         <div class="field-section">METRICAS</div>
-        <div class="grid grid-2">
+        <div class="grid grid-4">
           <div class="field-group">
             <label for="live_clicks">Clicks</label>
             <input id="live_clicks" type="number" placeholder="50" />
@@ -308,6 +308,14 @@
           <div class="field-group">
             <label for="live_views">Views</label>
             <input id="live_views" type="number" placeholder="500" />
+          </div>
+          <div class="field-group">
+            <label for="live_views_profile">Views Profile</label>
+            <input id="live_views_profile" type="number" placeholder="120" />
+          </div>
+          <div class="field-group">
+            <label for="live_inicia_test">IniciaTest</label>
+            <input id="live_inicia_test" type="number" placeholder="18" />
           </div>
         </div>
 
@@ -429,7 +437,7 @@
         </div>
 
         <div class="field-section">METRICAS</div>
-        <div class="grid grid-2">
+        <div class="grid grid-4">
           <div class="field-group">
             <label for="organic_clicks">Clicks</label>
             <input id="organic_clicks" type="number" placeholder="12" />
@@ -437,6 +445,14 @@
           <div class="field-group">
             <label for="organic_views">Views</label>
             <input id="organic_views" type="number" placeholder="120" />
+          </div>
+          <div class="field-group">
+            <label for="organic_views_profile">Views Profile</label>
+            <input id="organic_views_profile" type="number" placeholder="35" />
+          </div>
+          <div class="field-group">
+            <label for="organic_inicia_test">IniciaTest</label>
+            <input id="organic_inicia_test" type="number" placeholder="8" />
           </div>
         </div>
 
@@ -587,7 +603,7 @@
         </div>
 
         <div class="field-section">METRICAS</div>
-        <div class="grid grid-2">
+        <div class="grid grid-4">
           <div class="field-group">
             <label for="paid_clicks">Clicks</label>
             <input id="paid_clicks" type="number" placeholder="280" />
@@ -595,6 +611,14 @@
           <div class="field-group">
             <label for="paid_views">Views</label>
             <input id="paid_views" type="number" placeholder="1500" />
+          </div>
+          <div class="field-group">
+            <label for="paid_views_profile">Views Profile</label>
+            <input id="paid_views_profile" type="number" placeholder="220" />
+          </div>
+          <div class="field-group">
+            <label for="paid_inicia_test">IniciaTest</label>
+            <input id="paid_inicia_test" type="number" placeholder="40" />
           </div>
         </div>
 
@@ -718,6 +742,14 @@
           <div class="field-group">
             <label for="upd_views">Views</label>
             <input id="upd_views" type="number" />
+          </div>
+          <div class="field-group">
+            <label for="upd_views_profile">Views Profile</label>
+            <input id="upd_views_profile" type="number" />
+          </div>
+          <div class="field-group">
+            <label for="upd_inicia_test">IniciaTest</label>
+            <input id="upd_inicia_test" type="number" />
           </div>
           <div class="field-group">
             <label for="upd_initiate_checkouts">Initiate Checkouts</label>
@@ -1050,6 +1082,8 @@
         record_name: $("organic_record_name").value.trim() || null,
         clicks: asIntOrNull($("organic_clicks").value),
         views: asIntOrNull($("organic_views").value),
+        views_profile: asIntOrNull($("organic_views_profile").value),
+        inicia_test: asIntOrNull($("organic_inicia_test").value),
         initiate_checkouts: asIntOrNull($("organic_initiate_checkouts").value),
         view_content: asIntOrNull($("organic_view_content").value),
         lead_form: asIntOrNull($("organic_lead_form").value),
@@ -1076,8 +1110,9 @@
 
       await apiPost("/records/", body);
 
-      ["organic_session_id","organic_record_name","organic_clicks","organic_views","organic_initiate_checkouts",
-       "organic_view_content","organic_lead_form","organic_purchase","organic_piece_type",
+      ["organic_session_id","organic_record_name","organic_clicks","organic_views","organic_views_profile",
+       "organic_inicia_test","organic_initiate_checkouts","organic_view_content","organic_lead_form",
+       "organic_purchase","organic_piece_type",
        "organic_likes","organic_comments","organic_shares","organic_saves",
        "organic_video_url","organic_views_finish_pct","organic_retention_pct",
        "organic_avg_watch_time","organic_video_duration",
@@ -1105,6 +1140,8 @@
         record_name: $("live_record_name").value.trim() || null,
         clicks: asIntOrNull($("live_clicks").value),
         views: asIntOrNull($("live_views").value),
+        views_profile: asIntOrNull($("live_views_profile").value),
+        inicia_test: asIntOrNull($("live_inicia_test").value),
         live_viewers_peak: asIntOrNull($("live_viewers_peak").value),
         live_avg_viewers: asIntOrNull($("live_avg_viewers").value),
         live_duration: asFloatOrNull($("live_duration").value),
@@ -1127,8 +1164,8 @@
 
       await apiPost("/records/", body);
 
-      ["live_session_id","live_record_name","live_clicks","live_views","live_viewers_peak",
-       "live_avg_viewers","live_duration","live_new_followers",
+      ["live_session_id","live_record_name","live_clicks","live_views","live_views_profile",
+       "live_inicia_test","live_viewers_peak","live_avg_viewers","live_duration","live_new_followers",
        "live_likes","live_comments","live_shares","live_saves",
        "live_hook_text","live_cta_text","live_creative_id","live_contexto_record"
       ].forEach(id => $(id).value = "");
@@ -1154,6 +1191,8 @@
         record_name: $("paid_record_name").value.trim() || null,
         clicks: asIntOrNull($("paid_clicks").value),
         views: asIntOrNull($("paid_views").value),
+        views_profile: asIntOrNull($("paid_views_profile").value),
+        inicia_test: asIntOrNull($("paid_inicia_test").value),
         initiate_checkouts: asIntOrNull($("paid_initiate_checkouts").value),
         view_content: asIntOrNull($("paid_view_content").value),
         lead_form: asIntOrNull($("paid_lead").value),
@@ -1178,8 +1217,9 @@
 
       await apiPost("/records/", body);
 
-      ["paid_session_id","paid_record_name","paid_clicks","paid_views","paid_initiate_checkouts",
-       "paid_view_content","paid_lead","paid_purchase","paid_cpc","paid_ctr",
+      ["paid_session_id","paid_record_name","paid_clicks","paid_views","paid_views_profile",
+       "paid_inicia_test","paid_initiate_checkouts","paid_view_content","paid_lead","paid_purchase",
+       "paid_cpc","paid_ctr",
        "paid_video_duration","paid_campaign_id","paid_ad_set_id","paid_ad_id",
        "paid_hook_text","paid_cta_text","paid_creative_id","paid_contexto_record"
       ].forEach(id => $(id).value = "");
@@ -1263,7 +1303,8 @@
 
       // Fill fields with current values
       const fields = [
-        "record_name","clicks","views","initiate_checkouts","view_content","lead_form","purchase",
+        "record_name","clicks","views","views_profile","inicia_test","initiate_checkouts",
+        "view_content","lead_form","purchase",
         "likes","comments","shares","saves",
         "live_viewers_peak","live_avg_viewers","live_duration","live_new_followers",
         "ctr","cpc","views_finish_pct","retention_pct","avg_watch_time","video_duration"
@@ -1289,6 +1330,7 @@
       const fields = [
         ["record_name", (v) => v.trim() || null],
         ["clicks", asIntOrNull], ["views", asIntOrNull],
+        ["views_profile", asIntOrNull], ["inicia_test", asIntOrNull],
         ["initiate_checkouts", asIntOrNull], ["view_content", asIntOrNull],
         ["lead_form", asIntOrNull], ["purchase", asIntOrNull],
         ["likes", asIntOrNull], ["comments", asIntOrNull],

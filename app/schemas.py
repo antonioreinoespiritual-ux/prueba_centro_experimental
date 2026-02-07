@@ -248,6 +248,8 @@ class RecordCreate(BaseModel):
     # comunes
     clicks: Optional[int] = Field(default=None, ge=0)
     views: Optional[int] = Field(default=None, ge=0)
+    views_profile: Optional[int] = Field(default=None, ge=0)
+    inicia_test: Optional[int] = Field(default=None, ge=0)
 
     # orgánico
     organic_piece_type: Optional[str] = Field(default=None, max_length=200)
@@ -297,6 +299,8 @@ class RecordUpdate(BaseModel):
     """For updating metrics on an existing record (same execution, new data)."""
     clicks: Optional[int] = Field(default=None, ge=0)
     views: Optional[int] = Field(default=None, ge=0)
+    views_profile: Optional[int] = Field(default=None, ge=0)
+    inicia_test: Optional[int] = Field(default=None, ge=0)
 
     likes: Optional[int] = Field(default=None, ge=0)
     comments: Optional[int] = Field(default=None, ge=0)
@@ -336,6 +340,8 @@ class RecordOut(BaseModel):
 
     clicks: Optional[int] = None
     views: Optional[int] = None
+    views_profile: Optional[int] = None
+    inicia_test: Optional[int] = None
 
     organic_piece_type: Optional[str] = None
     likes: Optional[int] = None

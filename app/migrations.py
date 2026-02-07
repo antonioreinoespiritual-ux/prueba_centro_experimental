@@ -55,6 +55,8 @@ def ensure_schema() -> None:
         ("creative_id", "VARCHAR(200)"),
         ("record_status", "VARCHAR(20) NOT NULL DEFAULT 'collecting'"),
         ("updated_at", "DATETIME"),
+        ("views_profile", "INTEGER"),
+        ("inicia_test", "INTEGER"),
     ]
 
     for col_name, col_type in record_columns:

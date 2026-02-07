@@ -53,6 +53,8 @@ class ExperimentRecord(Base):
 
     clicks: Mapped[int | None] = mapped_column(Integer, nullable=True)
     views: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    views_profile: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    inicia_test: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     # orgánico
     organic_piece_type: Mapped[str | None] = mapped_column(String(200), nullable=True)
