@@ -29,7 +29,7 @@
     <!-- Filters Card -->
     <div class="card fade-in mt-lg">
       <h2 class="card__title mb-lg">Filtros y Configuracion</h2>
-      <div class="grid grid-3">
+      <div class="grid grid-4">
         <div class="field-group">
           <label for="trafficFilter">Traffic</label>
           <select id="trafficFilter">
@@ -41,8 +41,12 @@
           </select>
         </div>
         <div class="field-group">
-          <label for="experimentFilter">Experimento</label>
-          <select id="experimentFilter"></select>
+          <label for="projectFilter">Proyecto</label>
+          <select id="projectFilter"></select>
+        </div>
+        <div class="field-group">
+          <label for="metricXFilter">Metrica X</label>
+          <select id="metricXFilter"></select>
         </div>
         <div class="field-group">
           <label for="limit">Max records a cargar (performance)</label>
@@ -384,35 +388,63 @@
   let selectedRecordId = null;
 
   // Helpers
+  function uniqueSorted(values){
+    return [...new Set(values.filter(Boolean))].sort((a, b) => a.localeCompare(b, "es"));
+  }
+
+  function fillFilterSelect(selectEl, options, keepValue=true, allLabel="(todos)"){
+    const prev = keepValue ? selectEl.value : "";
+    selectEl.innerHTML = "";
+    const optAll = document.createElement("option");
+    optAll.value = "";
+    optAll.textContent = allLabel;
+    selectEl.appendChild(optAll);
+    for (const value of options){
+      const opt = document.createElement("option");
+      opt.value = value;
+      opt.textContent = value;
+      selectEl.appendChild(opt);
+    }
+    if (keepValue && prev && [...selectEl.options].some(o => o.value === prev)) {
+      selectEl.value = prev;
+    } else {
+      selectEl.value = "";
+    }
+  }
+
   function byTrafficExp(exps, traffic){
     if (!traffic || traffic === "all") return exps;
     return exps.filter(e => e.traffic_type === traffic);
   }
 
-  function fillExperimentsSelect(){
+  function getFilteredExperiments(){
     const traffic = $("trafficFilter").value;
-    const filtered = byTrafficExp(experiments, traffic);
+    const project = $("projectFilter").value;
+    const metricX = $("metricXFilter").value;
 
-    const sel = $("experimentFilter");
-    const prev = sel.value;
-    sel.innerHTML = "";
+    let filtered = byTrafficExp(experiments, traffic);
+    if (project) filtered = filtered.filter(e => e.project_name === project);
+    if (metricX) filtered = filtered.filter(e => e.independent_variable === metricX);
+    return filtered;
+  }
 
-    const optAll = document.createElement("option");
-    optAll.value = "";
-    optAll.textContent = "(todos)";
-    sel.appendChild(optAll);
+  function fillProjectAndMetricFilters(){
+    const traffic = $("trafficFilter").value;
+    const trafficFiltered = byTrafficExp(experiments, traffic);
+    fillFilterSelect($("projectFilter"), uniqueSorted(trafficFiltered.map(e => e.project_name)), true, "(todos)");
 
-    for (const e of filtered) {
-      const opt = document.createElement("option");
-      opt.value = String(e.id);
-      const statusTag = e.experiment_status ? ` [${e.experiment_status}]` : "";
-      const varX = e.independent_variable ? ` | X: ${e.independent_variable}` : "";
-      opt.textContent = `${e.id} — ${e.project_name}${statusTag}${varX}`;
-      sel.appendChild(opt);
-    }
+    const project = $("projectFilter").value;
+    const metricCandidates = trafficFiltered.filter(e => !project || e.project_name === project);
+    fillFilterSelect($("metricXFilter"), uniqueSorted(metricCandidates.map(e => e.independent_variable)), true, "(todas)");
+  }
 
-    if (prev && [...sel.options].some(o => o.value === prev)) sel.value = prev;
-    else sel.value = "";
+  function getSelectedExperimentId(){
+    const metricX = $("metricXFilter").value;
+    if (!metricX) return null;
+    const filtered = getFilteredExperiments();
+    if (!filtered.length) return null;
+    const match = filtered.find(e => e.independent_variable === metricX) || filtered[0];
+    return match ? match.id : null;
   }
 
   const statusOrder = {
@@ -1044,7 +1076,11 @@
       $("tblValidated").innerHTML = '<tr><td colspan="8"><div class="state-loading"><div class="state-loading__spinner"></div>Cargando datos</div></td></tr>';
 
       experiments = await apiGet("/experiments/");
-      fillExperimentsSelect();
+      if ($("trafficFilter").value === "all") {
+        $("projectFilter").value = "";
+        $("metricXFilter").value = "";
+      }
+      fillProjectAndMetricFilters();
 
       const limit = Math.max(1, Number($("limit").value) || 5000);
       records = await apiGet(`/records/?limit=${encodeURIComponent(limit)}`);
@@ -1058,14 +1094,14 @@
   }
 
   function updateHypothesisPanel(){
-    const expIdStr = $("experimentFilter").value;
+    const expId = getSelectedExperimentId();
     const panel = $("hypothesisPanel");
     const evalPanel = $("evalPanel");
     const textEl = $("hypothesisText");
     const projectEl = $("hypothesisProject");
     const metaEl = $("hypothesisMeta");
 
-    if (!expIdStr){
+    if (!expId){
       panel.classList.add("hidden");
       panel.style.display = "";
       evalPanel.classList.add("hidden");
@@ -1073,7 +1109,6 @@
       return;
     }
 
-    const expId = Number(expIdStr);
     const exp = experiments.find(e => e.id === expId);
 
     if (!exp){
@@ -1126,10 +1161,10 @@
   // Evaluation
   $("btnEvaluate").onclick = async () => {
     try {
-      const expIdStr = $("experimentFilter").value;
-      if (!expIdStr) throw new Error("Selecciona un experimento.");
+      const expId = getSelectedExperimentId();
+      if (!expId) throw new Error("Selecciona una metrica X.");
 
-      const ev = await apiGet(`/experiments/${expIdStr}/evaluate`);
+      const ev = await apiGet(`/experiments/${expId}/evaluate`);
       const grid = $("evalGrid");
       grid.innerHTML = "";
 
@@ -1171,17 +1206,20 @@
 
   $("btnApplyEval").onclick = async () => {
     try {
-      const expIdStr = $("experimentFilter").value;
-      if (!expIdStr) throw new Error("Selecciona un experimento.");
+      const expId = getSelectedExperimentId();
+      if (!expId) throw new Error("Selecciona una metrica X.");
 
-      const result = await apiPost(`/experiments/${expIdStr}/evaluate/apply`);
+      const result = await apiPost(`/experiments/${expId}/evaluate/apply`);
       showToast(`Estado aplicado: ${result.experiment_status}`, 'success');
       setStatus(`estado aplicado: ${result.experiment_status}`);
 
       // Reload experiments to reflect new status
       experiments = await apiGet("/experiments/");
-      fillExperimentsSelect();
-      $("experimentFilter").value = expIdStr;
+      if ($("trafficFilter").value === "all") {
+        $("projectFilter").value = "";
+        $("metricXFilter").value = "";
+      }
+      fillProjectAndMetricFilters();
       updateHypothesisPanel();
     } catch(e) {
       setStatus("error", true);
@@ -1191,14 +1229,14 @@
 
   $("btnAiAnalysis").onclick = async () => {
     try {
-      const expIdStr = $("experimentFilter").value;
-      if (!expIdStr) throw new Error("Selecciona un experimento.");
+      const expId = getSelectedExperimentId();
+      if (!expId) throw new Error("Selecciona una metrica X.");
       openAiModal();
       aiMeta.textContent = "Generando analisis con ChatGPT basado en la evaluacion y los récords.";
       aiContent.innerHTML = `<div class="state-loading"><div class="state-loading__spinner"></div>Generando analisis con ChatGPT</div>`;
 
-      const result = await apiGet(`/experiments/${expIdStr}/analysis`);
-      aiMeta.textContent = `Experimento #${expIdStr} • ${new Date().toLocaleString()}`;
+      const result = await apiGet(`/experiments/${expId}/analysis`);
+      aiMeta.textContent = `Experimento #${expId} • ${new Date().toLocaleString()}`;
       aiContent.textContent = result.analysis || "No se recibio analisis.";
       setStatus("analisis con ChatGPT completado");
     } catch (e) {
@@ -1221,7 +1259,9 @@
 
   async function refreshView(){
     const traffic = $("trafficFilter").value;
-    const expIdStr = $("experimentFilter").value;
+    const project = $("projectFilter").value;
+    const metricX = $("metricXFilter").value;
+    const expId = getSelectedExperimentId();
 
     const expMap = new Map(experiments.map(e => [e.id, e]));
     const recordsByExp = new Map();
@@ -1236,9 +1276,14 @@
     if (traffic !== "all"){
       filteredExperiments = filteredExperiments.filter(e => e.traffic_type === traffic);
     }
+    if (project){
+      filteredExperiments = filteredExperiments.filter(e => e.project_name === project);
+    }
+    if (metricX){
+      filteredExperiments = filteredExperiments.filter(e => e.independent_variable === metricX);
+    }
 
-    if (expIdStr){
-      const expId = Number(expIdStr);
+    if (expId){
       filteredExperiments = filteredExperiments.filter(e => e.id === expId);
     }
 
@@ -1247,8 +1292,8 @@
     renderValidatedView(expMap, recordsByExp);
     renderAliveDeadView(recordsByExp);
     renderPatternsView(recordsByExp);
-    const selectedExp = expIdStr ? expMap.get(Number(expIdStr)) : null;
-    const selectedRecords = expIdStr ? (recordsByExp.get(Number(expIdStr)) || []) : [];
+    const selectedExp = expId ? expMap.get(expId) : null;
+    const selectedRecords = expId ? (recordsByExp.get(expId) || []) : [];
     renderDetailView(selectedExp, selectedRecords);
     renderExperimentRecords(selectedExp, selectedRecords);
     experiments = originalExperiments;
@@ -1256,8 +1301,21 @@
 
   // Eventos
   $("btnReload").addEventListener("click", loadAll);
-  $("trafficFilter").addEventListener("change", () => { fillExperimentsSelect(); refreshView(); });
-  $("experimentFilter").addEventListener("change", refreshView);
+  $("trafficFilter").addEventListener("change", () => {
+    if ($("trafficFilter").value === "all") {
+      $("projectFilter").value = "";
+      $("metricXFilter").value = "";
+    }
+    fillProjectAndMetricFilters();
+    refreshView();
+  });
+  $("projectFilter").addEventListener("change", () => {
+    fillProjectAndMetricFilters();
+    refreshView();
+  });
+  $("metricXFilter").addEventListener("change", () => {
+    refreshView();
+  });
   $("limit").addEventListener("change", loadAll);
 
   // init

@@ -48,6 +48,14 @@ def update_experiment(
     return exp
 
 
+@router.delete("/{experiment_id}")
+def delete_experiment(experiment_id: int, db: Session = Depends(get_db)):
+    exp = crud.delete_experiment(db, experiment_id)
+    if not exp:
+        raise HTTPException(status_code=404, detail="Experiment not found")
+    return {"deleted": True, "experiment_id": experiment_id}
+
+
 @router.get("/{experiment_id}/evaluate", response_model=schemas.ExperimentEvaluation)
 def evaluate_experiment(experiment_id: int, db: Session = Depends(get_db)):
     result = crud.evaluate_experiment(db, experiment_id)

@@ -72,3 +72,11 @@ def reopen_record(record_id: int, db: Session = Depends(get_db)):
     if not rec:
         raise HTTPException(status_code=404, detail="Record not found")
     return rec
+
+
+@router.delete("/{record_id}")
+def delete_record(record_id: int, db: Session = Depends(get_db)):
+    rec = crud.delete_record(db, record_id)
+    if not rec:
+        raise HTTPException(status_code=404, detail="Record not found")
+    return {"deleted": True, "record_id": record_id}

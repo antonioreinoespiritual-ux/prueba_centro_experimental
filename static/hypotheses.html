@@ -100,6 +100,16 @@
           <input id="fSearch" placeholder="proyecto, hipotesis, variable..." />
         </div>
       </div>
+      <div class="grid grid-2 mt-md">
+        <div class="field-group">
+          <label for="fProject">Proyecto</label>
+          <select id="fProject"></select>
+        </div>
+        <div class="field-group">
+          <label for="fMetricX">Metrica X</label>
+          <select id="fMetricX"></select>
+        </div>
+      </div>
     </div>
 
     <!-- Hypothesis List -->
@@ -150,6 +160,7 @@
           <div class="grid grid-3 mt-md">
             <div class="stat-chip"><div class="stat-chip__label">Clicks / Views</div><div class="stat-chip__value" id="rdTraffic">—</div><div class="stat-chip__meta" id="rdTrafficMeta"></div></div>
             <div class="stat-chip"><div class="stat-chip__label">Funnel</div><div class="stat-chip__value" id="rdFunnel">—</div><div class="stat-chip__meta" id="rdFunnelMeta"></div></div>
+            <div class="stat-chip"><div class="stat-chip__label">Engagement</div><div class="stat-chip__value" id="rdEngagement">—</div><div class="stat-chip__meta">(Likes + Comments + Shares) / Views x 1000</div></div>
             <div class="stat-chip"><div class="stat-chip__label">Creative</div><div class="stat-chip__value" id="rdCreative">—</div><div class="stat-chip__meta" id="rdCreativeMeta"></div></div>
           </div>
           <div class="grid grid-3 mt-md">
@@ -225,6 +236,46 @@
     return Math.abs(x) >= 1000 ? x.toLocaleString("es-ES") : String(x);
   }
 
+  function fmtFloat(n, digits = 2) {
+    if (n === null || n === undefined) return "—";
+    const x = Number(n);
+    if (!Number.isFinite(x)) return "—";
+    return x.toFixed(digits);
+  }
+
+  function uniqueSorted(values) {
+    return [...new Set(values.filter(Boolean))].sort((a, b) => a.localeCompare(b, "es"));
+  }
+
+  function fillFilterSelect(selectEl, options, keepValue=true, allLabel="Todos") {
+    const prev = keepValue ? selectEl.value : "";
+    selectEl.innerHTML = "";
+    const optAll = document.createElement("option");
+    optAll.value = "";
+    optAll.textContent = allLabel;
+    selectEl.appendChild(optAll);
+    for (const value of options) {
+      const opt = document.createElement("option");
+      opt.value = value;
+      opt.textContent = value;
+      selectEl.appendChild(opt);
+    }
+    if (keepValue && prev && [...selectEl.options].some(o => o.value === prev)) {
+      selectEl.value = prev;
+    } else {
+      selectEl.value = "";
+    }
+  }
+
+  function syncProjectMetricFilters() {
+    const projectSelect = $("fProject");
+    fillFilterSelect(projectSelect, uniqueSorted(experiments.map(e => e.project_name)), true, "Todos");
+
+    const project = projectSelect.value;
+    const metricCandidates = experiments.filter(e => !project || e.project_name === project);
+    fillFilterSelect($("fMetricX"), uniqueSorted(metricCandidates.map(e => e.independent_variable)), true, "Todas");
+  }
+
   async function apiGet(path) {
     const r = await fetch(API_BASE + path);
     if (!r.ok) throw new Error(await r.text());
@@ -246,11 +297,15 @@
     const type = $("fType").value;
     const status = $("fStatus").value;
     const channel = $("fChannel").value;
+    const project = $("fProject").value;
+    const metricX = $("fMetricX").value;
     const search = $("fSearch").value.trim().toLowerCase();
 
     if (type) list = list.filter(e => e.hypothesis_type === type);
     if (status) list = list.filter(e => e.experiment_status === status);
     if (channel) list = list.filter(e => e.traffic_type === channel);
+    if (project) list = list.filter(e => e.project_name === project);
+    if (metricX) list = list.filter(e => e.independent_variable === metricX);
     if (search) list = list.filter(e => {
       const hay = [e.project_name, e.hypothesis, e.independent_variable, e.primary_metric, e.hypothesis_type].filter(Boolean).join(" ").toLowerCase();
       return hay.includes(search);
@@ -285,10 +340,13 @@
             <span class="badge badge-${channel}">${channel}</span>
           </div>
         </div>
+        <div class="flex gap-sm mt-sm">
+          <span class="tag">Hipotesis #${exp.id}</span>
+          ${exp.independent_variable ? `<span class="tag">X: ${escapeHtml(exp.independent_variable)}</span>` : '<span class="tag">X: —</span>'}
+        </div>
         <div class="hyp-text">${escapeHtml(exp.hypothesis || "Sin hipotesis definida")}</div>
         <div class="hyp-meta">
           ${exp.hypothesis_type ? `<span class="tag">${exp.hypothesis_type}</span>` : ''}
-          ${exp.independent_variable ? `<span class="tag">X: ${escapeHtml(exp.independent_variable)}</span>` : ''}
           ${exp.primary_metric ? `<span class="tag">Y: ${exp.primary_metric}</span>` : ''}
           ${exp.threshold_operator && exp.threshold_value !== null ? `<span class="tag">Umbral: ${exp.threshold_operator} ${exp.threshold_value}${exp.threshold_type === 'percentage' ? '%' : ''}</span>` : ''}
           <span class="tag">${recordCount} records</span>
@@ -381,6 +439,11 @@
     $("rdFunnel").textContent = `${fmt(r.view_content)} / ${fmt(r.lead_form)} / ${fmt(r.initiate_checkouts)} / ${fmt(r.purchase)}`;
     $("rdFunnelMeta").textContent = "VC / Lead / IC / Purchase";
 
+    const engagementViews = r.views || 0;
+    const engagementTotal = (r.likes || 0) + (r.comments || 0) + (r.shares || 0);
+    const engagement = engagementViews ? (engagementTotal / engagementViews) * 1000 : null;
+    $("rdEngagement").textContent = engagement === null ? "—" : fmtFloat(engagement, 2);
+
     $("rdCreative").textContent = `${r.hook_type || "—"} / ${r.cta_type || "—"}`;
     $("rdCreativeMeta").textContent = `Hook: ${r.hook_text || "—"} · CTA: ${r.cta_text || "—"}`;
 
@@ -399,6 +462,7 @@
     try {
       experiments = await apiGet("/experiments/");
       allRecords = await apiGet("/records/?limit=50000");
+      syncProjectMetricFilters();
       renderHypList();
     } catch (e) {
       showToast("Error cargando datos: " + String(e), "error");
@@ -411,6 +475,11 @@
   $("fStatus").addEventListener("change", renderHypList);
   $("fChannel").addEventListener("change", renderHypList);
   $("fSearch").addEventListener("input", renderHypList);
+  $("fProject").addEventListener("change", () => {
+    syncProjectMetricFilters();
+    renderHypList();
+  });
+  $("fMetricX").addEventListener("change", renderHypList);
 
   // ---------- DOCUMENTATION MODAL ----------
   let docEntityType = null;

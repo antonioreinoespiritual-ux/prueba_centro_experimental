@@ -21,6 +21,9 @@
       <div class="top-bar__actions">
         <a class="btn-link" href="/static/dashboard.html" aria-label="Abrir Dashboard">Abrir Dashboard</a>
         <a class="btn-link" href="/static/records.html" aria-label="Ver lista de records">Lista de records</a>
+        <a class="btn-link" href="/static/hypotheses.html" aria-label="Lista de hipotesis">Lista de hipotesis</a>
+        <a class="btn-link btn-warning" href="/static/delete_hypotheses.html" aria-label="Eliminar hipotesis">Eliminar hipotesis</a>
+        <a class="btn-link btn-warning" href="/static/delete_records.html" aria-label="Eliminar records">Eliminar records</a>
         <button id="btnRefresh" class="btn-secondary" aria-label="Actualizar listas">Actualizar listas</button>
       </div>
     </div>
@@ -36,24 +39,37 @@
 
         <div class="grid grid-2">
           <div class="field-group">
-            <label for="project_name">Proyecto</label>
-            <input id="project_name" placeholder="Atraccion Inversa" />
-          </div>
-          <div class="field-group">
-            <label for="hypothesis_type">Tipo de Hipotesis</label>
-            <select id="hypothesis_type">
-              <option value="">-- seleccionar --</option>
-              <option value="acquisition">Acquisition</option>
-              <option value="activation">Activation</option>
-              <option value="retention">Retention</option>
-              <option value="monetization">Monetization</option>
-              <option value="trust_credibility">Trust / Credibility</option>
-              <option value="message_market_fit">Message-Market Fit</option>
-              <option value="channel_fit">Channel Fit</option>
-              <option value="pricing">Pricing</option>
-              <option value="funnel_friction">Funnel Friction</option>
+            <label for="project_mode">Proyecto</label>
+            <select id="project_mode">
+              <option value="new">Nuevo</option>
+              <option value="existing">Existente</option>
             </select>
           </div>
+          <div class="field-group" id="project_name_group">
+            <label for="project_name">Nombre de proyecto</label>
+            <input id="project_name" placeholder="Atraccion Inversa" />
+          </div>
+        </div>
+
+        <div class="field-group mt-md" id="project_existing_group" style="display:none;">
+          <label for="project_existing">Proyecto existente</label>
+          <select id="project_existing"></select>
+        </div>
+
+        <div class="field-group mt-md">
+          <label for="hypothesis_type">Tipo de Hipotesis</label>
+          <select id="hypothesis_type">
+            <option value="">-- seleccionar --</option>
+            <option value="acquisition">Acquisition</option>
+            <option value="activation">Activation</option>
+            <option value="retention">Retention</option>
+            <option value="monetization">Monetization</option>
+            <option value="trust_credibility">Trust / Credibility</option>
+            <option value="message_market_fit">Message-Market Fit</option>
+            <option value="channel_fit">Channel Fit</option>
+            <option value="pricing">Pricing</option>
+            <option value="funnel_friction">Funnel Friction</option>
+          </select>
         </div>
 
         <div class="field-group mt-lg">
@@ -210,6 +226,17 @@
           <span class="badge badge-live">solo experiments: live</span>
         </div>
 
+        <div class="grid grid-2">
+          <div class="field-group">
+            <label for="live_project_filter">Proyecto</label>
+            <select id="live_project_filter"></select>
+          </div>
+          <div class="field-group">
+            <label for="live_metric_x_filter">Metrica X</label>
+            <select id="live_metric_x_filter"></select>
+          </div>
+        </div>
+
         <div class="field-group">
           <label for="live_experiment_id">Experiment (live)</label>
           <select id="live_experiment_id"></select>
@@ -329,6 +356,17 @@
         <div class="card__header">
           <h2 class="card__title">Crear record (ORGANICO)</h2>
           <span class="badge badge-organic">solo experiments: organic</span>
+        </div>
+
+        <div class="grid grid-2">
+          <div class="field-group">
+            <label for="organic_project_filter">Proyecto</label>
+            <select id="organic_project_filter"></select>
+          </div>
+          <div class="field-group">
+            <label for="organic_metric_x_filter">Metrica X</label>
+            <select id="organic_metric_x_filter"></select>
+          </div>
         </div>
 
         <div class="field-group">
@@ -481,6 +519,17 @@
           <span class="badge badge-paid">solo experiments: paid</span>
         </div>
 
+        <div class="grid grid-2">
+          <div class="field-group">
+            <label for="paid_project_filter">Proyecto</label>
+            <select id="paid_project_filter"></select>
+          </div>
+          <div class="field-group">
+            <label for="paid_metric_x_filter">Metrica X</label>
+            <select id="paid_metric_x_filter"></select>
+          </div>
+        </div>
+
         <div class="field-group">
           <label for="paid_experiment_id">Experiment (paid)</label>
           <select id="paid_experiment_id"></select>
@@ -622,24 +671,26 @@
 
       <div class="grid grid-3">
         <div class="field-group">
-          <label for="upd_experiment_id">Experimento</label>
-          <select id="upd_experiment_id">
-            <option value="">-- seleccionar --</option>
-          </select>
+          <label for="upd_project_filter">Proyecto</label>
+          <select id="upd_project_filter"></select>
         </div>
         <div class="field-group">
-          <label for="upd_record_id">Record ID</label>
+          <label for="upd_metric_x_filter">Metrica X</label>
+          <select id="upd_metric_x_filter"></select>
+        </div>
+        <div class="field-group">
+          <label for="upd_record_id">Record</label>
           <select id="upd_record_id">
             <option value="">-- seleccionar --</option>
           </select>
         </div>
-        <div class="field-group">
-          <label>Accion</label>
-          <div class="flex gap-sm mt-sm">
-            <button id="btnLoadRecord" class="btn-secondary w-full" aria-label="Cargar record">Cargar</button>
-            <button id="btnCloseRecord" class="btn-warning w-full" aria-label="Cerrar record">Cerrar Record</button>
-            <button id="btnReopenRecord" class="btn-secondary w-full" aria-label="Reabrir record">Reabrir</button>
-          </div>
+      </div>
+      <div class="field-group mt-md">
+        <label>Accion</label>
+        <div class="flex gap-sm mt-sm">
+          <button id="btnLoadRecord" class="btn-secondary w-full" aria-label="Cargar record">Cargar</button>
+          <button id="btnCloseRecord" class="btn-warning w-full" aria-label="Cerrar record">Cerrar Record</button>
+          <button id="btnReopenRecord" class="btn-secondary w-full" aria-label="Reabrir record">Reabrir</button>
         </div>
       </div>
 
@@ -813,6 +864,53 @@
     return r.json();
   }
 
+  function uniqueSorted(values){
+    return [...new Set(values.filter(Boolean))].sort((a, b) => a.localeCompare(b, "es"));
+  }
+
+  function fillFilterSelect(selectEl, options, keepValue=true, allLabel="(todos)"){
+    const prev = keepValue ? selectEl.value : "";
+    selectEl.innerHTML = "";
+    const optAll = document.createElement("option");
+    optAll.value = "";
+    optAll.textContent = allLabel;
+    selectEl.appendChild(optAll);
+    for (const value of options){
+      const opt = document.createElement("option");
+      opt.value = value;
+      opt.textContent = value;
+      selectEl.appendChild(opt);
+    }
+    if (keepValue && prev && [...selectEl.options].some(o => o.value === prev)) {
+      selectEl.value = prev;
+    } else {
+      selectEl.value = "";
+    }
+  }
+
+  function syncProjectNameOptions(){
+    const projectSelect = $("project_existing");
+    const projectNames = uniqueSorted(experimentsCache.map(e => e.project_name));
+    const prev = projectSelect.value;
+    projectSelect.innerHTML = '<option value="">-- seleccionar --</option>';
+    for (const name of projectNames) {
+      const opt = document.createElement("option");
+      opt.value = name;
+      opt.textContent = name;
+      projectSelect.appendChild(opt);
+    }
+    if (prev && [...projectSelect.options].some(o => o.value === prev)) {
+      projectSelect.value = prev;
+    }
+  }
+
+  function updateProjectModeVisibility(){
+    const mode = $("project_mode").value;
+    const isExisting = mode === "existing";
+    $("project_existing_group").style.display = isExisting ? "" : "none";
+    $("project_name_group").style.display = isExisting ? "none" : "";
+  }
+
   // Auto-fill session ID when experiment is selected
   async function autoFillSessionId(selectId, sessionInputId, prefix) {
     const expId = Number($(selectId).value);
@@ -848,31 +946,42 @@
     }
   }
 
-  function syncFormSelects(){
-    const organicExps = experimentsCache.filter(e => e.traffic_type === "organic");
-    const paidExps = experimentsCache.filter(e => e.traffic_type === "paid");
-    const liveExps = experimentsCache.filter(e => e.traffic_type === "live");
+  function updateRecordFormFilters({ prefix, trafficType, sessionPrefix }){
+    const formExps = experimentsCache.filter(e => e.traffic_type === trafficType);
+    const projectSel = $(`${prefix}_project_filter`);
+    const metricSel = $(`${prefix}_metric_x_filter`);
+    const expSel = $(`${prefix}_experiment_id`);
 
-    fillExperimentSelect($("organic_experiment_id"), organicExps, true);
-    fillExperimentSelect($("paid_experiment_id"), paidExps, true);
-    fillExperimentSelect($("live_experiment_id"), liveExps, true);
+    fillFilterSelect(projectSel, uniqueSorted(formExps.map(e => e.project_name)), true, "(todos)");
+    const project = projectSel.value;
+    const byProject = formExps.filter(e => !project || e.project_name === project);
+    fillFilterSelect(metricSel, uniqueSorted(byProject.map(e => e.independent_variable)), true, "(todas)");
+    const metricX = metricSel.value;
+    const filtered = byProject.filter(e => !metricX || e.independent_variable === metricX);
 
-    // Auto-fill session IDs for initial selections
-    if (liveExps.length) autoFillSessionId("live_experiment_id", "live_session_id", "l");
-    if (organicExps.length) autoFillSessionId("organic_experiment_id", "organic_session_id", "s");
-    if (paidExps.length) autoFillSessionId("paid_experiment_id", "paid_session_id", "p");
-
-    // Update record section: all experiments
-    const updSel = $("upd_experiment_id");
-    const prev = updSel.value;
-    updSel.innerHTML = '<option value="">-- seleccionar --</option>';
-    for (const e of experimentsCache) {
-      const opt = document.createElement("option");
-      opt.value = String(e.id);
-      opt.textContent = `${e.id} — ${e.project_name} (${e.traffic_type})`;
-      updSel.appendChild(opt);
+    fillExperimentSelect(expSel, filtered, true);
+    if (filtered.length) {
+      autoFillSessionId(`${prefix}_experiment_id`, `${prefix}_session_id`, sessionPrefix);
     }
-    if (prev) updSel.value = prev;
+  }
+
+  function updateUpdateRecordFilters(){
+    const projectSel = $("upd_project_filter");
+    const metricSel = $("upd_metric_x_filter");
+    fillFilterSelect(projectSel, uniqueSorted(experimentsCache.map(e => e.project_name)), true, "(todos)");
+    const project = projectSel.value;
+    const metricCandidates = experimentsCache.filter(e => !project || e.project_name === project);
+    fillFilterSelect(metricSel, uniqueSorted(metricCandidates.map(e => e.independent_variable)), true, "(todas)");
+  }
+
+  function syncFormSelects(){
+    syncProjectNameOptions();
+    updateProjectModeVisibility();
+    updateRecordFormFilters({ prefix: "organic", trafficType: "organic", sessionPrefix: "s" });
+    updateRecordFormFilters({ prefix: "paid", trafficType: "paid", sessionPrefix: "p" });
+    updateRecordFormFilters({ prefix: "live", trafficType: "live", sessionPrefix: "l" });
+    updateUpdateRecordFilters();
+    refreshRecordList().catch(e => { setStatus("error", true); showToast(String(e), 'error'); });
   }
 
   async function refreshAll() {
@@ -892,8 +1001,12 @@
   // Create experiment
   $("btnCreateExperiment").onclick = async () => {
     try {
+      const projectMode = $("project_mode").value;
+      const projectName = projectMode === "existing"
+        ? $("project_existing").value
+        : $("project_name").value.trim();
       const body = {
-        project_name: $("project_name").value.trim(),
+        project_name: projectName,
         hypothesis: $("hypothesis").value.trim(),
         traffic_type: $("traffic_type").value,
         hypothesis_type: $("hypothesis_type").value || null,
@@ -911,6 +1024,8 @@
       await apiPost("/experiments/", body);
       await refreshAll();
       ["project_name","hypothesis","independent_variable","threshold_value","volume_min_value","contexto"].forEach(id => $(id).value = "");
+      $("project_mode").value = "new";
+      $("project_existing").value = "";
       $("hypothesis_type").value = "";
       $("primary_metric").value = "";
       $("threshold_operator").value = "";
@@ -1081,21 +1196,35 @@
   // ==================== UPDATE RECORD ====================
 
   async function refreshRecordList() {
-    const expId = Number($("upd_experiment_id").value);
     const recordSelect = $("upd_record_id");
     recordSelect.innerHTML = '<option value="">-- seleccionar --</option>';
-    if (!expId) return;
-    const records = await apiGet(`/records/?experiment_id=${expId}&limit=5000`);
+    const project = $("upd_project_filter").value;
+    const metricX = $("upd_metric_x_filter").value;
+    const filteredExps = experimentsCache.filter(e => {
+      if (project && e.project_name !== project) return false;
+      if (metricX && e.independent_variable !== metricX) return false;
+      return true;
+    });
+    if (!filteredExps.length) return;
+    const recordsByExp = await Promise.all(
+      filteredExps.map(exp => apiGet(`/records/?experiment_id=${exp.id}&limit=5000`))
+    );
+    const records = recordsByExp.flat().sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
     for (const rec of records) {
       const opt = document.createElement("option");
       opt.value = String(rec.id);
       const statusTag = rec.record_status ? ` [${rec.record_status}]` : "";
-      opt.textContent = `${rec.id} — ${rec.session_id}${statusTag}`;
+      const name = rec.record_name || rec.session_id;
+      opt.textContent = `${rec.id} — ${name}${statusTag}`;
       recordSelect.appendChild(opt);
     }
   }
 
-  $("upd_experiment_id").onchange = () => {
+  $("upd_project_filter").onchange = () => {
+    updateUpdateRecordFilters();
+    refreshRecordList().catch(e => { setStatus("error", true); showToast(String(e), 'error'); });
+  };
+  $("upd_metric_x_filter").onchange = () => {
     refreshRecordList().catch(e => { setStatus("error", true); showToast(String(e), 'error'); });
   };
 
@@ -1212,6 +1341,13 @@
   $("live_experiment_id").addEventListener("change", () => autoFillSessionId("live_experiment_id", "live_session_id", "l"));
   $("organic_experiment_id").addEventListener("change", () => autoFillSessionId("organic_experiment_id", "organic_session_id", "s"));
   $("paid_experiment_id").addEventListener("change", () => autoFillSessionId("paid_experiment_id", "paid_session_id", "p"));
+  $("project_mode").addEventListener("change", updateProjectModeVisibility);
+  $("live_project_filter").addEventListener("change", () => updateRecordFormFilters({ prefix: "live", trafficType: "live", sessionPrefix: "l" }));
+  $("organic_project_filter").addEventListener("change", () => updateRecordFormFilters({ prefix: "organic", trafficType: "organic", sessionPrefix: "s" }));
+  $("paid_project_filter").addEventListener("change", () => updateRecordFormFilters({ prefix: "paid", trafficType: "paid", sessionPrefix: "p" }));
+  $("live_metric_x_filter").addEventListener("change", () => updateRecordFormFilters({ prefix: "live", trafficType: "live", sessionPrefix: "l" }));
+  $("organic_metric_x_filter").addEventListener("change", () => updateRecordFormFilters({ prefix: "organic", trafficType: "organic", sessionPrefix: "s" }));
+  $("paid_metric_x_filter").addEventListener("change", () => updateRecordFormFilters({ prefix: "paid", trafficType: "paid", sessionPrefix: "p" }));
 
   // init
   refreshAll().catch(e => { setStatus("error", true); showToast(String(e), 'error'); });
