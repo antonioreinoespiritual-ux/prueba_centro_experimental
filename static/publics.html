@@ -202,6 +202,78 @@
               <div class="stat-chip__value" id="modalPurchase">—</div>
             </div>
           </div>
+          <div class="grid grid-4 mt-md">
+            <div class="stat-chip">
+              <div class="stat-chip__label">Initiate Checkout</div>
+              <div class="stat-chip__value" id="modalInitiateCheckout">—</div>
+            </div>
+            <div class="stat-chip">
+              <div class="stat-chip__label">Inicia Test</div>
+              <div class="stat-chip__value" id="modalIniciaTest">—</div>
+            </div>
+            <div class="stat-chip">
+              <div class="stat-chip__label">Lead Form</div>
+              <div class="stat-chip__value" id="modalLeadForm">—</div>
+            </div>
+            <div class="stat-chip">
+              <div class="stat-chip__label">Nuevos seguidores</div>
+              <div class="stat-chip__value" id="modalNewFollowers">—</div>
+            </div>
+          </div>
+          <div class="grid grid-4 mt-md">
+            <div class="stat-chip">
+              <div class="stat-chip__label">Retención %</div>
+              <div class="stat-chip__value" id="modalRetention">—</div>
+            </div>
+            <div class="stat-chip">
+              <div class="stat-chip__label">Engagement %</div>
+              <div class="stat-chip__value" id="modalEngagement">—</div>
+            </div>
+            <div class="stat-chip">
+              <div class="stat-chip__label">Avg Watch Time</div>
+              <div class="stat-chip__value" id="modalAvgWatch">—</div>
+            </div>
+            <div class="stat-chip">
+              <div class="stat-chip__label">Interacciones</div>
+              <div class="stat-chip__value" id="modalInteractions">—</div>
+            </div>
+          </div>
+          <div class="grid grid-4 mt-md">
+            <div class="stat-chip">
+              <div class="stat-chip__label">Likes</div>
+              <div class="stat-chip__value" id="modalLikes">—</div>
+            </div>
+            <div class="stat-chip">
+              <div class="stat-chip__label">Comentarios</div>
+              <div class="stat-chip__value" id="modalComments">—</div>
+            </div>
+            <div class="stat-chip">
+              <div class="stat-chip__label">Shares</div>
+              <div class="stat-chip__value" id="modalShares">—</div>
+            </div>
+            <div class="stat-chip">
+              <div class="stat-chip__label">Guardados</div>
+              <div class="stat-chip__value" id="modalSaves">—</div>
+            </div>
+          </div>
+          <div class="grid grid-4 mt-md">
+            <div class="stat-chip">
+              <div class="stat-chip__label">CPC</div>
+              <div class="stat-chip__value" id="modalCpc">—</div>
+            </div>
+            <div class="stat-chip">
+              <div class="stat-chip__label">CAC</div>
+              <div class="stat-chip__value" id="modalCac">—</div>
+            </div>
+            <div class="stat-chip">
+              <div class="stat-chip__label">CPR</div>
+              <div class="stat-chip__value" id="modalCpr">—</div>
+            </div>
+            <div class="stat-chip">
+              <div class="stat-chip__label">CTR</div>
+              <div class="stat-chip__value" id="modalCtrRepeat">—</div>
+            </div>
+          </div>
         </div>
 
         <div class="card mt-lg">
@@ -240,6 +312,25 @@
       if (value === null || value === undefined) return "—";
       const n = Number(value);
       return Number.isFinite(n) ? n.toLocaleString("es-ES") : String(value);
+    }
+
+    function fmtFloat(value, digits = 2){
+      if (value === null || value === undefined) return "—";
+      const n = Number(value);
+      return Number.isFinite(n) ? n.toFixed(digits) : "—";
+    }
+
+    function computeEngagement(record){
+      const views = record.views || 0;
+      const total = (record.likes || 0) + (record.comments || 0) + (record.shares || 0) + (record.saves || 0);
+      if (!views) return null;
+      return (total / views) * 100;
+    }
+
+    function computeSpend(record){
+      if (record.cpc === null || record.cpc === undefined) return null;
+      const clicks = record.clicks || 0;
+      return record.cpc * clicks;
     }
 
     function getExperimentById(id){
@@ -318,10 +409,38 @@
       $("modalCtaType").textContent = record.cta_type || "—";
       $("modalExecution").textContent = record.execution_type || "—";
       $("modalRecordName").textContent = record.record_name || record.session_id || "—";
+      const engagement = computeEngagement(record);
+      const spend = computeSpend(record);
+      const purchases = record.purchase || 0;
+      const leads = record.lead_form || 0;
+      const cac = spend && purchases ? spend / purchases : null;
+      const cpr = spend && leads ? spend / leads : null;
+
       $("modalClicks").textContent = fmt(record.clicks);
       $("modalViews").textContent = fmt(record.views);
       $("modalCtr").textContent = record.ctr ?? "—";
       $("modalPurchase").textContent = fmt(record.purchase);
+      $("modalInitiateCheckout").textContent = fmt(record.initiate_checkouts);
+      $("modalIniciaTest").textContent = fmt(record.inicia_test);
+      $("modalLeadForm").textContent = fmt(record.lead_form);
+      $("modalNewFollowers").textContent = fmt(record.live_new_followers);
+      $("modalRetention").textContent = record.retention_pct !== null && record.retention_pct !== undefined
+        ? `${fmtFloat(record.retention_pct, 1)}%`
+        : "—";
+      $("modalEngagement").textContent = engagement !== null ? `${fmtFloat(engagement, 2)}%` : "—";
+      $("modalAvgWatch").textContent = record.avg_watch_time !== null && record.avg_watch_time !== undefined
+        ? fmtFloat(record.avg_watch_time, 2)
+        : "—";
+      const interactions = (record.likes || 0) + (record.comments || 0) + (record.shares || 0) + (record.saves || 0);
+      $("modalInteractions").textContent = fmt(interactions);
+      $("modalLikes").textContent = fmt(record.likes);
+      $("modalComments").textContent = fmt(record.comments);
+      $("modalShares").textContent = fmt(record.shares);
+      $("modalSaves").textContent = fmt(record.saves);
+      $("modalCpc").textContent = record.cpc !== null && record.cpc !== undefined ? fmtFloat(record.cpc, 4) : "—";
+      $("modalCac").textContent = cac !== null ? fmtFloat(cac, 2) : "—";
+      $("modalCpr").textContent = cpr !== null ? fmtFloat(cpr, 2) : "—";
+      $("modalCtrRepeat").textContent = record.ctr ?? "—";
 
       $("modalNotes").textContent = "Cargando notas...";
       try {

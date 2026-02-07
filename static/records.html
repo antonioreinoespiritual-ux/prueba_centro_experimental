@@ -163,6 +163,7 @@
                 <th>Canal</th>
                 <th>Clicks</th>
                 <th>Views</th>
+                <th>Nuevos seguidores</th>
                 <th>Purchase</th>
                 <th>Created</th>
                 <th>Updated</th>
@@ -238,6 +239,23 @@
               <div class="stat-chip__label">IDs campaña</div>
               <div class="stat-chip__value" id="cardCampaign">—</div>
               <div class="stat-chip__meta" id="cardCampaignMeta"></div>
+            </div>
+          </div>
+          <div class="grid grid-3 mt-md">
+            <div class="stat-chip">
+              <div class="stat-chip__label">Interacciones</div>
+              <div class="stat-chip__value" id="cardInteractions">—</div>
+              <div class="stat-chip__meta" id="cardInteractionsMeta"></div>
+            </div>
+            <div class="stat-chip">
+              <div class="stat-chip__label">Costo</div>
+              <div class="stat-chip__value" id="cardCosts">—</div>
+              <div class="stat-chip__meta" id="cardCostsMeta"></div>
+            </div>
+            <div class="stat-chip">
+              <div class="stat-chip__label">Nuevos seguidores</div>
+              <div class="stat-chip__value" id="cardFollowers">—</div>
+              <div class="stat-chip__meta">Live new followers</div>
             </div>
           </div>
         </div>
@@ -318,6 +336,12 @@
     const x = Number(n);
     if (!Number.isFinite(x)) return "—";
     return x.toFixed(digits);
+  }
+
+  function computeSpend(record){
+    if (record.cpc === null || record.cpc === undefined) return null;
+    const clicks = record.clicks || 0;
+    return record.cpc * clicks;
   }
 
   function isUnassignedPublic(value){
@@ -549,6 +573,7 @@
         <td><span class="badge badge-${traffic}">${traffic}</span></td>
         <td>${fmt(r.clicks)}</td>
         <td>${fmt(r.views)}</td>
+        <td>${fmt(r.live_new_followers)}</td>
         <td>${fmt(r.purchase)}</td>
         <td>${escapeHtml(r.created_at || "")}</td>
         <td>${escapeHtml(r.updated_at || r.created_at || "")}</td>
@@ -602,6 +627,20 @@
 
     $("cardCampaign").textContent = `${r.campaign_id || "—"} / ${r.ad_set_id || "—"}`;
     $("cardCampaignMeta").textContent = `Ad: ${r.ad_id || "—"}`;
+
+    const interactions = (r.likes || 0) + (r.comments || 0) + (r.shares || 0) + (r.saves || 0);
+    $("cardInteractions").textContent = fmt(interactions);
+    $("cardInteractionsMeta").textContent = `Likes ${fmt(r.likes)} · Comments ${fmt(r.comments)} · Shares ${fmt(r.shares)} · Saves ${fmt(r.saves)}`;
+
+    const spend = computeSpend(r);
+    const purchases = r.purchase || 0;
+    const leads = r.lead_form || 0;
+    const cac = spend && purchases ? spend / purchases : null;
+    const cpr = spend && leads ? spend / leads : null;
+    $("cardCosts").textContent = `CPC ${r.cpc ?? "—"} · CTR ${r.ctr ?? "—"}`;
+    $("cardCostsMeta").textContent = `CAC ${cac !== null ? fmtFloat(cac, 2) : "—"} · CPR ${cpr !== null ? fmtFloat(cpr, 2) : "—"}`;
+
+    $("cardFollowers").textContent = fmt(r.live_new_followers);
   }
 
   function goToRecordEdit() {

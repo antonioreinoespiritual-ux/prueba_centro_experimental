@@ -477,6 +477,10 @@
             <input id="organic_views_profile" type="number" placeholder="35" />
           </div>
           <div class="field-group">
+            <label for="organic_new_followers">Nuevos Seguidores</label>
+            <input id="organic_new_followers" type="number" placeholder="5" />
+          </div>
+          <div class="field-group">
             <label for="organic_inicia_test">IniciaTest</label>
             <input id="organic_inicia_test" type="number" placeholder="8" />
           </div>
@@ -645,6 +649,10 @@
           <div class="field-group">
             <label for="paid_views_profile">Views Profile</label>
             <input id="paid_views_profile" type="number" placeholder="220" />
+          </div>
+          <div class="field-group">
+            <label for="paid_new_followers">Nuevos Seguidores</label>
+            <input id="paid_new_followers" type="number" placeholder="12" />
           </div>
           <div class="field-group">
             <label for="paid_inicia_test">IniciaTest</label>
@@ -1159,6 +1167,7 @@
         clicks: asIntOrNull($("organic_clicks").value),
         views: asIntOrNull($("organic_views").value),
         views_profile: asIntOrNull($("organic_views_profile").value),
+        live_new_followers: asIntOrNull($("organic_new_followers").value),
         inicia_test: asIntOrNull($("organic_inicia_test").value),
         initiate_checkouts: asIntOrNull($("organic_initiate_checkouts").value),
         view_content: asIntOrNull($("organic_view_content").value),
@@ -1187,7 +1196,7 @@
       await apiPost("/records/", body);
 
       ["organic_session_id","organic_record_name","organic_publico","organic_clicks","organic_views","organic_views_profile",
-       "organic_inicia_test","organic_initiate_checkouts","organic_view_content","organic_lead_form",
+       "organic_new_followers","organic_inicia_test","organic_initiate_checkouts","organic_view_content","organic_lead_form",
        "organic_purchase","organic_piece_type",
        "organic_likes","organic_comments","organic_shares","organic_saves",
        "organic_video_url","organic_views_finish_pct","organic_retention_pct",
@@ -1270,6 +1279,7 @@
         clicks: asIntOrNull($("paid_clicks").value),
         views: asIntOrNull($("paid_views").value),
         views_profile: asIntOrNull($("paid_views_profile").value),
+        live_new_followers: asIntOrNull($("paid_new_followers").value),
         inicia_test: asIntOrNull($("paid_inicia_test").value),
         initiate_checkouts: asIntOrNull($("paid_initiate_checkouts").value),
         view_content: asIntOrNull($("paid_view_content").value),
@@ -1296,7 +1306,7 @@
       await apiPost("/records/", body);
 
       ["paid_session_id","paid_record_name","paid_publico","paid_clicks","paid_views","paid_views_profile",
-       "paid_inicia_test","paid_initiate_checkouts","paid_view_content","paid_lead","paid_purchase",
+       "paid_new_followers","paid_inicia_test","paid_initiate_checkouts","paid_view_content","paid_lead","paid_purchase",
        "paid_cpc","paid_ctr",
        "paid_video_duration","paid_campaign_id","paid_ad_set_id","paid_ad_id",
        "paid_hook_text","paid_cta_text","paid_creative_id","paid_contexto_record"
