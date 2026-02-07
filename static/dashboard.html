@@ -1096,6 +1096,12 @@
       $("tblValidated").innerHTML = '<tr><td colspan="8"><div class="state-loading"><div class="state-loading__spinner"></div>Cargando datos</div></td></tr>';
 
       experiments = await apiGet("/experiments/");
+      if ($("trafficFilter").value === "all") {
+        $("projectFilter").value = "";
+        $("metricXFilter").value = "";
+        $("experimentFilter").value = "";
+      }
+      fillProjectAndMetricFilters();
       fillExperimentsSelect();
 
       const limit = Math.max(1, Number($("limit").value) || 5000);
@@ -1232,6 +1238,11 @@
 
       // Reload experiments to reflect new status
       experiments = await apiGet("/experiments/");
+      if ($("trafficFilter").value === "all") {
+        $("projectFilter").value = "";
+        $("metricXFilter").value = "";
+        $("experimentFilter").value = "";
+      }
       fillProjectAndMetricFilters();
       fillExperimentsSelect();
       $("experimentFilter").value = expIdStr;
@@ -1318,6 +1329,11 @@
   // Eventos
   $("btnReload").addEventListener("click", loadAll);
   $("trafficFilter").addEventListener("change", () => {
+    if ($("trafficFilter").value === "all") {
+      $("projectFilter").value = "";
+      $("metricXFilter").value = "";
+      $("experimentFilter").value = "";
+    }
     fillProjectAndMetricFilters();
     fillExperimentsSelect();
     refreshView();
