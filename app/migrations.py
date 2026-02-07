@@ -38,6 +38,7 @@ def ensure_schema() -> None:
         ("min_volume", "INTEGER"),
         ("volume_min_value", "INTEGER"),
         ("volume_unit", "VARCHAR(30)"),
+        ("updated_at", "DATETIME"),
     ]
 
     for col_name, col_type in experiment_columns:

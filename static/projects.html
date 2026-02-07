@@ -35,6 +35,8 @@
           <thead>
             <tr>
               <th>Nombre de proyecto</th>
+              <th>Creado</th>
+              <th>Actualizado</th>
             </tr>
           </thead>
           <tbody id="tblProjects"></tbody>
@@ -66,6 +68,8 @@
               <th>Métrica Y</th>
               <th>Umbral</th>
               <th>Estado</th>
+              <th>Creado</th>
+              <th>Actualizado</th>
               <th>Récords</th>
             </tr>
           </thead>
@@ -101,7 +105,8 @@
                   <th>Clicks</th>
                   <th>Views</th>
                   <th>Purchase</th>
-                  <th>Created</th>
+                  <th>Creado</th>
+                  <th>Actualizado</th>
                 </tr>
               </thead>
               <tbody id="tblRecords"></tbody>
@@ -177,6 +182,7 @@
   $("apiBase").textContent = location.origin;
 
   let experiments = [];
+  let records = [];
   let currentProject = null;
   let currentExperiment = null;
   let currentRecords = [];
@@ -229,6 +235,14 @@
     return [...new Set(values.filter(Boolean))].sort((a, b) => a.localeCompare(b, "es"));
   }
 
+  function getExperimentUpdatedAt(exp) {
+    return exp.updated_at || exp.created_at || null;
+  }
+
+  function getRecordUpdatedAt(record) {
+    return record.updated_at || record.created_at || null;
+  }
+
   function renderProjects() {
     const tbody = $("tblProjects");
     tbody.innerHTML = "";
@@ -238,10 +252,27 @@
     $("projectsEmpty").style.display = projectNames.length ? "none" : "block";
 
     for (const projectName of projectNames) {
+      const projectExperiments = experiments.filter((exp) => exp.project_name === projectName);
+      const projectRecords = records.filter((record) =>
+        projectExperiments.some((exp) => exp.id === record.experiment_id)
+      );
+      const createdAt = projectExperiments
+        .map((exp) => exp.created_at)
+        .filter(Boolean)
+        .sort()[0];
+      const updatedCandidates = [
+        ...projectExperiments.map(getExperimentUpdatedAt),
+        ...projectRecords.map(getRecordUpdatedAt),
+      ].filter(Boolean);
+      const updatedAt = updatedCandidates.length ? updatedCandidates.sort().slice(-1)[0] : null;
       const row = document.createElement("tr");
       row.tabIndex = 0;
       row.setAttribute("role", "button");
-      row.innerHTML = `<td>${escapeHtml(projectName)}</td>`;
+      row.innerHTML = `
+        <td>${escapeHtml(projectName)}</td>
+        <td>${toDateOnly(createdAt)}</td>
+        <td>${toDateOnly(updatedAt)}</td>
+      `;
       row.addEventListener("click", () => openProjectModal(projectName));
       row.addEventListener("keydown", (event) => {
         if (event.key === "Enter" || event.key === " ") {
@@ -294,6 +325,8 @@
         <td>${escapeHtml(metricY)}</td>
         <td>${escapeHtml(threshold)}</td>
         <td>${escapeHtml(status)}</td>
+        <td>${toDateOnly(exp.created_at)}</td>
+        <td>${toDateOnly(getExperimentUpdatedAt(exp))}</td>
         <td><span class="tag">Abrir récords</span></td>
       `;
       row.addEventListener("click", () => openRecordsModal(exp));
@@ -363,6 +396,7 @@
         <td>${fmt(record.views)}</td>
         <td>${fmt(record.purchase)}</td>
         <td>${toDateOnly(record.created_at)}</td>
+        <td>${toDateOnly(getRecordUpdatedAt(record))}</td>
       `;
       row.addEventListener("click", () => showRecordDetail(record, row));
       row.addEventListener("keydown", (event) => {
@@ -435,6 +469,7 @@
     setStatus("cargando...");
     try {
       experiments = await apiGet("/experiments");
+      records = await apiGet("/records?limit=50000");
       renderProjects();
       setStatus("listo");
     } catch (error) {

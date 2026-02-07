@@ -17,6 +17,12 @@ class Experiment(Base):
     hypothesis: Mapped[str] = mapped_column(String(5000), nullable=False)
     traffic_type: Mapped[str] = mapped_column(String(20), nullable=False)  # paid/organic/mixed/live
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime,
+        default=datetime.utcnow,
+        nullable=True,
+        onupdate=datetime.utcnow,
+    )
 
     # --- Lean Hypothesis fields (new) ---
     hypothesis_type: Mapped[str | None] = mapped_column(String(50), nullable=True)

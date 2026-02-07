@@ -158,6 +158,7 @@
                 <th>Views</th>
                 <th>Purchase</th>
                 <th>Created</th>
+                <th>Updated</th>
               </tr>
             </thead>
             <tbody id="tblRecords"></tbody>
@@ -500,6 +501,7 @@
         <td>${fmt(r.views)}</td>
         <td>${fmt(r.purchase)}</td>
         <td>${escapeHtml(r.created_at || "")}</td>
+        <td>${escapeHtml(r.updated_at || r.created_at || "")}</td>
       `;
       tr.onclick = () => renderCard(r);
       tbody.appendChild(tr);

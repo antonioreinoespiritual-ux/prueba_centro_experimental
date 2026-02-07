@@ -197,6 +197,7 @@ class ExperimentOut(BaseModel):
     hypothesis: str
     traffic_type: TrafficType
     created_at: datetime
+    updated_at: Optional[datetime] = None
 
     hypothesis_type: Optional[str] = None
     independent_variable: Optional[str] = None

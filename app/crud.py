@@ -63,6 +63,7 @@ def update_experiment(db: Session, experiment_id: int, data: schemas.ExperimentU
         if isinstance(value, str):
             value = value.strip() or None
         setattr(exp, field, value)
+    exp.updated_at = datetime.utcnow()
 
     db.commit()
     db.refresh(exp)
@@ -225,6 +226,10 @@ def create_record(db: Session, data: schemas.RecordCreate):
         creative_id=creative_id,
         record_status="collecting",
     )
+    obj.updated_at = datetime.utcnow()
+    exp = get_experiment(db, data.experiment_id)
+    if exp:
+        exp.updated_at = datetime.utcnow()
     db.add(obj)
     db.commit()
     db.refresh(obj)
@@ -255,6 +260,9 @@ def update_record(db: Session, record_id: int, data: schemas.RecordUpdate):
         setattr(rec, field, value)
 
     rec.updated_at = datetime.utcnow()
+    exp = get_experiment(db, rec.experiment_id)
+    if exp:
+        exp.updated_at = datetime.utcnow()
     db.commit()
     db.refresh(rec)
     return rec
@@ -267,6 +275,9 @@ def close_record(db: Session, record_id: int):
         return None
     rec.record_status = "closed"
     rec.updated_at = datetime.utcnow()
+    exp = get_experiment(db, rec.experiment_id)
+    if exp:
+        exp.updated_at = datetime.utcnow()
     db.commit()
     db.refresh(rec)
     return rec
@@ -279,6 +290,9 @@ def reopen_record(db: Session, record_id: int):
         return None
     rec.record_status = "collecting"
     rec.updated_at = datetime.utcnow()
+    exp = get_experiment(db, rec.experiment_id)
+    if exp:
+        exp.updated_at = datetime.utcnow()
     db.commit()
     db.refresh(rec)
     return rec

@@ -100,6 +100,7 @@
               <th>Views</th>
               <th>Clicks</th>
               <th>Created</th>
+              <th>Updated</th>
               <th></th>
             </tr>
           </thead>
@@ -240,6 +241,7 @@
         <td>${record.views ?? "—"}</td>
         <td>${record.clicks ?? "—"}</td>
         <td>${record.created_at || "—"}</td>
+        <td>${record.updated_at || "—"}</td>
         <td><button class="btn-warning" data-delete="${record.id}">Eliminar</button></td>
       `;
       tbody.appendChild(tr);
