@@ -36,8 +36,25 @@
 
         <div class="grid grid-2">
           <div class="field-group">
-            <label for="project_name">Proyecto</label>
-            <input id="project_name" placeholder="Atraccion Inversa" />
+            <label>Proyecto</label>
+            <div class="grid grid-2 gap-sm mt-sm">
+              <label class="checkbox">
+                <input type="radio" name="project_mode" value="new" checked />
+                <span>Nuevo</span>
+              </label>
+              <label class="checkbox">
+                <input type="radio" name="project_mode" value="existing" />
+                <span>Existente</span>
+              </label>
+            </div>
+            <div id="project_name_new_group" class="mt-sm">
+              <input id="project_name_new" placeholder="Atraccion Inversa" />
+            </div>
+            <div id="project_name_existing_group" class="mt-sm hidden">
+              <select id="project_name_existing">
+                <option value="">-- seleccionar --</option>
+              </select>
+            </div>
           </div>
           <div class="field-group">
             <label for="hypothesis_type">Tipo de Hipotesis</label>
@@ -848,6 +865,48 @@
     }
   }
 
+  function syncProjectSelects() {
+    const selectEl = $("project_name_existing");
+    const prev = selectEl.value;
+    const names = [...new Set(experimentsCache.map(e => e.project_name).filter(Boolean))].sort(
+      (a, b) => a.localeCompare(b, "es")
+    );
+    selectEl.innerHTML = '<option value="">-- seleccionar --</option>';
+    for (const name of names) {
+      const opt = document.createElement("option");
+      opt.value = name;
+      opt.textContent = name;
+      selectEl.appendChild(opt);
+    }
+    if (prev) selectEl.value = prev;
+
+    const existingRadio = document.querySelector('input[name="project_mode"][value="existing"]');
+    if (names.length === 0) {
+      existingRadio.disabled = true;
+      if (existingRadio.checked) {
+        document.querySelector('input[name="project_mode"][value="new"]').checked = true;
+      }
+    } else {
+      existingRadio.disabled = false;
+    }
+    updateProjectModeUI();
+  }
+
+  function updateProjectModeUI() {
+    const mode = document.querySelector('input[name="project_mode"]:checked').value;
+    const showExisting = mode === "existing";
+    $("project_name_existing_group").classList.toggle("hidden", !showExisting);
+    $("project_name_new_group").classList.toggle("hidden", showExisting);
+  }
+
+  function getSelectedProjectName() {
+    const mode = document.querySelector('input[name="project_mode"]:checked').value;
+    if (mode === "existing") {
+      return $("project_name_existing").value.trim();
+    }
+    return $("project_name_new").value.trim();
+  }
+
   function syncFormSelects(){
     const organicExps = experimentsCache.filter(e => e.traffic_type === "organic");
     const paidExps = experimentsCache.filter(e => e.traffic_type === "paid");
@@ -878,6 +937,7 @@
   async function refreshAll() {
     setStatus("cargando...");
     experimentsCache = await apiGet("/experiments/");
+    syncProjectSelects();
     syncFormSelects();
     refreshRecordList().catch(e => { setStatus("error", true); showToast(String(e), 'error'); });
     setStatus("listo");
@@ -889,11 +949,16 @@
     catch(e){ setStatus("error", true); showToast(String(e), 'error'); }
   };
 
+  document.querySelectorAll('input[name="project_mode"]').forEach((input) => {
+    input.addEventListener("change", updateProjectModeUI);
+  });
+
   // Create experiment
   $("btnCreateExperiment").onclick = async () => {
     try {
+      const projectName = getSelectedProjectName();
       const body = {
-        project_name: $("project_name").value.trim(),
+        project_name: projectName,
         hypothesis: $("hypothesis").value.trim(),
         traffic_type: $("traffic_type").value,
         hypothesis_type: $("hypothesis_type").value || null,
@@ -910,7 +975,10 @@
       if (!body.project_name || !body.hypothesis) throw new Error("project_name y hypothesis son obligatorios.");
       await apiPost("/experiments/", body);
       await refreshAll();
-      ["project_name","hypothesis","independent_variable","threshold_value","volume_min_value","contexto"].forEach(id => $(id).value = "");
+      ["project_name_new","hypothesis","independent_variable","threshold_value","volume_min_value","contexto"].forEach(id => $(id).value = "");
+      $("project_name_existing").value = "";
+      document.querySelector('input[name="project_mode"][value="new"]').checked = true;
+      updateProjectModeUI();
       $("hypothesis_type").value = "";
       $("primary_metric").value = "";
       $("threshold_operator").value = "";
