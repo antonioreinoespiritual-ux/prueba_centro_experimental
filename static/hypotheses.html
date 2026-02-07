@@ -129,63 +129,190 @@
           </div>
           <button class="btn-ghost" onclick="closeRecordsModal()">Cerrar</button>
         </div>
-        <div class="split-layout">
-          <div class="card records-panel">
-            <div class="table-wrapper mt-md">
-              <table>
-                <thead>
-                  <tr>
-                    <th>ID (Session)</th>
-                    <th>Record</th>
-                    <th>Metrica X</th>
-                    <th>Proyecto</th>
-                    <th>Status</th>
-                    <th>Clicks</th>
-                    <th>Views</th>
-                    <th>Purchase</th>
-                    <th>Created</th>
-                    <th>Updated</th>
-                  </tr>
-                </thead>
-                <tbody id="tblRecords"></tbody>
-              </table>
-            </div>
-            <div id="recordsEmpty" class="text-muted text-sm mt-md" style="display:none;">Esta hipotesis no tiene records aun.</div>
+        <div class="card records-panel">
+          <div class="table-wrapper mt-md">
+            <table>
+              <thead>
+                <tr>
+                  <th>ID (Session)</th>
+                  <th>Record</th>
+                  <th>Metrica X</th>
+                  <th>Proyecto</th>
+                  <th>Status</th>
+                  <th>Clicks</th>
+                  <th>Views</th>
+                  <th>Purchase</th>
+                  <th>Created</th>
+                  <th>Updated</th>
+                </tr>
+              </thead>
+              <tbody id="tblRecords"></tbody>
+            </table>
           </div>
-
-          <div class="card" id="recordDetailPanel">
-            <div class="flex justify-between items-center">
-              <h3>Detalle del Record</h3>
-              <div class="flex gap-sm">
-                <button class="btn-doc" id="btnRecordDoc" style="display:none;" onclick="openRecordDoc()">Documentacion</button>
-                <button class="btn-ai" id="btnRecordAi" style="display:none;" onclick="openRecordAiMetrics()">Analisis IA</button>
-                <button class="btn-ai" id="btnRecordAiCombined" style="display:none;" onclick="openRecordAiCombined()">Analisis IA Completo</button>
-              </div>
-            </div>
-            <div id="recordDetailEmpty" class="text-muted text-sm mt-md">Selecciona un record para ver su detalle.</div>
-            <div id="recordDetail" style="display:none;" class="mt-md">
-              <div class="grid grid-3">
-                <div class="stat-chip"><div class="stat-chip__label">Record</div><div class="stat-chip__value" id="rdName">—</div><div class="stat-chip__meta" id="rdNameMeta"></div></div>
-                <div class="stat-chip"><div class="stat-chip__label">Experimento</div><div class="stat-chip__value" id="rdExp">—</div><div class="stat-chip__meta" id="rdExpMeta"></div></div>
-                <div class="stat-chip"><div class="stat-chip__label">Estado</div><div class="stat-chip__value" id="rdStatus">—</div><div class="stat-chip__meta" id="rdStatusMeta"></div></div>
-              </div>
-              <div class="grid grid-3 mt-md">
-                <div class="stat-chip"><div class="stat-chip__label">Clicks / Views</div><div class="stat-chip__value" id="rdTraffic">—</div><div class="stat-chip__meta" id="rdTrafficMeta"></div></div>
-                <div class="stat-chip"><div class="stat-chip__label">Funnel</div><div class="stat-chip__value" id="rdFunnel">—</div><div class="stat-chip__meta" id="rdFunnelMeta"></div></div>
-                <div class="stat-chip"><div class="stat-chip__label">Engagement</div><div class="stat-chip__value" id="rdEngagement">—</div><div class="stat-chip__meta">(Likes + Comments + Shares) / Views x 1000</div></div>
-                <div class="stat-chip"><div class="stat-chip__label">Creative</div><div class="stat-chip__value" id="rdCreative">—</div><div class="stat-chip__meta" id="rdCreativeMeta"></div></div>
-              </div>
-              <div class="grid grid-3 mt-md">
-                <div class="stat-chip"><div class="stat-chip__label">Video</div><div class="stat-chip__value" id="rdVideo">—</div><div class="stat-chip__meta" id="rdVideoMeta"></div></div>
-                <div class="stat-chip"><div class="stat-chip__label">Live</div><div class="stat-chip__value" id="rdLive">—</div><div class="stat-chip__meta" id="rdLiveMeta"></div></div>
-                <div class="stat-chip"><div class="stat-chip__label">IDs campana</div><div class="stat-chip__value" id="rdCampaign">—</div><div class="stat-chip__meta" id="rdCampaignMeta"></div></div>
-              </div>
-            </div>
-          </div>
+          <div id="recordsEmpty" class="text-muted text-sm mt-md" style="display:none;">Esta hipotesis no tiene records aun.</div>
         </div>
       </div>
     </div>
 
+  </div>
+
+  <div class="modal-backdrop hidden" id="recordModal">
+    <div class="modal">
+      <div class="modal__header">
+        <div>
+          <div class="modal__title" id="recordModalTitle">Detalle del récord</div>
+          <div class="text-sm text-muted" id="recordModalMeta">Analiza el récord sin salir de la hipótesis.</div>
+        </div>
+        <button class="btn-secondary" id="btnCloseRecordModal">Cerrar</button>
+      </div>
+      <div class="modal__body">
+        <div class="grid grid-2">
+          <div class="card">
+            <div class="section-header">
+              <h3>Contexto</h3>
+            </div>
+            <div class="stat-chip">
+              <div class="stat-chip__label">Proyecto</div>
+              <div class="stat-chip__value" id="modalProject">—</div>
+              <div class="stat-chip__meta" id="modalExperiment">—</div>
+            </div>
+            <div class="stat-chip mt-md">
+              <div class="stat-chip__label">Hipótesis</div>
+              <div class="stat-chip__value" id="modalHypothesis">—</div>
+              <div class="stat-chip__meta" id="modalHypothesisMeta">—</div>
+            </div>
+            <div class="stat-chip mt-md">
+              <div class="stat-chip__label">Estado</div>
+              <div class="stat-chip__value" id="modalStatus">—</div>
+              <div class="stat-chip__meta" id="modalChannel">—</div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="section-header">
+              <h3>Creative</h3>
+            </div>
+            <div class="stat-chip">
+              <div class="stat-chip__label">Hook</div>
+              <div class="stat-chip__value" id="modalHook">—</div>
+              <div class="stat-chip__meta" id="modalHookType">—</div>
+            </div>
+            <div class="stat-chip mt-md">
+              <div class="stat-chip__label">CTA</div>
+              <div class="stat-chip__value" id="modalCta">—</div>
+              <div class="stat-chip__meta" id="modalCtaType">—</div>
+            </div>
+            <div class="stat-chip mt-md">
+              <div class="stat-chip__label">Ejecución</div>
+              <div class="stat-chip__value" id="modalExecution">—</div>
+              <div class="stat-chip__meta" id="modalRecordName">—</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card mt-lg">
+          <div class="section-header">
+            <h3>Métricas principales</h3>
+          </div>
+          <div class="grid grid-4 mt-md">
+            <div class="stat-chip">
+              <div class="stat-chip__label">Clicks</div>
+              <div class="stat-chip__value" id="modalClicks">—</div>
+            </div>
+            <div class="stat-chip">
+              <div class="stat-chip__label">Views</div>
+              <div class="stat-chip__value" id="modalViews">—</div>
+            </div>
+            <div class="stat-chip">
+              <div class="stat-chip__label">CTR</div>
+              <div class="stat-chip__value" id="modalCtr">—</div>
+            </div>
+            <div class="stat-chip">
+              <div class="stat-chip__label">Purchase</div>
+              <div class="stat-chip__value" id="modalPurchase">—</div>
+            </div>
+          </div>
+          <div class="grid grid-4 mt-md">
+            <div class="stat-chip">
+              <div class="stat-chip__label">Initiate Checkout</div>
+              <div class="stat-chip__value" id="modalInitiateCheckout">—</div>
+            </div>
+            <div class="stat-chip">
+              <div class="stat-chip__label">Inicia Test</div>
+              <div class="stat-chip__value" id="modalIniciaTest">—</div>
+            </div>
+            <div class="stat-chip">
+              <div class="stat-chip__label">Lead Form</div>
+              <div class="stat-chip__value" id="modalLeadForm">—</div>
+            </div>
+            <div class="stat-chip">
+              <div class="stat-chip__label">Nuevos seguidores</div>
+              <div class="stat-chip__value" id="modalNewFollowers">—</div>
+            </div>
+          </div>
+          <div class="grid grid-4 mt-md">
+            <div class="stat-chip">
+              <div class="stat-chip__label">Retención %</div>
+              <div class="stat-chip__value" id="modalRetention">—</div>
+            </div>
+            <div class="stat-chip">
+              <div class="stat-chip__label">Engagement %</div>
+              <div class="stat-chip__value" id="modalEngagement">—</div>
+            </div>
+            <div class="stat-chip">
+              <div class="stat-chip__label">Avg Watch Time</div>
+              <div class="stat-chip__value" id="modalAvgWatch">—</div>
+            </div>
+            <div class="stat-chip">
+              <div class="stat-chip__label">Interacciones</div>
+              <div class="stat-chip__value" id="modalInteractions">—</div>
+            </div>
+          </div>
+          <div class="grid grid-4 mt-md">
+            <div class="stat-chip">
+              <div class="stat-chip__label">Likes</div>
+              <div class="stat-chip__value" id="modalLikes">—</div>
+            </div>
+            <div class="stat-chip">
+              <div class="stat-chip__label">Comentarios</div>
+              <div class="stat-chip__value" id="modalComments">—</div>
+            </div>
+            <div class="stat-chip">
+              <div class="stat-chip__label">Shares</div>
+              <div class="stat-chip__value" id="modalShares">—</div>
+            </div>
+            <div class="stat-chip">
+              <div class="stat-chip__label">Guardados</div>
+              <div class="stat-chip__value" id="modalSaves">—</div>
+            </div>
+          </div>
+          <div class="grid grid-4 mt-md">
+            <div class="stat-chip">
+              <div class="stat-chip__label">CPC</div>
+              <div class="stat-chip__value" id="modalCpc">—</div>
+            </div>
+            <div class="stat-chip">
+              <div class="stat-chip__label">CAC</div>
+              <div class="stat-chip__value" id="modalCac">—</div>
+            </div>
+            <div class="stat-chip">
+              <div class="stat-chip__label">CPR</div>
+              <div class="stat-chip__value" id="modalCpr">—</div>
+            </div>
+            <div class="stat-chip">
+              <div class="stat-chip__label">CTR</div>
+              <div class="stat-chip__value" id="modalCtrRepeat">—</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card mt-lg">
+          <div class="section-header">
+            <h3>Notas cualitativas</h3>
+          </div>
+          <div id="modalNotes" class="text-sm text-muted">Sin notas.</div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- Documentation Modal -->
@@ -255,6 +382,25 @@
     const x = Number(n);
     if (!Number.isFinite(x)) return "—";
     return x.toFixed(digits);
+  }
+
+  function fmtPercent(value, digits = 2) {
+    if (value === null || value === undefined) return "—";
+    const x = Number(value);
+    return Number.isFinite(x) ? `${x.toFixed(digits)}%` : "—";
+  }
+
+  function computeEngagement(record) {
+    const views = record.views || 0;
+    const total = (record.likes || 0) + (record.comments || 0) + (record.shares || 0) + (record.saves || 0);
+    if (!views) return null;
+    return (total / views) * 100;
+  }
+
+  function computeSpend(record) {
+    if (record.cpc === null || record.cpc === undefined) return null;
+    const clicks = record.clicks || 0;
+    return record.cpc * clicks;
   }
 
   function uniqueSorted(values) {
@@ -416,71 +562,82 @@
           <td>${escapeHtml(r.created_at || "")}</td>
           <td>${escapeHtml(r.updated_at || r.created_at || "")}</td>
         `;
-        tr.onclick = () => {
-          [...tbody.querySelectorAll("tr")].forEach(row => row.classList.remove("selected"));
-          tr.classList.add("selected");
-          showRecordDetail(exp, r);
-        };
+        tr.onclick = () => openRecordModal(exp, r);
         tbody.appendChild(tr);
       }
     }
-
-    // Reset detail panel
-    $("recordDetail").style.display = "none";
-    $("recordDetailEmpty").style.display = "block";
 
     $("recordsModal").scrollTop = 0;
   }
 
   function closeRecordsModal() {
     $("recordsModal").style.display = "none";
-    $("recordDetail").style.display = "none";
-    $("recordDetailEmpty").style.display = "block";
     selectedExpId = null;
     renderHypList();
   }
 
-  // ---------- SHOW RECORD DETAIL ----------
-  function showRecordDetail(exp, r) {
-    currentRecordForDoc = r;
-    $("recordDetailEmpty").style.display = "none";
-    $("recordDetail").style.display = "block";
-    $("btnRecordDoc").style.display = "";
-    $("btnRecordAi").style.display = "";
-    $("btnRecordAiCombined").style.display = "";
+  async function openRecordModal(exp, record) {
+    const engagement = computeEngagement(record);
+    const spend = computeSpend(record);
+    const purchases = record.purchase || 0;
+    const leads = record.lead_form || 0;
+    const cac = spend && purchases ? spend / purchases : null;
+    const cpr = spend && leads ? spend / leads : null;
 
-    $("rdName").textContent = r.record_name || r.session_id || "—";
-    $("rdNameMeta").textContent = `Record #${r.id} · ${r.created_at || "—"}`;
+    $("recordModalTitle").textContent = record.record_name || `Record #${record.id}`;
+    $("recordModalMeta").textContent = `Record #${record.id} · Session ${record.session_id}`;
+    $("modalProject").textContent = exp?.project_name || "—";
+    $("modalExperiment").textContent = exp ? `Experimento #${exp.id}` : "—";
+    $("modalHypothesis").textContent = exp?.hypothesis || "—";
+    $("modalHypothesisMeta").textContent = exp?.hypothesis_type || "—";
+    $("modalStatus").textContent = record.record_status || "—";
+    $("modalChannel").textContent = exp?.traffic_type || "—";
+    $("modalHook").textContent = record.hook_text || "—";
+    $("modalHookType").textContent = record.hook_type || "—";
+    $("modalCta").textContent = record.cta_text || "—";
+    $("modalCtaType").textContent = record.cta_type || "—";
+    $("modalExecution").textContent = record.execution_type || "—";
+    $("modalRecordName").textContent = record.record_name || record.session_id || "—";
 
-    $("rdExp").textContent = exp ? exp.project_name : "—";
-    $("rdExpMeta").textContent = exp ? `Tipo: ${exp.hypothesis_type || "—"} · Y: ${exp.primary_metric || "—"}` : "—";
+    $("modalClicks").textContent = fmt(record.clicks);
+    $("modalViews").textContent = fmt(record.views);
+    $("modalCtr").textContent = record.ctr ?? "—";
+    $("modalPurchase").textContent = fmt(record.purchase);
+    $("modalInitiateCheckout").textContent = fmt(record.initiate_checkouts);
+    $("modalIniciaTest").textContent = fmt(record.inicia_test);
+    $("modalLeadForm").textContent = fmt(record.lead_form);
+    $("modalNewFollowers").textContent = fmt(record.live_new_followers);
+    $("modalRetention").textContent = fmtPercent(record.retention_pct, 1);
+    $("modalEngagement").textContent = engagement !== null ? `${fmtFloat(engagement, 2)}%` : "—";
+    $("modalAvgWatch").textContent = record.avg_watch_time !== null && record.avg_watch_time !== undefined
+      ? fmtFloat(record.avg_watch_time, 2)
+      : "—";
+    const interactions = (record.likes || 0) + (record.comments || 0) + (record.shares || 0) + (record.saves || 0);
+    $("modalInteractions").textContent = fmt(interactions);
+    $("modalLikes").textContent = fmt(record.likes);
+    $("modalComments").textContent = fmt(record.comments);
+    $("modalShares").textContent = fmt(record.shares);
+    $("modalSaves").textContent = fmt(record.saves);
+    $("modalCpc").textContent = record.cpc !== null && record.cpc !== undefined ? fmtFloat(record.cpc, 4) : "—";
+    $("modalCac").textContent = cac !== null ? fmtFloat(cac, 2) : "—";
+    $("modalCpr").textContent = cpr !== null ? fmtFloat(cpr, 2) : "—";
+    $("modalCtrRepeat").textContent = record.ctr ?? "—";
 
-    const status = r.record_status || "collecting";
-    $("rdStatus").innerHTML = `<span class="badge badge-${status}">${status}</span>`;
-    $("rdStatusMeta").textContent = `Execution: ${r.execution_type || "—"}`;
+    $("modalNotes").textContent = "Cargando notas...";
+    try {
+      const doc = await apiGet(`/documentation/record/${record.id}`);
+      if (!doc.notes || doc.notes.length === 0) {
+        $("modalNotes").textContent = "Sin notas.";
+      } else {
+        $("modalNotes").innerHTML = doc.notes
+          .map(note => `<div class="mb-sm">${note.body}</div>`)
+          .join("");
+      }
+    } catch (error) {
+      $("modalNotes").textContent = "Sin notas.";
+    }
 
-    $("rdTraffic").textContent = `${fmt(r.clicks)} / ${fmt(r.views)}`;
-    $("rdTrafficMeta").textContent = `CTR: ${r.ctr ?? "—"} · CPC: ${r.cpc ?? "—"}`;
-
-    $("rdFunnel").textContent = `${fmt(r.view_content)} / ${fmt(r.lead_form)} / ${fmt(r.initiate_checkouts)} / ${fmt(r.purchase)}`;
-    $("rdFunnelMeta").textContent = "VC / Lead / IC / Purchase";
-
-    const engagementViews = r.views || 0;
-    const engagementTotal = (r.likes || 0) + (r.comments || 0) + (r.shares || 0);
-    const engagement = engagementViews ? (engagementTotal / engagementViews) * 1000 : null;
-    $("rdEngagement").textContent = engagement === null ? "—" : fmtFloat(engagement, 2);
-
-    $("rdCreative").textContent = `${r.hook_type || "—"} / ${r.cta_type || "—"}`;
-    $("rdCreativeMeta").textContent = `Hook: ${r.hook_text || "—"} · CTA: ${r.cta_text || "—"}`;
-
-    $("rdVideo").textContent = `${r.views_finish_pct ?? "—"}% / ${r.retention_pct ?? "—"}%`;
-    $("rdVideoMeta").textContent = `Avg watch: ${r.avg_watch_time ?? "—"} · Duracion: ${r.video_duration ?? "—"}`;
-
-    $("rdLive").textContent = `${fmt(r.live_viewers_peak)} / ${fmt(r.live_avg_viewers)} / ${fmt(r.live_new_followers)}`;
-    $("rdLiveMeta").textContent = "Peak / Avg / New followers";
-
-    $("rdCampaign").textContent = `${r.campaign_id || "—"} / ${r.ad_set_id || "—"}`;
-    $("rdCampaignMeta").textContent = `Ad: ${r.ad_id || "—"}`;
+    $("recordModal").classList.remove("hidden");
   }
 
   // ---------- LOAD ----------
@@ -516,10 +673,19 @@
     if (e.target === this) closeRecordsModal();
   });
 
+  $("btnCloseRecordModal").addEventListener("click", () => {
+    $("recordModal").classList.add("hidden");
+  });
+
+  $("recordModal").addEventListener("click", (event) => {
+    if (event.target === $("recordModal")) {
+      $("recordModal").classList.add("hidden");
+    }
+  });
+
   // ---------- DOCUMENTATION MODAL ----------
   let docEntityType = null;
   let docEntityId = null;
-  let currentRecordForDoc = null;
 
   async function apiPost(path, body) {
     const r = await fetch(API_BASE + path, {
@@ -546,10 +712,6 @@
     docEntityId = null;
   }
 
-  function openRecordDoc() {
-    if (!currentRecordForDoc) return;
-    openDocModal("record", currentRecordForDoc.id, currentRecordForDoc.record_name || currentRecordForDoc.session_id);
-  }
 
   async function loadDocNotes() {
     try {
@@ -616,10 +778,6 @@
     runAiAnalysis();
   }
 
-  function openRecordAiMetrics() {
-    if (!currentRecordForDoc) return;
-    openAiMetrics("record", currentRecordForDoc.id, currentRecordForDoc.record_name || currentRecordForDoc.session_id);
-  }
 
   function openAiCombined(entityType, entityId, title) {
     aiEntityType = entityType;
@@ -635,10 +793,6 @@
     runAiAnalysis();
   }
 
-  function openRecordAiCombined() {
-    if (!currentRecordForDoc) return;
-    openAiCombined("record", currentRecordForDoc.id, currentRecordForDoc.record_name || currentRecordForDoc.session_id);
-  }
 
   function openAiNotes() {
     if (!docEntityType || !docEntityId) return;
