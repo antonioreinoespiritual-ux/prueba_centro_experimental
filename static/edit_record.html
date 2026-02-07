@@ -1,0 +1,424 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Editar récord — Centro Experimental</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/design-system.css">
+</head>
+<body>
+  <div class="app-container" role="main">
+    <div class="top-bar">
+      <div>
+        <h1 class="top-bar__title">Editar récord</h1>
+        <p class="top-bar__subtitle">Actualiza métricas y contenido del récord en una sola vista.</p>
+      </div>
+      <div class="top-bar__actions">
+        <a class="btn-link" href="/static/records.html" aria-label="Volver a lista de records">Lista de records</a>
+        <a class="btn-link" href="/static/dashboard.html" aria-label="Ir al dashboard">Dashboard</a>
+        <button id="btnReload" class="btn-secondary" aria-label="Recargar record">Recargar</button>
+      </div>
+    </div>
+
+    <div class="card mt-lg">
+      <div class="grid grid-3">
+        <div class="field-group">
+          <label for="recordId">Record ID</label>
+          <input id="recordId" type="number" min="1" placeholder="123" />
+        </div>
+        <div class="field-group" style="display:flex; align-items:end;">
+          <button id="btnLoad" class="btn-secondary" aria-label="Cargar record">Cargar récord</button>
+        </div>
+        <div class="field-group" style="display:flex; align-items:end;">
+          <span class="tag" id="statusTag">Sin cargar</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card mt-lg hidden" id="recordSummary">
+      <div class="section-header">
+        <h2>Resumen</h2>
+        <span class="tag" id="recordMeta">—</span>
+      </div>
+      <div class="grid grid-3 mt-md">
+        <div class="stat-chip">
+          <div class="stat-chip__label">Proyecto</div>
+          <div class="stat-chip__value" id="sumProject">—</div>
+          <div class="stat-chip__meta" id="sumProjectMeta"></div>
+        </div>
+        <div class="stat-chip">
+          <div class="stat-chip__label">Métrica X</div>
+          <div class="stat-chip__value" id="sumMetricX">—</div>
+          <div class="stat-chip__meta" id="sumMetricMeta"></div>
+        </div>
+        <div class="stat-chip">
+          <div class="stat-chip__label">Estado</div>
+          <div class="stat-chip__value" id="sumStatus">—</div>
+          <div class="stat-chip__meta" id="sumStatusMeta"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card mt-lg hidden" id="recordForm">
+      <div class="section-header">
+        <h2>Detalles del récord</h2>
+        <div class="flex gap-sm">
+          <button id="btnClose" class="btn-warning">Cerrar récord</button>
+          <button id="btnReopen" class="btn-secondary">Reabrir récord</button>
+        </div>
+      </div>
+
+      <div class="grid grid-3 mt-md">
+        <div class="field-group">
+          <label for="record_name">Nombre del record</label>
+          <input id="record_name" type="text" />
+        </div>
+        <div class="field-group">
+          <label for="hook_text">Hook</label>
+          <input id="hook_text" type="text" />
+        </div>
+        <div class="field-group">
+          <label for="hook_type">Tipo de Hook</label>
+          <select id="hook_type">
+            <option value="">-- seleccionar --</option>
+            <option value="dolor">Dolor</option>
+            <option value="amenaza_perdida">Amenaza / pérdida</option>
+            <option value="autoridad">Autoridad</option>
+            <option value="alivio">Alivio</option>
+            <option value="curiosidad">Curiosidad</option>
+            <option value="validacion_emocional">Validación emocional</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="grid grid-3 mt-md">
+        <div class="field-group">
+          <label for="cta_text">CTA</label>
+          <input id="cta_text" type="text" />
+        </div>
+        <div class="field-group">
+          <label for="cta_type">Tipo de CTA</label>
+          <select id="cta_type">
+            <option value="">-- seleccionar --</option>
+            <option value="accion_directa">Acción directa</option>
+            <option value="condicional">Condicional</option>
+            <option value="urgencia">Urgencia</option>
+            <option value="informativo">Informativo</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="section-header mt-lg">
+        <h3>Métricas principales</h3>
+      </div>
+      <div class="grid grid-4 mt-md">
+        <div class="field-group">
+          <label for="clicks">Clicks</label>
+          <input id="clicks" type="number" />
+        </div>
+        <div class="field-group">
+          <label for="views">Views</label>
+          <input id="views" type="number" />
+        </div>
+        <div class="field-group">
+          <label for="ctr">CTR</label>
+          <input id="ctr" type="number" step="0.0001" />
+        </div>
+        <div class="field-group">
+          <label for="cpc">CPC</label>
+          <input id="cpc" type="number" step="0.0001" />
+        </div>
+      </div>
+
+      <div class="grid grid-4 mt-md">
+        <div class="field-group">
+          <label for="initiate_checkouts">Initiate Checkouts</label>
+          <input id="initiate_checkouts" type="number" />
+        </div>
+        <div class="field-group">
+          <label for="view_content">View Content</label>
+          <input id="view_content" type="number" />
+        </div>
+        <div class="field-group">
+          <label for="lead_form">Lead Form</label>
+          <input id="lead_form" type="number" />
+        </div>
+        <div class="field-group">
+          <label for="purchase">Purchase</label>
+          <input id="purchase" type="number" />
+        </div>
+      </div>
+
+      <div class="section-header mt-lg">
+        <h3>Engagement</h3>
+      </div>
+      <div class="grid grid-4 mt-md">
+        <div class="field-group">
+          <label for="likes">Likes</label>
+          <input id="likes" type="number" />
+        </div>
+        <div class="field-group">
+          <label for="comments">Comments</label>
+          <input id="comments" type="number" />
+        </div>
+        <div class="field-group">
+          <label for="shares">Shares</label>
+          <input id="shares" type="number" />
+        </div>
+        <div class="field-group">
+          <label for="saves">Saves</label>
+          <input id="saves" type="number" />
+        </div>
+      </div>
+
+      <div class="section-header mt-lg">
+        <h3>Video / Live</h3>
+      </div>
+      <div class="grid grid-4 mt-md">
+        <div class="field-group">
+          <label for="views_finish_pct">Views Finish %</label>
+          <input id="views_finish_pct" type="number" step="0.01" />
+        </div>
+        <div class="field-group">
+          <label for="retention_pct">Retention %</label>
+          <input id="retention_pct" type="number" step="0.01" />
+        </div>
+        <div class="field-group">
+          <label for="avg_watch_time">Avg Watch Time</label>
+          <input id="avg_watch_time" type="number" step="0.1" />
+        </div>
+        <div class="field-group">
+          <label for="video_duration">Video Duration</label>
+          <input id="video_duration" type="number" step="0.1" />
+        </div>
+      </div>
+
+      <div class="grid grid-4 mt-md">
+        <div class="field-group">
+          <label for="live_viewers_peak">Live Peak</label>
+          <input id="live_viewers_peak" type="number" />
+        </div>
+        <div class="field-group">
+          <label for="live_avg_viewers">Live Avg</label>
+          <input id="live_avg_viewers" type="number" />
+        </div>
+        <div class="field-group">
+          <label for="live_duration">Live Duration</label>
+          <input id="live_duration" type="number" step="0.1" />
+        </div>
+        <div class="field-group">
+          <label for="live_new_followers">Live Followers</label>
+          <input id="live_new_followers" type="number" />
+        </div>
+      </div>
+
+      <div class="mt-lg flex gap-sm">
+        <button id="btnSave" class="btn-success">Guardar cambios</button>
+        <button id="btnReset" class="btn-ghost">Restaurar valores</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast-container" id="toastContainer"></div>
+
+<script>
+  const API_BASE = "";
+  const $ = (id) => document.getElementById(id);
+  let currentRecord = null;
+  let experiments = [];
+
+  function showToast(message, type = "success") {
+    const container = $("toastContainer");
+    const toast = document.createElement("div");
+    toast.className = `toast toast--${type}`;
+    toast.textContent = message;
+    container.appendChild(toast);
+    setTimeout(() => toast.remove(), 3000);
+  }
+
+  function asIntOrNull(value) {
+    if (value === "" || value === null || value === undefined) return null;
+    const n = Number(value);
+    return Number.isFinite(n) ? n : null;
+  }
+
+  function asFloatOrNull(value) {
+    if (value === "" || value === null || value === undefined) return null;
+    const n = Number(value);
+    return Number.isFinite(n) ? n : null;
+  }
+
+  async function apiGet(path) {
+    const response = await fetch(API_BASE + path);
+    if (!response.ok) throw new Error(await response.text());
+    return response.json();
+  }
+
+  async function apiPatch(path, body) {
+    const response = await fetch(API_BASE + path, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!response.ok) throw new Error(await response.text());
+    return response.json();
+  }
+
+  async function apiPost(path) {
+    const response = await fetch(API_BASE + path, { method: "POST" });
+    if (!response.ok) throw new Error(await response.text());
+    return response.json();
+  }
+
+  function setStatusLabel(label) {
+    const tag = $("statusTag");
+    tag.textContent = label;
+    tag.className = "tag";
+  }
+
+  function fillForm(record) {
+    const fields = [
+      "record_name", "hook_text", "hook_type", "cta_text", "cta_type",
+      "clicks", "views", "ctr", "cpc", "initiate_checkouts", "view_content",
+      "lead_form", "purchase", "likes", "comments", "shares", "saves",
+      "views_finish_pct", "retention_pct", "avg_watch_time", "video_duration",
+      "live_viewers_peak", "live_avg_viewers", "live_duration", "live_new_followers",
+    ];
+    fields.forEach((field) => {
+      const el = $(field);
+      if (!el) return;
+      el.value = record[field] !== null && record[field] !== undefined ? record[field] : "";
+    });
+  }
+
+  function updateSummary(record) {
+    const exp = experiments.find((item) => item.id === record.experiment_id);
+    $("recordMeta").textContent = `Record #${record.id} · Session ${record.session_id}`;
+    $("sumProject").textContent = exp?.project_name || "—";
+    $("sumProjectMeta").textContent = exp?.traffic_type || "—";
+    $("sumMetricX").textContent = exp?.independent_variable || "—";
+    $("sumMetricMeta").textContent = exp?.hypothesis || "—";
+    $("sumStatus").textContent = record.record_status || "—";
+    $("sumStatusMeta").textContent = `Actualizado: ${record.updated_at || record.created_at || "—"}`;
+  }
+
+  async function loadRecord(id) {
+    if (!id) return;
+    setStatusLabel("Cargando...");
+    try {
+      if (!experiments.length) {
+        experiments = await apiGet("/experiments/");
+      }
+      const record = await apiGet(`/records/${id}`);
+      currentRecord = record;
+      $("recordSummary").classList.remove("hidden");
+      $("recordForm").classList.remove("hidden");
+      setStatusLabel(`Record #${record.id}`);
+      updateSummary(record);
+      fillForm(record);
+    } catch (error) {
+      setStatusLabel("Error");
+      showToast(String(error), "error");
+    }
+  }
+
+  async function saveRecord() {
+    if (!currentRecord) return;
+    const fields = [
+      ["record_name", (v) => v.trim() || null],
+      ["hook_text", (v) => v.trim() || null],
+      ["hook_type", (v) => v || null],
+      ["cta_text", (v) => v.trim() || null],
+      ["cta_type", (v) => v || null],
+      ["clicks", asIntOrNull],
+      ["views", asIntOrNull],
+      ["ctr", asFloatOrNull],
+      ["cpc", asFloatOrNull],
+      ["initiate_checkouts", asIntOrNull],
+      ["view_content", asIntOrNull],
+      ["lead_form", asIntOrNull],
+      ["purchase", asIntOrNull],
+      ["likes", asIntOrNull],
+      ["comments", asIntOrNull],
+      ["shares", asIntOrNull],
+      ["saves", asIntOrNull],
+      ["views_finish_pct", asFloatOrNull],
+      ["retention_pct", asFloatOrNull],
+      ["avg_watch_time", asFloatOrNull],
+      ["video_duration", asFloatOrNull],
+      ["live_viewers_peak", asIntOrNull],
+      ["live_avg_viewers", asIntOrNull],
+      ["live_duration", asFloatOrNull],
+      ["live_new_followers", asIntOrNull],
+    ];
+    const body = {};
+    fields.forEach(([field, transform]) => {
+      const value = $(field).value;
+      if (value !== "" && value !== null && value !== undefined) {
+        body[field] = transform(value);
+      }
+    });
+
+    try {
+      const updated = await apiPatch(`/records/${currentRecord.id}`, body);
+      currentRecord = updated;
+      updateSummary(updated);
+      showToast("Récord actualizado", "success");
+    } catch (error) {
+      showToast(String(error), "error");
+    }
+  }
+
+  function resetForm() {
+    if (!currentRecord) return;
+    fillForm(currentRecord);
+  }
+
+  async function closeRecord() {
+    if (!currentRecord) return;
+    try {
+      const updated = await apiPost(`/records/${currentRecord.id}/close`);
+      currentRecord = updated;
+      updateSummary(updated);
+      showToast("Récord cerrado", "success");
+    } catch (error) {
+      showToast(String(error), "error");
+    }
+  }
+
+  async function reopenRecord() {
+    if (!currentRecord) return;
+    try {
+      const updated = await apiPost(`/records/${currentRecord.id}/reopen`);
+      currentRecord = updated;
+      updateSummary(updated);
+      showToast("Récord reabierto", "success");
+    } catch (error) {
+      showToast(String(error), "error");
+    }
+  }
+
+  $("btnLoad").addEventListener("click", () => {
+    const id = Number($("recordId").value);
+    if (id) loadRecord(id);
+  });
+
+  $("btnReload").addEventListener("click", () => {
+    if (currentRecord?.id) loadRecord(currentRecord.id);
+  });
+
+  $("btnSave").addEventListener("click", saveRecord);
+  $("btnReset").addEventListener("click", resetForm);
+  $("btnClose").addEventListener("click", closeRecord);
+  $("btnReopen").addEventListener("click", reopenRecord);
+
+  const params = new URLSearchParams(window.location.search);
+  const recordId = Number(params.get("id"));
+  if (recordId) {
+    $("recordId").value = recordId;
+    loadRecord(recordId);
+  }
+</script>
+</body>
+</html>

@@ -171,6 +171,7 @@
         <div class="flex justify-between items-center">
           <h2>Tarjeta del récord</h2>
           <button class="btn-doc" id="btnRecordDoc" style="display:none;" onclick="openDocModal('record', currentRecordId, currentRecordName)">Documentacion</button>
+          <button class="btn-secondary" id="btnRecordEdit" style="display:none;" onclick="goToRecordEdit()">Editar</button>
           <button class="btn-ai" id="btnRecordAi" style="display:none;" onclick="openAiMetrics('record', currentRecordId, currentRecordName)">Analisis IA</button>
           <button class="btn-ai" id="btnRecordAiCombined" style="display:none;" onclick="openAiCombined('record', currentRecordId, currentRecordName)">Analisis IA Completo</button>
         </div>
@@ -516,6 +517,7 @@
     $("recordEmpty").style.display = "none";
     $("recordCard").style.display = "block";
     $("btnRecordDoc").style.display = "";
+    $("btnRecordEdit").style.display = "";
     $("btnRecordAi").style.display = "";
     $("btnRecordAiCombined").style.display = "";
 
@@ -551,6 +553,11 @@
 
     $("cardCampaign").textContent = `${r.campaign_id || "—"} / ${r.ad_set_id || "—"}`;
     $("cardCampaignMeta").textContent = `Ad: ${r.ad_id || "—"}`;
+  }
+
+  function goToRecordEdit() {
+    if (!currentRecordId) return;
+    window.location.href = `/static/edit_record.html?id=${currentRecordId}`;
   }
 
   function clearFilters(){
