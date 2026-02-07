@@ -21,6 +21,9 @@
     .ai-history__item:hover { border-color: var(--accent); background: var(--glass-bg-hover); }
     .ai-spinner { display: inline-block; width: 18px; height: 18px; border: 2px solid rgba(124,58,237,0.3); border-top-color: #7c3aed; border-radius: 50%; animation: spin 0.6s linear infinite; margin-right: 8px; vertical-align: middle; }
     @keyframes spin { to { transform: rotate(360deg); } }
+    .table-ellipsis { max-width: 260px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .table-ellipsis--sm { max-width: 180px; }
+    .table-ellipsis--lg { max-width: 360px; }
   </style>
 </head>
 <body>
@@ -654,9 +657,9 @@
       const traffic = exp?.traffic_type || "mixed";
       tr.innerHTML = `
         <td>${escapeHtml(r.session_id || "—")}</td>
-        <td>${escapeHtml(r.record_name || "—")}</td>
+        <td class="table-ellipsis table-ellipsis--sm" title="${escapeHtml(r.record_name || r.session_id || "—")}">${escapeHtml(r.record_name || "—")}</td>
         <td>${escapeHtml(exp ? `Exp #${exp.id}` : "—")}</td>
-        <td>${escapeHtml(exp?.hypothesis || "—")}</td>
+        <td class="table-ellipsis table-ellipsis--lg" title="${escapeHtml(exp?.hypothesis || "—")}">${escapeHtml(exp ? `Hyp #${exp.id} · ${(exp.hypothesis || "").slice(0, 90)}${(exp.hypothesis || "").length > 90 ? "…" : ""}` : "—")}</td>
         <td>${escapeHtml(exp?.independent_variable || "—")}</td>
         <td>${escapeHtml(exp?.project_name || "—")}</td>
         <td><span class="badge badge-${statusClass}">${statusClass}</span></td>
