@@ -378,7 +378,15 @@
   }
 
   function fillPublicoFilter(){
-    fillFilterSelect($("f_publico"), uniqueSorted(records.map(r => r.publico)));
+    const project = $("f_project").value;
+    const metricX = $("f_metric_x").value;
+    const expIds = experiments
+      .filter(e => (!project || e.project_name === project) && (!metricX || e.independent_variable === metricX))
+      .map(e => e.id);
+    const publicoCandidates = records
+      .filter(r => !expIds.length || expIds.includes(r.experiment_id))
+      .map(r => r.publico);
+    fillFilterSelect($("f_publico"), uniqueSorted(publicoCandidates));
   }
 
   function getExperimentById(id){
@@ -581,6 +589,7 @@
     $("f_sort").value = "created_desc";
     $("f_limit").value = "5000";
     fillProjectMetricFilters();
+    fillPublicoFilter();
   }
 
   function refresh(){
@@ -600,8 +609,8 @@
   $("btnApplyFilters").onclick = refresh;
   $("btnClearFilters").onclick = () => { clearFilters(); refresh(); };
   $("btnReload").onclick = loadAll;
-  $("f_project").addEventListener("change", () => { fillProjectMetricFilters(); refresh(); });
-  $("f_metric_x").addEventListener("change", refresh);
+  $("f_project").addEventListener("change", () => { fillProjectMetricFilters(); fillPublicoFilter(); refresh(); });
+  $("f_metric_x").addEventListener("change", () => { fillPublicoFilter(); refresh(); });
   $("f_publico").addEventListener("change", refresh);
 
   // ---------- DOCUMENTATION MODAL ----------
