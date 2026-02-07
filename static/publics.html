@@ -69,7 +69,7 @@
       </div>
     </div>
 
-    <div class="card mt-lg" id="publicDetailCard">
+      <div class="card mt-lg" id="publicDetailCard">
       <div class="section-header">
         <div>
           <h2 id="publicDetailTitle">Detalle del público</h2>
@@ -109,9 +109,12 @@
           <thead>
             <tr>
               <th>ID</th>
+              <th>Proyecto</th>
               <th>Experimento</th>
+              <th>Hipótesis</th>
               <th>Record</th>
               <th>Status</th>
+              <th>Canal</th>
               <th>Clicks</th>
               <th>Views</th>
               <th>Purchase</th>
@@ -124,10 +127,98 @@
     </div>
   </div>
 
+  <div class="modal-backdrop hidden" id="recordModal">
+    <div class="modal">
+      <div class="modal__header">
+        <div>
+          <div class="modal__title" id="recordModalTitle">Detalle del récord</div>
+          <div class="text-sm text-muted" id="recordModalMeta">Analiza el récord sin salir del público.</div>
+        </div>
+        <button class="btn-secondary" id="btnCloseRecordModal">Cerrar</button>
+      </div>
+      <div class="modal__body">
+        <div class="grid grid-2">
+          <div class="card">
+            <div class="section-header">
+              <h3>Contexto</h3>
+            </div>
+            <div class="stat-chip">
+              <div class="stat-chip__label">Proyecto</div>
+              <div class="stat-chip__value" id="modalProject">—</div>
+              <div class="stat-chip__meta" id="modalExperiment">—</div>
+            </div>
+            <div class="stat-chip mt-md">
+              <div class="stat-chip__label">Hipótesis</div>
+              <div class="stat-chip__value" id="modalHypothesis">—</div>
+              <div class="stat-chip__meta" id="modalHypothesisMeta">—</div>
+            </div>
+            <div class="stat-chip mt-md">
+              <div class="stat-chip__label">Estado</div>
+              <div class="stat-chip__value" id="modalStatus">—</div>
+              <div class="stat-chip__meta" id="modalChannel">—</div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="section-header">
+              <h3>Creative</h3>
+            </div>
+            <div class="stat-chip">
+              <div class="stat-chip__label">Hook</div>
+              <div class="stat-chip__value" id="modalHook">—</div>
+              <div class="stat-chip__meta" id="modalHookType">—</div>
+            </div>
+            <div class="stat-chip mt-md">
+              <div class="stat-chip__label">CTA</div>
+              <div class="stat-chip__value" id="modalCta">—</div>
+              <div class="stat-chip__meta" id="modalCtaType">—</div>
+            </div>
+            <div class="stat-chip mt-md">
+              <div class="stat-chip__label">Ejecución</div>
+              <div class="stat-chip__value" id="modalExecution">—</div>
+              <div class="stat-chip__meta" id="modalRecordName">—</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card mt-lg">
+          <div class="section-header">
+            <h3>Métricas principales</h3>
+          </div>
+          <div class="grid grid-4 mt-md">
+            <div class="stat-chip">
+              <div class="stat-chip__label">Clicks</div>
+              <div class="stat-chip__value" id="modalClicks">—</div>
+            </div>
+            <div class="stat-chip">
+              <div class="stat-chip__label">Views</div>
+              <div class="stat-chip__value" id="modalViews">—</div>
+            </div>
+            <div class="stat-chip">
+              <div class="stat-chip__label">CTR</div>
+              <div class="stat-chip__value" id="modalCtr">—</div>
+            </div>
+            <div class="stat-chip">
+              <div class="stat-chip__label">Purchase</div>
+              <div class="stat-chip__value" id="modalPurchase">—</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card mt-lg">
+          <div class="section-header">
+            <h3>Notas cualitativas</h3>
+          </div>
+          <div id="modalNotes" class="text-sm text-muted">Sin notas.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script>
     const apiBase = "";
     const $ = (id) => document.getElementById(id);
     $("apiBase").textContent = location.origin;
+    let experiments = [];
 
     async function apiGet(path){
       const res = await fetch(apiBase + path);
@@ -143,6 +234,16 @@
       });
       if (!res.ok) throw new Error(await res.text());
       return res.json();
+    }
+
+    function fmt(value){
+      if (value === null || value === undefined) return "—";
+      const n = Number(value);
+      return Number.isFinite(n) ? n.toLocaleString("es-ES") : String(value);
+    }
+
+    function getExperimentById(id){
+      return experiments.find((exp) => exp.id === id);
     }
 
     async function loadPublics(){
@@ -181,20 +282,73 @@
       const tbody = $("publicRecordsTable");
       tbody.innerHTML = "";
       detail.records.forEach(rec => {
+        const exp = getExperimentById(rec.experiment_id);
         const tr = document.createElement("tr");
         tr.innerHTML = `
           <td>${rec.id}</td>
-          <td>${rec.experiment_id}</td>
+          <td>${exp?.project_name || "—"}</td>
+          <td>Exp #${rec.experiment_id}</td>
+          <td>${exp?.hypothesis || "—"}</td>
           <td>${rec.record_name || "—"}</td>
           <td>${rec.record_status}</td>
+          <td>${exp?.traffic_type || "—"}</td>
           <td>${rec.clicks ?? "—"}</td>
           <td>${rec.views ?? "—"}</td>
           <td>${rec.purchase ?? "—"}</td>
           <td>${new Date(rec.created_at).toLocaleString()}</td>
         `;
+        tr.style.cursor = "pointer";
+        tr.addEventListener("click", () => openRecordModal(rec, exp));
         tbody.appendChild(tr);
       });
     }
+
+    async function openRecordModal(record, exp){
+      $("recordModalTitle").textContent = record.record_name || `Record #${record.id}`;
+      $("recordModalMeta").textContent = `Record #${record.id} · Session ${record.session_id}`;
+      $("modalProject").textContent = exp?.project_name || "—";
+      $("modalExperiment").textContent = exp ? `Experimento #${exp.id}` : "—";
+      $("modalHypothesis").textContent = exp?.hypothesis || "—";
+      $("modalHypothesisMeta").textContent = exp?.hypothesis_type || "—";
+      $("modalStatus").textContent = record.record_status || "—";
+      $("modalChannel").textContent = exp?.traffic_type || "—";
+      $("modalHook").textContent = record.hook_text || "—";
+      $("modalHookType").textContent = record.hook_type || "—";
+      $("modalCta").textContent = record.cta_text || "—";
+      $("modalCtaType").textContent = record.cta_type || "—";
+      $("modalExecution").textContent = record.execution_type || "—";
+      $("modalRecordName").textContent = record.record_name || record.session_id || "—";
+      $("modalClicks").textContent = fmt(record.clicks);
+      $("modalViews").textContent = fmt(record.views);
+      $("modalCtr").textContent = record.ctr ?? "—";
+      $("modalPurchase").textContent = fmt(record.purchase);
+
+      $("modalNotes").textContent = "Cargando notas...";
+      try {
+        const doc = await apiGet(`/documentation/record/${record.id}`);
+        if (!doc.notes || doc.notes.length === 0) {
+          $("modalNotes").textContent = "Sin notas.";
+        } else {
+          $("modalNotes").innerHTML = doc.notes
+            .map(note => `<div class="mb-sm">${note.body}</div>`)
+            .join("");
+        }
+      } catch (error) {
+        $("modalNotes").textContent = "Sin notas.";
+      }
+
+      $("recordModal").classList.remove("hidden");
+    }
+
+    $("btnCloseRecordModal").addEventListener("click", () => {
+      $("recordModal").classList.add("hidden");
+    });
+
+    $("recordModal").addEventListener("click", (event) => {
+      if (event.target === $("recordModal")) {
+        $("recordModal").classList.add("hidden");
+      }
+    });
 
     $("btnReload").addEventListener("click", loadPublics);
     $("btnSearch").addEventListener("click", loadPublics);
@@ -211,7 +365,12 @@
       await loadPublics();
     });
 
-    loadPublics();
+    async function init() {
+      experiments = await apiGet("/experiments/");
+      await loadPublics();
+    }
+
+    init().catch((error) => alert(String(error)));
   </script>
 </body>
 </html>

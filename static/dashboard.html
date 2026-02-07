@@ -109,6 +109,8 @@
                   <tr>
                     <th>ID</th>
                     <th>Record</th>
+                    <th>Proyecto</th>
+                    <th>Hipótesis</th>
                     <th>Status</th>
                     <th>Clicks</th>
                     <th>Views</th>
@@ -1043,6 +1045,8 @@
       tr.innerHTML = `
         <td>${r.id}</td>
         <td>${escapeHtml(r.record_name || r.session_id)}</td>
+        <td>${escapeHtml(exp.project_name || "—")}</td>
+        <td>${escapeHtml(exp.hypothesis || "—")}</td>
         <td><span class="badge badge-${statusClass}">${statusClass}</span></td>
         <td>${fmt(r.clicks)}</td>
         <td>${fmt(r.views)}</td>

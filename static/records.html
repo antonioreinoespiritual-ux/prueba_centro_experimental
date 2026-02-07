@@ -155,6 +155,8 @@
               <tr>
                 <th>ID (Session)</th>
                 <th>Record</th>
+                <th>Experimento</th>
+                <th>Hipótesis</th>
                 <th>Metrica X</th>
                 <th>Proyecto</th>
                 <th>Status</th>
@@ -539,6 +541,8 @@
       tr.innerHTML = `
         <td>${escapeHtml(r.session_id || "—")}</td>
         <td>${escapeHtml(r.record_name || "—")}</td>
+        <td>${escapeHtml(exp ? `Exp #${exp.id}` : "—")}</td>
+        <td>${escapeHtml(exp?.hypothesis || "—")}</td>
         <td>${escapeHtml(exp?.independent_variable || "—")}</td>
         <td>${escapeHtml(exp?.project_name || "—")}</td>
         <td><span class="badge badge-${statusClass}">${statusClass}</span></td>
