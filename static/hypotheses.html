@@ -475,6 +475,12 @@
   $("fStatus").addEventListener("change", renderHypList);
   $("fChannel").addEventListener("change", renderHypList);
   $("fSearch").addEventListener("input", renderHypList);
+  $("fSearch").addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      renderHypList();
+    }
+  });
   $("fProject").addEventListener("change", () => {
     syncProjectMetricFilters();
     renderHypList();
