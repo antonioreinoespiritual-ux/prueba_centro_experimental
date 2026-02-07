@@ -160,6 +160,7 @@
           <div class="grid grid-3 mt-md">
             <div class="stat-chip"><div class="stat-chip__label">Clicks / Views</div><div class="stat-chip__value" id="rdTraffic">—</div><div class="stat-chip__meta" id="rdTrafficMeta"></div></div>
             <div class="stat-chip"><div class="stat-chip__label">Funnel</div><div class="stat-chip__value" id="rdFunnel">—</div><div class="stat-chip__meta" id="rdFunnelMeta"></div></div>
+            <div class="stat-chip"><div class="stat-chip__label">Engagement</div><div class="stat-chip__value" id="rdEngagement">—</div><div class="stat-chip__meta">Likes + Comments + Shares + Saves</div></div>
             <div class="stat-chip"><div class="stat-chip__label">Creative</div><div class="stat-chip__value" id="rdCreative">—</div><div class="stat-chip__meta" id="rdCreativeMeta"></div></div>
           </div>
           <div class="grid grid-3 mt-md">
@@ -430,6 +431,9 @@
 
     $("rdFunnel").textContent = `${fmt(r.view_content)} / ${fmt(r.lead_form)} / ${fmt(r.initiate_checkouts)} / ${fmt(r.purchase)}`;
     $("rdFunnelMeta").textContent = "VC / Lead / IC / Purchase";
+
+    const engagement = (r.likes || 0) + (r.comments || 0) + (r.shares || 0) + (r.saves || 0);
+    $("rdEngagement").textContent = fmt(engagement);
 
     $("rdCreative").textContent = `${r.hook_type || "—"} / ${r.cta_type || "—"}`;
     $("rdCreativeMeta").textContent = `Hook: ${r.hook_text || "—"} · CTA: ${r.cta_text || "—"}`;

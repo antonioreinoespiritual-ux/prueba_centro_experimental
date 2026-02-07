@@ -199,6 +199,11 @@
               <div class="stat-chip__meta" id="cardFunnelMeta"></div>
             </div>
             <div class="stat-chip">
+              <div class="stat-chip__label">Engagement</div>
+              <div class="stat-chip__value" id="cardEngagement">—</div>
+              <div class="stat-chip__meta">Likes + Comments + Shares + Saves</div>
+            </div>
+            <div class="stat-chip">
               <div class="stat-chip__label">Creative</div>
               <div class="stat-chip__value" id="cardCreative">—</div>
               <div class="stat-chip__meta" id="cardCreativeMeta"></div>
@@ -492,6 +497,9 @@
 
     $("cardFunnel").textContent = `${fmt(r.view_content)} / ${fmt(r.lead_form)} / ${fmt(r.initiate_checkouts)} / ${fmt(r.purchase)}`;
     $("cardFunnelMeta").textContent = "VC / Lead / IC / Purchase";
+
+    const engagement = (r.likes || 0) + (r.comments || 0) + (r.shares || 0) + (r.saves || 0);
+    $("cardEngagement").textContent = fmt(engagement);
 
     $("cardCreative").textContent = `${r.hook_type || "—"} / ${r.cta_type || "—"}`;
     $("cardCreativeMeta").textContent = `Hook: ${r.hook_text || "—"} · CTA: ${r.cta_text || "—"}`;
