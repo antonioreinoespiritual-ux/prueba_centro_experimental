@@ -5,7 +5,7 @@ from datetime import datetime
 import re
 
 from sqlalchemy.orm import Session
-from sqlalchemy import select, desc, delete, update
+from sqlalchemy import select, desc, delete, update, func, or_
 
 from . import models, schemas
 
@@ -174,6 +174,104 @@ def rename_project(db: Session, project_name: str, new_project_name: str):
 #  RECORDS
 # ------------------------------------------------------------------ #
 
+def _normalize_public_name(name: str) -> str:
+    return " ".join(name.strip().lower().split())
+
+
+def _is_unassigned_public(name: str) -> bool:
+    return name in {"sin publico", "sin público", "no asignado", "no asignada"}
+
+
+def get_public_by_normalized(db: Session, name_normalized: str):
+    q = select(models.Public).where(models.Public.name_normalized == name_normalized)
+    return db.execute(q).scalar_one_or_none()
+
+
+def get_public(db: Session, public_id: int):
+    q = select(models.Public).where(models.Public.id == public_id)
+    return db.execute(q).scalar_one_or_none()
+
+
+def get_publics(db: Session, search: str | None = None):
+    q = (
+        select(models.Public, func.count(models.ExperimentRecord.id))
+        .join(models.ExperimentRecord, models.ExperimentRecord.public_id == models.Public.id, isouter=True)
+        .group_by(models.Public.id)
+        .order_by(models.Public.name)
+    )
+    if search:
+        q = q.where(models.Public.name.ilike(f"%{search}%"))
+    return list(db.execute(q).all())
+
+
+def create_public(db: Session, data: schemas.PublicCreate):
+    name = data.name.strip()
+    normalized = _normalize_public_name(name)
+    if not normalized or _is_unassigned_public(normalized):
+        raise ValueError("Public name is not allowed.")
+    existing = get_public_by_normalized(db, normalized)
+    if existing:
+        raise ValueError("Public already exists.")
+    obj = models.Public(
+        name=name,
+        name_normalized=normalized,
+        description=(data.description or "").strip() or None,
+    )
+    db.add(obj)
+    db.commit()
+    db.refresh(obj)
+    return obj
+
+
+def update_public(db: Session, public_id: int, data: schemas.PublicUpdate):
+    public = get_public(db, public_id)
+    if not public:
+        return None
+    update_data = data.model_dump(exclude_unset=True)
+    name = update_data.get("name")
+    if name is not None:
+        name = name.strip()
+        normalized = _normalize_public_name(name)
+        if not normalized or _is_unassigned_public(normalized):
+            raise ValueError("Public name is not allowed.")
+        existing = get_public_by_normalized(db, normalized)
+        if existing and existing.id != public_id:
+            raise ValueError("Public already exists.")
+        public.name = name
+        public.name_normalized = normalized
+    if "description" in update_data:
+        public.description = (update_data.get("description") or "").strip() or None
+    public.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(public)
+    return public
+
+
+def get_public_detail(db: Session, public_id: int):
+    public = get_public(db, public_id)
+    if not public:
+        return None, [], schemas.PublicMetrics()
+    records = list(
+        db.execute(
+            select(models.ExperimentRecord).where(
+                or_(
+                    models.ExperimentRecord.public_id == public_id,
+                    models.ExperimentRecord.publico == public.name,
+                )
+            ).order_by(desc(models.ExperimentRecord.created_at))
+        ).scalars().all()
+    )
+    metrics = schemas.PublicMetrics(
+        records_total=len(records),
+        clicks_total=sum(r.clicks or 0 for r in records),
+        views_total=sum(r.views or 0 for r in records),
+        purchases_total=sum(r.purchase or 0 for r in records),
+        leads_total=sum(r.lead_form or 0 for r in records),
+        initiate_checkouts_total=sum(r.initiate_checkouts or 0 for r in records),
+    )
+    return public, records, metrics
+
+
 def create_record(db: Session, data: schemas.RecordCreate):
     # Normalización: si viene string vacío => None (por seguridad)
     organic_piece_type = (data.organic_piece_type or "").strip() or None
@@ -185,6 +283,28 @@ def create_record(db: Session, data: schemas.RecordCreate):
     hook_text = (data.hook_text or "").strip() or None
     cta_text = (data.cta_text or "").strip() or None
     creative_id = (data.creative_id or "").strip() or None
+    public_id = data.public_id
+    public = None
+
+    if public_id:
+        public = get_public(db, public_id)
+        if not public:
+            raise ValueError("Public not found.")
+    elif publico:
+        normalized = _normalize_public_name(publico)
+        if not _is_unassigned_public(normalized):
+            public = get_public_by_normalized(db, normalized)
+            if not public:
+                public = models.Public(name=publico, name_normalized=normalized)
+                db.add(public)
+                db.commit()
+                db.refresh(public)
+
+    if public:
+        public_id = public.id
+        publico = public.name
+    elif publico and _is_unassigned_public(_normalize_public_name(publico)):
+        publico = None
 
     obj = models.ExperimentRecord(
         experiment_id=data.experiment_id,
@@ -233,6 +353,7 @@ def create_record(db: Session, data: schemas.RecordCreate):
         execution_type=data.execution_type,
         record_name=(data.record_name or "").strip() or None,
         publico=publico,
+        public_id=public_id,
         hook_text=hook_text,
         hook_type=data.hook_type,
         cta_text=cta_text,
@@ -268,6 +389,30 @@ def update_record(db: Session, record_id: int, data: schemas.RecordUpdate):
         return None
 
     update_data = data.model_dump(exclude_unset=True)
+    if "public_id" in update_data or "publico" in update_data:
+        public_id = update_data.pop("public_id", None)
+        publico = update_data.pop("publico", None)
+        public = None
+        if public_id:
+            public = get_public(db, public_id)
+            if not public:
+                raise ValueError("Public not found.")
+        elif publico:
+            normalized = _normalize_public_name(publico)
+            if not _is_unassigned_public(normalized):
+                public = get_public_by_normalized(db, normalized)
+                if not public:
+                    public = models.Public(name=publico.strip(), name_normalized=normalized)
+                    db.add(public)
+                    db.commit()
+                    db.refresh(public)
+        if public:
+            rec.public_id = public.id
+            rec.publico = public.name
+        else:
+            rec.public_id = None
+            rec.publico = None
+
     for field, value in update_data.items():
         if isinstance(value, str):
             value = value.strip() or None

@@ -49,6 +49,7 @@ def ensure_schema() -> None:
         ("execution_type", "VARCHAR(30)"),
         ("record_name", "VARCHAR(200)"),
         ("publico", "VARCHAR(200)"),
+        ("public_id", "INTEGER"),
         ("hook_text", "TEXT"),
         ("hook_type", "VARCHAR(30)"),
         ("cta_text", "TEXT"),
@@ -63,6 +64,61 @@ def ensure_schema() -> None:
     for col_name, col_type in record_columns:
         if not _column_exists(cur, "experiment_records", col_name):
             cur.execute(f"ALTER TABLE experiment_records ADD COLUMN {col_name} {col_type}")
+
+    cur.execute("""
+        CREATE INDEX IF NOT EXISTS ix_experiment_records_public_id
+        ON experiment_records (public_id)
+    """)
+
+    # --- Publics table ---
+    cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='publics'")
+    if not cur.fetchone():
+        cur.execute("""
+            CREATE TABLE publics (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name VARCHAR(200) NOT NULL,
+                name_normalized VARCHAR(200) NOT NULL UNIQUE,
+                description TEXT,
+                created_at DATETIME NOT NULL DEFAULT (datetime('now')),
+                updated_at DATETIME
+            )
+        """)
+        cur.execute("""
+            CREATE INDEX IF NOT EXISTS ix_publics_name_normalized
+            ON publics (name_normalized)
+        """)
+
+    # Backfill publics from existing records
+    cur.execute("SELECT id, publico FROM experiment_records WHERE publico IS NOT NULL")
+    public_rows = cur.fetchall()
+    if public_rows:
+        cur.execute("SELECT id, name_normalized FROM publics")
+        existing = {row[1]: row[0] for row in cur.fetchall()}
+
+        def normalize_public(value: str) -> str:
+            return " ".join(value.strip().lower().split())
+
+        def is_unassigned(value: str) -> bool:
+            return value in {"sin publico", "sin público", "no asignado", "no asignada"}
+
+        for record_id, publico in public_rows:
+            if not publico:
+                continue
+            normalized = normalize_public(publico)
+            if not normalized or is_unassigned(normalized):
+                continue
+            public_id = existing.get(normalized)
+            if not public_id:
+                cur.execute(
+                    "INSERT INTO publics (name, name_normalized) VALUES (?, ?)",
+                    (publico.strip(), normalized),
+                )
+                public_id = cur.lastrowid
+                existing[normalized] = public_id
+            cur.execute(
+                "UPDATE experiment_records SET public_id = ? WHERE id = ?",
+                (public_id, record_id),
+            )
 
     # --- Documentation tables ---
     cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='documentation'")

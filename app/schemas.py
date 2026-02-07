@@ -256,6 +256,43 @@ class ExperimentAnalysis(BaseModel):
     analysis: str
 
 
+# ---------- Publics ----------
+class PublicCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    description: Optional[str] = Field(default=None, max_length=2000)
+
+
+class PublicUpdate(BaseModel):
+    name: Optional[str] = Field(default=None, min_length=1, max_length=200)
+    description: Optional[str] = Field(default=None, max_length=2000)
+
+
+class PublicOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    description: Optional[str] = None
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    records_count: int = 0
+
+
+class PublicMetrics(BaseModel):
+    records_total: int = 0
+    clicks_total: int = 0
+    views_total: int = 0
+    purchases_total: int = 0
+    leads_total: int = 0
+    initiate_checkouts_total: int = 0
+
+
+class PublicDetail(BaseModel):
+    public: PublicOut
+    metrics: PublicMetrics
+    records: list["RecordOut"] = []
+
+
 # ---------- Records ----------
 class RecordCreate(BaseModel):
     experiment_id: int
@@ -307,6 +344,7 @@ class RecordCreate(BaseModel):
     # creative / execution fields (new)
     execution_type: Optional[ExecutionType] = None
     record_name: Optional[str] = Field(default=None, max_length=200)
+    public_id: Optional[int] = None
     publico: Optional[str] = Field(default=None, max_length=200)
     hook_text: Optional[str] = Field(default=None, max_length=2000)
     hook_type: Optional[HookType] = None
@@ -346,6 +384,7 @@ class RecordUpdate(BaseModel):
 
     hook_text: Optional[str] = Field(default=None, max_length=2000)
     record_name: Optional[str] = Field(default=None, max_length=200)
+    public_id: Optional[int] = None
     publico: Optional[str] = Field(default=None, max_length=200)
     hook_type: Optional[HookType] = None
     cta_text: Optional[str] = Field(default=None, max_length=500)
@@ -396,6 +435,7 @@ class RecordOut(BaseModel):
     # creative / execution fields (new)
     execution_type: Optional[str] = None
     record_name: Optional[str] = None
+    public_id: Optional[int] = None
     publico: Optional[str] = None
     hook_text: Optional[str] = None
     hook_type: Optional[str] = None

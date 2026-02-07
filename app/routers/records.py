@@ -23,7 +23,10 @@ def create_record(
     record: schemas.RecordCreate,
     db: Session = Depends(get_db),
 ):
-    return crud.create_record(db, record)
+    try:
+        return crud.create_record(db, record)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.get("/", response_model=list[schemas.RecordOut])
@@ -50,7 +53,10 @@ def update_record(
     db: Session = Depends(get_db),
 ):
     """Update metrics on an existing record. Does NOT create a new record."""
-    rec = crud.update_record(db, record_id, data)
+    try:
+        rec = crud.update_record(db, record_id, data)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     if not rec:
         raise HTTPException(status_code=404, detail="Record not found")
     return rec

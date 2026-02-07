@@ -37,6 +37,7 @@
       <div class="top-bar__actions">
         <a class="btn-link" href="/" aria-label="Volver a formularios">Volver a formularios</a>
         <a class="btn-link" href="/static/dashboard.html" aria-label="Ir al dashboard">Dashboard</a>
+        <a class="btn-link" href="/static/publics.html" aria-label="Ir a publicos">Públicos</a>
         <button id="btnReload" class="btn-secondary" aria-label="Recargar datos">Recargar</button>
       </div>
     </div>
@@ -293,6 +294,7 @@
 
   let experiments = [];
   let records = [];
+  let publics = [];
   let currentRecordId = null;
   let currentRecordName = "";
 
@@ -314,6 +316,12 @@
     const x = Number(n);
     if (!Number.isFinite(x)) return "—";
     return x.toFixed(digits);
+  }
+
+  function isUnassignedPublic(value){
+    if (!value) return true;
+    const normalized = value.trim().toLowerCase();
+    return ["sin publico", "sin público", "no asignado", "no asignada"].includes(normalized);
   }
 
   function toDateOnly(dt){
@@ -378,15 +386,26 @@
   }
 
   function fillPublicoFilter(){
-    const project = $("f_project").value;
-    const metricX = $("f_metric_x").value;
-    const expIds = experiments
-      .filter(e => (!project || e.project_name === project) && (!metricX || e.independent_variable === metricX))
-      .map(e => e.id);
-    const publicoCandidates = records
-      .filter(r => !expIds.length || expIds.includes(r.experiment_id))
-      .map(r => r.publico);
-    fillFilterSelect($("f_publico"), uniqueSorted(publicoCandidates));
+    const selectEl = $("f_publico");
+    const prev = selectEl.value;
+    selectEl.innerHTML = "";
+    const optAll = document.createElement("option");
+    optAll.value = "";
+    optAll.textContent = "(todos)";
+    selectEl.appendChild(optAll);
+    const optNone = document.createElement("option");
+    optNone.value = "none";
+    optNone.textContent = "Sin público";
+    selectEl.appendChild(optNone);
+    publics.forEach(publico => {
+      const opt = document.createElement("option");
+      opt.value = String(publico.id);
+      opt.textContent = publico.name;
+      selectEl.appendChild(opt);
+    });
+    if (prev && [...selectEl.options].some(o => o.value === prev)) {
+      selectEl.value = prev;
+    }
   }
 
   function getExperimentById(id){
@@ -441,8 +460,12 @@
       filtered = filtered.filter(r => r.execution_type === exec);
     }
 
-    if (publico){
-      filtered = filtered.filter(r => (r.publico || "") === publico);
+    if (publico === "none"){
+      filtered = filtered.filter(r => !r.public_id && isUnassignedPublic(r.publico));
+    } else if (publico){
+      const publicId = Number(publico);
+      const publicName = publics.find(p => p.id === publicId)?.name;
+      filtered = filtered.filter(r => r.public_id === publicId || (publicName && r.publico === publicName));
     }
 
     if (from){
@@ -599,6 +622,7 @@
 
   async function loadAll(){
     experiments = await apiGet("/experiments/");
+    publics = await apiGet("/publics");
     fillProjectMetricFilters();
     const limit = Math.max(1, Number($("f_limit").value) || 5000);
     records = await apiGet(`/records/?limit=${encodeURIComponent(limit)}`);

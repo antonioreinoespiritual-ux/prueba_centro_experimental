@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Públicos — Centro Experimental</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/design-system.css">
+</head>
+<body>
+  <div class="app-container" role="main">
+    <div class="top-bar">
+      <div>
+        <h1 class="top-bar__title">Públicos</h1>
+        <p class="top-bar__subtitle">
+          Backend: <code id="apiBase" class="text-mono"></code>
+        </p>
+      </div>
+      <div class="top-bar__actions">
+        <a class="btn-link" href="/" aria-label="Volver a formularios">Volver a formularios</a>
+        <a class="btn-link" href="/static/dashboard.html" aria-label="Ir al dashboard">Dashboard</a>
+        <a class="btn-link" href="/static/records.html" aria-label="Ir a records">Records</a>
+        <button id="btnReload" class="btn-secondary">Recargar</button>
+      </div>
+    </div>
+
+    <div class="grid grid-2 mt-lg">
+      <div class="card">
+        <div class="section-header">
+          <div>
+            <h2>Crear público</h2>
+            <div class="text-sm text-muted mt-sm">Define públicos para evitar nombres inconsistentes.</div>
+          </div>
+        </div>
+        <div class="field-group mt-md">
+          <label for="publicName">Nombre</label>
+          <input id="publicName" placeholder="Ej: Retargeting, Estudiantes 18-24" />
+        </div>
+        <div class="field-group mt-md">
+          <label for="publicDescription">Descripción / notas</label>
+          <textarea id="publicDescription" placeholder="Notas sobre el público, criterio de segmentación, etc."></textarea>
+        </div>
+        <button id="btnCreatePublic" class="btn-primary mt-md">Crear público</button>
+      </div>
+
+      <div class="card">
+        <div class="section-header">
+          <div>
+            <h2>Listado de públicos</h2>
+            <div class="text-sm text-muted mt-sm">Haz clic en un público para ver su detalle.</div>
+          </div>
+          <div class="flex gap-sm">
+            <input id="publicSearch" placeholder="Buscar público..." />
+            <button id="btnSearch" class="btn-secondary">Buscar</button>
+          </div>
+        </div>
+        <div class="table-wrapper mt-md">
+          <table>
+            <thead>
+              <tr>
+                <th>Nombre</th>
+                <th>Records</th>
+                <th>Descripción</th>
+              </tr>
+            </thead>
+            <tbody id="publicsTable"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="card mt-lg" id="publicDetailCard">
+      <div class="section-header">
+        <div>
+          <h2 id="publicDetailTitle">Detalle del público</h2>
+          <div class="text-sm text-muted mt-sm" id="publicDetailMeta">Selecciona un público para ver su historial.</div>
+        </div>
+      </div>
+      <div class="grid grid-4 mt-md">
+        <div class="stat-chip">
+          <div class="stat-chip__label">Records</div>
+          <div class="stat-chip__value" id="publicRecordsTotal">—</div>
+        </div>
+        <div class="stat-chip">
+          <div class="stat-chip__label">Clicks</div>
+          <div class="stat-chip__value" id="publicClicksTotal">—</div>
+        </div>
+        <div class="stat-chip">
+          <div class="stat-chip__label">Views</div>
+          <div class="stat-chip__value" id="publicViewsTotal">—</div>
+        </div>
+        <div class="stat-chip">
+          <div class="stat-chip__label">Purchases</div>
+          <div class="stat-chip__value" id="publicPurchasesTotal">—</div>
+        </div>
+      </div>
+      <div class="grid grid-3 mt-md">
+        <div class="stat-chip">
+          <div class="stat-chip__label">Leads</div>
+          <div class="stat-chip__value" id="publicLeadsTotal">—</div>
+        </div>
+        <div class="stat-chip">
+          <div class="stat-chip__label">Initiate Checkouts</div>
+          <div class="stat-chip__value" id="publicInitiateTotal">—</div>
+        </div>
+      </div>
+      <div class="table-wrapper mt-lg">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Experimento</th>
+              <th>Record</th>
+              <th>Status</th>
+              <th>Clicks</th>
+              <th>Views</th>
+              <th>Purchase</th>
+              <th>Creado</th>
+            </tr>
+          </thead>
+          <tbody id="publicRecordsTable"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const apiBase = "";
+    const $ = (id) => document.getElementById(id);
+    $("apiBase").textContent = location.origin;
+
+    async function apiGet(path){
+      const res = await fetch(apiBase + path);
+      if (!res.ok) throw new Error(await res.text());
+      return res.json();
+    }
+
+    async function apiPost(path, body){
+      const res = await fetch(apiBase + path, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      return res.json();
+    }
+
+    async function loadPublics(){
+      const search = $("publicSearch").value.trim();
+      const publics = await apiGet(`/publics${search ? `?search=${encodeURIComponent(search)}` : ""}`);
+      const tbody = $("publicsTable");
+      tbody.innerHTML = "";
+      publics.forEach(publico => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${publico.name}</td>
+          <td>${publico.records_count}</td>
+          <td>${publico.description || "—"}</td>
+        `;
+        tr.style.cursor = "pointer";
+        tr.addEventListener("click", () => loadPublicDetail(publico.id));
+        tbody.appendChild(tr);
+      });
+    }
+
+    function fillMetric(id, value){
+      $(id).textContent = value ?? "—";
+    }
+
+    async function loadPublicDetail(publicId){
+      const detail = await apiGet(`/publics/${publicId}`);
+      $("publicDetailTitle").textContent = `Detalle del público: ${detail.public.name}`;
+      $("publicDetailMeta").textContent = detail.public.description || "Sin descripción.";
+      fillMetric("publicRecordsTotal", detail.metrics.records_total);
+      fillMetric("publicClicksTotal", detail.metrics.clicks_total);
+      fillMetric("publicViewsTotal", detail.metrics.views_total);
+      fillMetric("publicPurchasesTotal", detail.metrics.purchases_total);
+      fillMetric("publicLeadsTotal", detail.metrics.leads_total);
+      fillMetric("publicInitiateTotal", detail.metrics.initiate_checkouts_total);
+
+      const tbody = $("publicRecordsTable");
+      tbody.innerHTML = "";
+      detail.records.forEach(rec => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${rec.id}</td>
+          <td>${rec.experiment_id}</td>
+          <td>${rec.record_name || "—"}</td>
+          <td>${rec.record_status}</td>
+          <td>${rec.clicks ?? "—"}</td>
+          <td>${rec.views ?? "—"}</td>
+          <td>${rec.purchase ?? "—"}</td>
+          <td>${new Date(rec.created_at).toLocaleString()}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    $("btnReload").addEventListener("click", loadPublics);
+    $("btnSearch").addEventListener("click", loadPublics);
+    $("btnCreatePublic").addEventListener("click", async () => {
+      const name = $("publicName").value.trim();
+      const description = $("publicDescription").value.trim();
+      if (!name) {
+        alert("Nombre requerido");
+        return;
+      }
+      await apiPost("/publics", { name, description: description || null });
+      $("publicName").value = "";
+      $("publicDescription").value = "";
+      await loadPublics();
+    });
+
+    loadPublics();
+  </script>
+</body>
+</html>

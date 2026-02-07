@@ -17,6 +17,7 @@
       <div class="top-bar__actions">
         <a class="btn-link" href="/static/records.html" aria-label="Volver a lista de records">Lista de records</a>
         <a class="btn-link" href="/static/dashboard.html" aria-label="Ir al dashboard">Dashboard</a>
+        <a class="btn-link" href="/static/publics.html" aria-label="Ir a publicos">Públicos</a>
         <button id="btnReload" class="btn-secondary" aria-label="Recargar record">Recargar</button>
       </div>
     </div>
@@ -110,8 +111,8 @@
         </div>
         <div class="field-group">
           <label for="publico">Publico</label>
-          <input id="publico" type="text" />
-          <div class="text-sm text-muted mt-sm">Ej: Retargeting, estudiantes 18-24.</div>
+          <select id="publico"></select>
+          <div class="text-sm text-muted mt-sm">Selecciona un público existente o deja sin asignar.</div>
         </div>
         <div class="field-group">
           <label for="hook_text">Hook</label>
@@ -274,6 +275,7 @@
   const $ = (id) => document.getElementById(id);
   let currentRecord = null;
   let experiments = [];
+  let publics = [];
 
   function showToast(message, type = "success") {
     const container = $("toastContainer");
@@ -324,9 +326,28 @@
     tag.className = "tag";
   }
 
+  function fillPublicSelect() {
+    const select = $("publico");
+    const prev = select.value;
+    select.innerHTML = "";
+    const optNone = document.createElement("option");
+    optNone.value = "";
+    optNone.textContent = "Sin público";
+    select.appendChild(optNone);
+    publics.forEach((publico) => {
+      const opt = document.createElement("option");
+      opt.value = publico.id;
+      opt.textContent = publico.name;
+      select.appendChild(opt);
+    });
+    if (prev && [...select.options].some(o => o.value === prev)) {
+      select.value = prev;
+    }
+  }
+
   function fillForm(record) {
     const fields = [
-      "record_name", "publico", "hook_text", "hook_type", "cta_text", "cta_type",
+      "record_name", "hook_text", "hook_type", "cta_text", "cta_type",
       "clicks", "views", "views_profile", "inicia_test", "ctr", "cpc",
       "initiate_checkouts", "view_content",
       "lead_form", "purchase", "likes", "comments", "shares", "saves",
@@ -338,6 +359,10 @@
       if (!el) return;
       el.value = record[field] !== null && record[field] !== undefined ? record[field] : "";
     });
+    const matchedPublic = publics.find((item) => item.name === record.publico);
+    $("publico").value = record.public_id
+      ? String(record.public_id)
+      : (matchedPublic ? String(matchedPublic.id) : "");
   }
 
   function updateSummary(record) {
@@ -358,6 +383,10 @@
       if (!experiments.length) {
         experiments = await apiGet("/experiments/");
       }
+      if (!publics.length) {
+        publics = await apiGet("/publics");
+        fillPublicSelect();
+      }
       const record = await apiGet(`/records/${id}`);
       currentRecord = record;
       $("recordSummary").classList.remove("hidden");
@@ -375,7 +404,6 @@
     if (!currentRecord) return;
     const fields = [
       ["record_name", (v) => v.trim() || null],
-      ["publico", (v) => v.trim() || null],
       ["hook_text", (v) => v.trim() || null],
       ["hook_type", (v) => v || null],
       ["cta_text", (v) => v.trim() || null],
@@ -410,6 +438,7 @@
         body[field] = transform(value);
       }
     });
+    body.public_id = asIntOrNull($("publico").value);
 
     try {
       const updated = await apiPatch(`/records/${currentRecord.id}`, body);
@@ -464,12 +493,18 @@
   $("btnClose").addEventListener("click", closeRecord);
   $("btnReopen").addEventListener("click", reopenRecord);
 
-  const params = new URLSearchParams(window.location.search);
-  const recordId = Number(params.get("id"));
-  if (recordId) {
-    $("recordId").value = recordId;
-    loadRecord(recordId);
+  async function init() {
+    publics = await apiGet("/publics");
+    fillPublicSelect();
+    const params = new URLSearchParams(window.location.search);
+    const recordId = Number(params.get("id"));
+    if (recordId) {
+      $("recordId").value = recordId;
+      loadRecord(recordId);
+    }
   }
+
+  init().catch((error) => showToast(String(error), "error"));
 </script>
 </body>
 </html>

@@ -23,6 +23,7 @@
         <a class="btn-link" href="/static/projects.html" aria-label="Ver lista de proyectos">Lista de proyectos</a>
         <a class="btn-link" href="/static/records.html" aria-label="Ver lista de records">Lista de records</a>
         <a class="btn-link" href="/static/hypotheses.html" aria-label="Lista de hipotesis">Lista de hipotesis</a>
+        <a class="btn-link" href="/static/publics.html" aria-label="Lista de publicos">Públicos</a>
         <button class="btn-link" id="btnOpenEditModal" aria-label="Editar">Editar</button>
         <a class="btn-link btn-warning" href="/static/delete_hypotheses.html" aria-label="Eliminar hipotesis">Eliminar hipotesis</a>
         <a class="btn-link btn-warning" href="/static/delete_records.html" aria-label="Eliminar records">Eliminar records</a>
@@ -272,7 +273,7 @@
         </div>
         <div class="field-group mt-md">
           <label for="live_publico">Publico (opcional)</label>
-          <input id="live_publico" placeholder="Ej: Mujeres 25-34, interés fitness" />
+          <select id="live_publico"></select>
         </div>
 
         <div class="field-section">CREATIVE / EJECUCION</div>
@@ -413,7 +414,7 @@
         </div>
         <div class="field-group mt-md">
           <label for="organic_publico">Publico (opcional)</label>
-          <input id="organic_publico" placeholder="Ej: Audiencia orgánica, estudiantes" />
+          <select id="organic_publico"></select>
         </div>
 
         <div class="field-section">CREATIVE / EJECUCION</div>
@@ -583,7 +584,7 @@
         </div>
         <div class="field-group mt-md">
           <label for="paid_publico">Publico (opcional)</label>
-          <input id="paid_publico" placeholder="Ej: Retargeting, hombres 30-45" />
+          <select id="paid_publico"></select>
         </div>
 
         <div class="field-section">CREATIVE / EJECUCION</div>
@@ -766,7 +767,7 @@
           </div>
           <div class="field-group">
             <label for="upd_publico">Publico</label>
-            <input id="upd_publico" type="text" />
+            <select id="upd_publico"></select>
           </div>
           <div class="field-group">
             <label for="upd_clicks">Clicks</label>
@@ -882,6 +883,7 @@
   const editModal = $("editModal");
 
   let experimentsCache = [];
+  let publicsCache = [];
 
   $("apiBase").textContent = location.origin;
 
@@ -949,6 +951,34 @@
 
   function uniqueSorted(values){
     return [...new Set(values.filter(Boolean))].sort((a, b) => a.localeCompare(b, "es"));
+  }
+
+  function fillPublicSelect(selectEl, keepValue=true){
+    const prev = keepValue ? selectEl.value : "";
+    selectEl.innerHTML = "";
+    const optNone = document.createElement("option");
+    optNone.value = "";
+    optNone.textContent = "Sin público";
+    selectEl.appendChild(optNone);
+    publicsCache.forEach(publico => {
+      const opt = document.createElement("option");
+      opt.value = publico.id;
+      opt.textContent = publico.name;
+      selectEl.appendChild(opt);
+    });
+    if (keepValue && prev && [...selectEl.options].some(o => o.value === prev)) {
+      selectEl.value = prev;
+    } else {
+      selectEl.value = "";
+    }
+  }
+
+  async function loadPublics(){
+    publicsCache = await apiGet("/publics");
+    ["organic_publico", "live_publico", "paid_publico", "upd_publico"].forEach(id => {
+      const el = $(id);
+      if (el) fillPublicSelect(el);
+    });
   }
 
   function fillFilterSelect(selectEl, options, keepValue=true, allLabel="(todos)"){
@@ -1063,6 +1093,7 @@
   async function refreshAll() {
     setStatus("cargando...");
     experimentsCache = await apiGet("/experiments/");
+    await loadPublics();
     syncFormSelects();
     refreshRecordList().catch(e => { setStatus("error", true); showToast(String(e), 'error'); });
     setStatus("listo");
@@ -1124,7 +1155,7 @@
         experiment_id: expId,
         session_id: $("organic_session_id").value.trim(),
         record_name: $("organic_record_name").value.trim() || null,
-        publico: $("organic_publico").value.trim() || null,
+        public_id: asIntOrNull($("organic_publico").value),
         clicks: asIntOrNull($("organic_clicks").value),
         views: asIntOrNull($("organic_views").value),
         views_profile: asIntOrNull($("organic_views_profile").value),
@@ -1183,7 +1214,7 @@
         experiment_id: expId,
         session_id: $("live_session_id").value.trim(),
         record_name: $("live_record_name").value.trim() || null,
-        publico: $("live_publico").value.trim() || null,
+        public_id: asIntOrNull($("live_publico").value),
         clicks: asIntOrNull($("live_clicks").value),
         views: asIntOrNull($("live_views").value),
         views_profile: asIntOrNull($("live_views_profile").value),
@@ -1235,7 +1266,7 @@
         experiment_id: expId,
         session_id: $("paid_session_id").value.trim(),
         record_name: $("paid_record_name").value.trim() || null,
-        publico: $("paid_publico").value.trim() || null,
+        public_id: asIntOrNull($("paid_publico").value),
         clicks: asIntOrNull($("paid_clicks").value),
         views: asIntOrNull($("paid_views").value),
         views_profile: asIntOrNull($("paid_views_profile").value),
@@ -1350,7 +1381,7 @@
 
       // Fill fields with current values
       const fields = [
-        "record_name","publico","clicks","views","views_profile","inicia_test","initiate_checkouts",
+        "record_name","clicks","views","views_profile","inicia_test","initiate_checkouts",
         "view_content","lead_form","purchase",
         "likes","comments","shares","saves",
         "live_viewers_peak","live_avg_viewers","live_duration","live_new_followers",
@@ -1360,6 +1391,10 @@
         const el = $("upd_" + f);
         if (el) el.value = rec[f] !== null && rec[f] !== undefined ? rec[f] : "";
       }
+      const matchedPublic = publicsCache.find(p => p.name === rec.publico);
+      $("upd_publico").value = rec.public_id
+        ? String(rec.public_id)
+        : (matchedPublic ? String(matchedPublic.id) : "");
 
       setStatus("record cargado");
     } catch(e) {
@@ -1376,7 +1411,6 @@
       const body = {};
       const fields = [
         ["record_name", (v) => v.trim() || null],
-        ["publico", (v) => v.trim() || null],
         ["clicks", asIntOrNull], ["views", asIntOrNull],
         ["views_profile", asIntOrNull], ["inicia_test", asIntOrNull],
         ["initiate_checkouts", asIntOrNull], ["view_content", asIntOrNull],
@@ -1396,6 +1430,7 @@
           body[f] = conv(v);
         }
       }
+      body.public_id = asIntOrNull($("upd_publico").value);
 
       await apiPatch(`/records/${rid}`, body);
       showToast("Record actualizado", "success");
