@@ -235,15 +235,15 @@ def _infer_volume_from_message(message: str) -> tuple[int | None, str | None]:
 def _infer_execution_type_from_message(message: str) -> str | None:
     lowered = _normalize_text(message)
     mapping = [
-        ("paid", "paid"),
-        ("pago", "paid"),
-        ("anuncio", "paid"),
-        ("ads", "paid"),
-        ("organic", "organic"),
-        ("orgánico", "organic"),
-        ("organico", "organic"),
-        ("live", "live"),
-        ("en vivo", "live"),
+        ("paid", "paid_ad"),
+        ("pago", "paid_ad"),
+        ("anuncio", "paid_ad"),
+        ("ads", "paid_ad"),
+        ("organic", "organic_video"),
+        ("orgánico", "organic_video"),
+        ("organico", "organic_video"),
+        ("live", "live_session"),
+        ("en vivo", "live_session"),
     ]
     for token, execution_type in mapping:
         if token in lowered:
@@ -591,6 +591,29 @@ def _auto_fill_record_draft(db: Session, draft: dict) -> dict:
             updated.get("project_name"),
             updated.get("metric_x"),
         )
+    return updated
+
+
+def _normalize_record_enums(draft: dict) -> dict:
+    updated = dict(draft)
+    execution_type = updated.get("execution_type")
+    if isinstance(execution_type, str):
+        mapping = {
+            "organic": "organic_video",
+            "organico": "organic_video",
+            "orgánico": "organic_video",
+            "organic_video": "organic_video",
+            "paid": "paid_ad",
+            "pago": "paid_ad",
+            "ads": "paid_ad",
+            "paid_ad": "paid_ad",
+            "live": "live_session",
+            "en vivo": "live_session",
+            "live_session": "live_session",
+        }
+        normalized = mapping.get(execution_type.lower())
+        if normalized:
+            updated["execution_type"] = normalized
     return updated
 
 
@@ -1208,7 +1231,7 @@ def assistant_openclaw(
             or f"openclaw-{int(time.time())}",
         )
         if not merged_draft.get("execution_type"):
-            merged_draft["execution_type"] = _infer_execution_type_from_message(message) or "organic"
+            merged_draft["execution_type"] = _infer_execution_type_from_message(message) or "organic_video"
         if not merged_draft.get("record_name"):
             record_hint = merged_draft.get("metric_x") or merged_draft.get("hook_text") or merged_draft["execution_type"]
             merged_draft["record_name"] = f"Record {record_hint}".strip()
@@ -1217,6 +1240,7 @@ def assistant_openclaw(
         if not merged_draft.get("hook_text"):
             merged_draft["hook_text"] = _infer_hook_text_from_message(message)
         merged_draft = _auto_fill_record_draft(db, merged_draft)
+        merged_draft = _normalize_record_enums(merged_draft)
         if not merged_draft.get("experiment_id"):
             fallback_experiment = _fallback_experiment_reference(db)
             if fallback_experiment:
