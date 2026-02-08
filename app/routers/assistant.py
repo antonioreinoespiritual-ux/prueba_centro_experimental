@@ -169,6 +169,40 @@ def _is_creation_request(message: str) -> bool:
     return " crear " in f" {lowered} " or " crea " in f" {lowered} "
 
 
+def _extract_hypothesis_from_message(message: str) -> str | None:
+    match = re.search(
+        r"(?:crear|crea|nueva)\s+hip[oó]tesis[:\-–—]?\s*(.+)",
+        message,
+        flags=re.IGNORECASE,
+    )
+    if not match:
+        return None
+    hypothesis = match.group(1).strip()
+    hypothesis = re.sub(r"^de que\s+", "", hypothesis, flags=re.IGNORECASE).strip()
+    if not hypothesis:
+        return None
+    return hypothesis
+
+
+def _infer_traffic_type_from_message(message: str) -> str | None:
+    lowered = _normalize_text(message)
+    mapping = [
+        ("paid", "paid"),
+        ("pago", "paid"),
+        ("anuncio", "paid"),
+        ("ads", "paid"),
+        ("organic", "organic"),
+        ("orgánico", "organic"),
+        ("organico", "organic"),
+        ("live", "live"),
+        ("en vivo", "live"),
+    ]
+    for token, traffic_type in mapping:
+        if token in lowered:
+            return traffic_type
+    return None
+
+
 def _get_draft(db: Session, conversation_id: str, assistant_type: str) -> AssistantDraft | None:
     return db.execute(
         select(AssistantDraft)
@@ -1016,6 +1050,14 @@ def assistant_openclaw(
     merged_draft = _merge_draft(existing_payload.get("draft", {}), incoming_draft)
 
     if draft_type == "experiment":
+        if not merged_draft.get("hypothesis") and _looks_like_hypothesis_statement(message):
+            extracted = _extract_hypothesis_from_message(message)
+            if extracted:
+                merged_draft["hypothesis"] = extracted
+        if not merged_draft.get("traffic_type"):
+            inferred_traffic = _infer_traffic_type_from_message(message)
+            if inferred_traffic:
+                merged_draft["traffic_type"] = inferred_traffic
         merged_draft = _sanitize_experiment_draft(merged_draft)
         merged_draft = _auto_fill_experiment_draft(merged_draft)
         merged_draft.setdefault("experiment_status", "draft")
