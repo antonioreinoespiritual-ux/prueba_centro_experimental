@@ -122,17 +122,26 @@ def _is_cancel_message(message: str) -> bool:
     return any(phrase in lowered for phrase in _DRAFT_CANCEL_PHRASES)
 
 
-def _is_openclaw_explicit_intent(message: str) -> str | None:
+def _openclaw_intent_details(message: str) -> tuple[str | None, bool]:
     lowered = _normalize_text(message)
-    if "crear hipótesis" in lowered or "crear hipotesis" in lowered:
-        return "experiment"
-    if "nueva hipótesis" in lowered or "nueva hipotesis" in lowered:
-        return "experiment"
-    if "crear record" in lowered or "nuevo record" in lowered:
-        return "record"
-    if "crear prueba" in lowered:
-        return "record"
-    return None
+    patterns = [
+        (r"\bcrear hipótesis\b", "experiment"),
+        (r"\bcrear hipotesis\b", "experiment"),
+        (r"\bnueva hipótesis\b", "experiment"),
+        (r"\bnueva hipotesis\b", "experiment"),
+        (r"\bcrear record\b", "record"),
+        (r"\bnuevo record\b", "record"),
+        (r"\bcrear prueba\b", "record"),
+    ]
+    for pattern, draft_type in patterns:
+        match = re.search(pattern, lowered)
+        if not match:
+            continue
+        remainder = lowered[match.end():]
+        remainder = remainder.strip(" :-–—\t\n\r")
+        has_payload = bool(remainder)
+        return draft_type, has_payload
+    return None, False
 
 
 def _is_trivial_openclaw_message(message: str) -> bool:
@@ -388,6 +397,12 @@ def _auto_fill_experiment_draft(draft: dict) -> dict:
     if updated.get("volume_min_value") is None:
         updated["volume_min_value"] = 1000
     if not updated.get("volume_unit"):
+        primary_metric = updated.get("primary_metric")
+        fallback = "views" if primary_metric != "views" else "clicks"
+        updated["volume_unit"] = (
+            fallback if fallback in schemas.VolumeUnit.__args__ else schemas.VolumeUnit.__args__[0]
+        )
+    if updated.get("volume_unit") not in schemas.VolumeUnit.__args__:
         primary_metric = updated.get("primary_metric")
         fallback = "views" if primary_metric != "views" else "clicks"
         updated["volume_unit"] = (
@@ -925,7 +940,7 @@ def assistant_openclaw(
         )
 
     draft = _get_draft(db, conversation_id, assistant_type="openclaw")
-    explicit_intent = _is_openclaw_explicit_intent(message)
+    explicit_intent, has_payload = _openclaw_intent_details(message)
     if not draft and _is_confirm_message(message):
         return schemas.OpenClawChatResponse(
             mode="idle",
@@ -943,6 +958,20 @@ def assistant_openclaw(
             questions=[],
             next_actions=["¿Quieres continuar con el borrador actual o resetear?"],
             message="¿Quieres continuar con el borrador actual o resetear?",
+        )
+
+    if not draft and explicit_intent and not has_payload:
+        return schemas.OpenClawChatResponse(
+            mode="idle",
+            draft=None,
+            questions=[],
+            next_actions=[
+                "Incluye detalles después del comando, por ejemplo: “crear hipótesis: …” o “crear record: …”.",
+            ],
+            message=(
+                "Para iniciar un borrador necesito más detalles. "
+                "Escribe “crear hipótesis: …” o “crear record: …” con la información inicial."
+            ),
         )
 
     if not draft and not explicit_intent:
