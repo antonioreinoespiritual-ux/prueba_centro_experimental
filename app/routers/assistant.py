@@ -49,6 +49,11 @@ _DRAFT_CANCEL_PHRASES = (
     "cancelar borrador",
     "descartar borrador",
     "reiniciar borrador",
+    "eliminar borrador",
+    "eliminar borrador de hipotesis",
+    "eliminar borrador de hipótesis",
+    "reiniciar hipotesis",
+    "reiniciar hipótesis",
 )
 
 
@@ -226,6 +231,27 @@ def _merge_draft(existing: dict, incoming: dict) -> dict:
             continue
         merged[key] = value
     return merged
+
+
+def _sanitize_experiment_draft(draft: dict) -> dict:
+    cleaned = dict(draft)
+    disallowed = {
+        "hook_type",
+        "hook_text",
+        "cta_type",
+        "cta_text",
+        "execution_type",
+        "record_name",
+        "public_id",
+        "publico",
+        "record_status",
+        "creative_id",
+        "session_id",
+        "iteration_number",
+    }
+    for key in disallowed:
+        cleaned.pop(key, None)
+    return cleaned
 
 
 def _extract_ids(message: str) -> dict[str, list[int]]:
@@ -598,6 +624,7 @@ def assistant_chat(
         merged_draft = _merge_draft(existing_payload.get("draft", {}), incoming_draft)
 
         if draft_type == "experiment":
+            merged_draft = _sanitize_experiment_draft(merged_draft)
             merged_draft.setdefault("experiment_status", "draft")
         if draft_type == "record":
             merged_draft.setdefault("record_status", "draft")
