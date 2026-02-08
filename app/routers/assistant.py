@@ -411,8 +411,8 @@ def _infer_primary_metric(text: str) -> str | None:
         ("views profile", "views"),
         ("views", "views"),
         ("vistas", "views"),
-        ("clics", "clicks"),
-        ("clicks", "clicks"),
+        ("clics", "views"),
+        ("clicks", "views"),
         ("purchase", "purchase_rate"),
         ("compras", "purchase_rate"),
         ("lead", "lead_rate"),
@@ -491,9 +491,9 @@ def _normalize_experiment_enums(draft: dict) -> dict:
     primary_metric = updated.get("primary_metric")
     if isinstance(primary_metric, str):
         metric_map = {
-            "clics": "clicks",
-            "click": "clicks",
-            "clicks": "clicks",
+            "clics": "views",
+            "click": "views",
+            "clicks": "views",
             "compras": "purchase_rate",
             "purchase": "purchase_rate",
             "retencion": "retention_pct",
