@@ -255,7 +255,7 @@ def _build_context(db: Session, message: str) -> tuple[str, list[str]]:
                 "id": memory.id,
                 "type": memory.memory_type,
                 "content": _compact_text(memory.content, 300),
-                "references": memory.references,
+                "references": memory.references_json,
             }
             for memory in memories
         ],
@@ -327,7 +327,7 @@ def assistant_chat(
             conversation_id=conversation_id,
             role="assistant",
             content=answer,
-            references=json.dumps(citations, ensure_ascii=False) if citations else None,
+            references_json=json.dumps(citations, ensure_ascii=False) if citations else None,
         )
     )
     if memory_trigger:
@@ -335,7 +335,7 @@ def assistant_chat(
             ChatMemory(
                 memory_type="insight",
                 content=memory_trigger,
-                references=json.dumps(citations, ensure_ascii=False) if citations else None,
+                references_json=json.dumps(citations, ensure_ascii=False) if citations else None,
             )
         )
     db.commit()

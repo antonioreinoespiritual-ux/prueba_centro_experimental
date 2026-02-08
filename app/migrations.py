@@ -196,11 +196,13 @@ def ensure_schema() -> None:
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 memory_type VARCHAR(30) NOT NULL,
                 content TEXT NOT NULL,
-                references TEXT,
+                references_json TEXT,
                 created_at DATETIME NOT NULL DEFAULT (datetime('now')),
                 updated_at DATETIME
             )
         """)
+    elif not _column_exists(cur, "chat_memory", "references_json"):
+        cur.execute("ALTER TABLE chat_memory ADD COLUMN references_json TEXT")
 
     # --- Chat messages ---
     cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='chat_messages'")
@@ -211,7 +213,7 @@ def ensure_schema() -> None:
                 conversation_id VARCHAR(100),
                 role VARCHAR(20) NOT NULL,
                 content TEXT NOT NULL,
-                references TEXT,
+                references_json TEXT,
                 created_at DATETIME NOT NULL DEFAULT (datetime('now'))
             )
         """)
@@ -219,6 +221,8 @@ def ensure_schema() -> None:
             CREATE INDEX IF NOT EXISTS ix_chat_messages_conversation_id
             ON chat_messages (conversation_id)
         """)
+    elif not _column_exists(cur, "chat_messages", "references_json"):
+        cur.execute("ALTER TABLE chat_messages ADD COLUMN references_json TEXT")
 
     conn.commit()
     conn.close()
