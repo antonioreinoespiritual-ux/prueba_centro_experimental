@@ -740,7 +740,41 @@ def _fallback_answer(context_json: str, error_message: str) -> str:
     return "\n".join(parts)
 
 
-@router.post("/assistant/chat", response_model=schemas.ChatResponse)
+def _openclaw_questions(missing: list[str]) -> list[str]:
+    mapping = {
+        "project_name": "¿Cuál es el nombre del proyecto?",
+        "hypothesis": "¿Cuál es la hipótesis exacta?",
+        "traffic_type": "¿Qué tipo de tráfico aplica (paid/organic/etc.)?",
+        "metric_x": "¿Cuál es el cambio/acción (metric_x) de la hipótesis?",
+        "hypothesis_type": "¿Qué tipo de hipótesis es?",
+        "primary_metric": "¿Cuál es la métrica primaria?",
+        "threshold_operator": "¿Qué operador de umbral se usa (>=, <=, etc.)?",
+        "threshold_value": "¿Cuál es el valor del umbral?",
+        "threshold_type": "¿El umbral es porcentaje o absoluto?",
+        "volume_min_value": "¿Cuál es el volumen mínimo requerido?",
+        "volume_unit": "¿Qué unidad de volumen aplica?",
+        "experiment_id": "¿A qué experimento (ID) se vincula este record?",
+        "public_id/publico": "¿Qué público se usará (ID o nombre)?",
+        "execution_type": "¿Cuál es el tipo de ejecución?",
+        "session_id": "¿Qué session_id debemos usar?",
+    }
+    questions = []
+    for field in missing:
+        questions.append(mapping.get(field, f"Falta completar: {field}. ¿Cuál es el valor?"))
+    return questions
+
+
+def _openclaw_next_actions(draft_type: str, missing: list[str]) -> list[str]:
+    if missing:
+        return ["Completa los datos faltantes para continuar."]
+    if draft_type == "experiment":
+        return ["Responde con “Listo, crea la hipótesis” para crearla."]
+    if draft_type == "record":
+        return ["Responde con “Listo, crea el record” para crearlo."]
+    return []
+
+
+@router.post("/api/chat/consult", response_model=schemas.ConsultChatResponse)
 def assistant_chat(
     payload: schemas.ChatRequest,
     request: Request,
@@ -806,10 +840,11 @@ def assistant_chat(
     )
     db.commit()
 
-    return schemas.ChatResponse(answer=answer, citations=citations)
+    refs = {"citations": citations} if citations else None
+    return schemas.ConsultChatResponse(answer=answer, refs=refs)
 
 
-@router.post("/assistant/openclaw", response_model=schemas.ChatResponse)
+@router.post("/api/chat/openclaw", response_model=schemas.OpenClawChatResponse)
 def assistant_openclaw(
     payload: schemas.ChatRequest,
     request: Request,
@@ -823,7 +858,6 @@ def assistant_openclaw(
     _check_rate_limit(client_key)
 
     conversation_id = payload.conversation_id
-    context_json, citations = _build_context(db, message, conversation_id)
 
     draft = _get_draft(db, conversation_id)
     draft_type = draft.draft_type if draft else _is_draft_intent(message)
@@ -832,18 +866,24 @@ def assistant_openclaw(
         draft_type = "experiment"
     if _is_cancel_message(message):
         _clear_draft(db, conversation_id)
-        return schemas.ChatResponse(
-            answer="Borrador descartado. Puedes iniciar uno nuevo cuando quieras.",
-            citations=citations,
+        return schemas.OpenClawChatResponse(
+            mode="draft",
+            draft=None,
+            questions=[],
+            next_actions=["Indica si quieres crear una hipótesis o un record."],
+            message="Borrador descartado. Puedes iniciar uno nuevo cuando quieras.",
         )
 
     if not draft_type:
-        return schemas.ChatResponse(
-            answer=(
+        return schemas.OpenClawChatResponse(
+            mode="needs_input",
+            draft=None,
+            questions=["¿Quieres crear una hipótesis o un record? Describe el borrador inicial."],
+            next_actions=["Describe la hipótesis o el record con los datos clave."],
+            message=(
                 "Este chat está dedicado a crear hipótesis y records con OpenClaw. "
-                "Si necesitas consultas generales del centro experimental, usa el botón CHAT."
+                "Comparte el borrador inicial para avanzar."
             ),
-            citations=citations,
         )
 
     openclaw_context = _build_openclaw_context(db)
@@ -858,8 +898,13 @@ def assistant_openclaw(
         )
     except ai.GroqError as exc:
         _set_cooldown_from_error(str(exc))
-        answer = _fallback_answer(context_json, str(exc))
-        return schemas.ChatResponse(answer=answer, citations=citations)
+        return schemas.OpenClawChatResponse(
+            mode="needs_input",
+            draft=None,
+            questions=[],
+            next_actions=["Reintenta el borrador cuando el servicio esté disponible."],
+            message=f"No pude contactar la IA OpenClaw en este momento. Detalle: {exc}",
+        )
 
     incoming_draft = draft_response.get("draft", {})
     merged_draft = _merge_draft(existing_payload.get("draft", {}), incoming_draft)
@@ -891,9 +936,12 @@ def assistant_openclaw(
 
     if _is_confirm_message(message):
         if missing:
-            return schemas.ChatResponse(
-                answer=_render_draft_response(draft_type, merged_draft, missing),
-                citations=citations,
+            return schemas.OpenClawChatResponse(
+                mode="needs_input",
+                draft=merged_draft,
+                questions=_openclaw_questions(missing),
+                next_actions=_openclaw_next_actions(draft_type, missing),
+                message="Faltan datos antes de confirmar la creación.",
             )
         if draft_type == "experiment":
             exp_payload = schemas.ExperimentCreate(
@@ -922,11 +970,18 @@ def assistant_openclaw(
                 f"Hipótesis creada vía asistente. Timestamp: {datetime.utcnow().isoformat()}",
             )
             _clear_draft(db, conversation_id)
-            answer = (
-                f"Hipótesis creada con ID {exp.id}. Estado inicial: {exp.experiment_status}.\n"
-                "Si quieres, ahora podemos crear records para esta hipótesis."
+            return schemas.OpenClawChatResponse(
+                mode="created",
+                draft=merged_draft,
+                questions=[],
+                next_actions=[
+                    "Si quieres, describe el primer record para esta hipótesis.",
+                ],
+                message=(
+                    f"Hipótesis creada con ID {exp.id}. "
+                    f"Estado inicial: {exp.experiment_status}."
+                ),
             )
-            return schemas.ChatResponse(answer=answer, citations=citations)
         if draft_type == "record":
             record_payload = schemas.RecordCreate(
                 experiment_id=merged_draft["experiment_id"],
@@ -952,13 +1007,23 @@ def assistant_openclaw(
                 f"Record creado vía asistente. Timestamp: {datetime.utcnow().isoformat()}",
             )
             _clear_draft(db, conversation_id)
-            answer = (
-                f"Record creado con ID {record.id}. Estado inicial: {record.record_status}.\n"
-                "Ya está listo para recibir métricas."
+            return schemas.OpenClawChatResponse(
+                mode="created",
+                draft=merged_draft,
+                questions=[],
+                next_actions=["Si necesitas otro record, comparte el nuevo borrador."],
+                message=(
+                    f"Record creado con ID {record.id}. "
+                    f"Estado inicial: {record.record_status}."
+                ),
             )
-            return schemas.ChatResponse(answer=answer, citations=citations)
 
-    return schemas.ChatResponse(
-        answer=_render_draft_response(draft_type, merged_draft, missing),
-        citations=citations,
+    mode = "needs_input" if missing else "ready_to_confirm"
+    message_text = "Faltan datos para continuar." if missing else "Borrador listo para confirmar."
+    return schemas.OpenClawChatResponse(
+        mode=mode,
+        draft=merged_draft,
+        questions=_openclaw_questions(missing),
+        next_actions=_openclaw_next_actions(draft_type, missing),
+        message=message_text,
     )
