@@ -249,11 +249,6 @@
               <div class="stat-chip__meta" id="modalExperiment">—</div>
             </div>
             <div class="stat-chip mt-md">
-              <div class="stat-chip__label">Público</div>
-              <div class="stat-chip__value" id="modalPublico">—</div>
-              <div class="stat-chip__meta" id="modalPublicoMeta">—</div>
-            </div>
-            <div class="stat-chip mt-md">
               <div class="stat-chip__label">Hipótesis</div>
               <div class="stat-chip__value" id="modalHypothesis">—</div>
               <div class="stat-chip__meta" id="modalHypothesisMeta">—</div>
@@ -284,6 +279,18 @@
               <div class="stat-chip__meta" id="modalRecordName">—</div>
             </div>
           </div>
+        </div>
+
+        <div class="card mt-lg">
+          <div class="section-header">
+            <h3>Público</h3>
+          </div>
+          <div class="stat-chip">
+            <div class="stat-chip__label">Nombre</div>
+            <div class="stat-chip__value" id="modalPublicoName">Sin público</div>
+            <div class="stat-chip__meta" id="modalPublicoMeta">—</div>
+          </div>
+          <div class="text-sm text-muted mt-sm" id="modalPublicoDesc">—</div>
         </div>
 
         <div class="card mt-lg">
@@ -484,6 +491,16 @@
     if (record.cpc === null || record.cpc === undefined) return null;
     const clicks = record.clicks || 0;
     return record.cpc * clicks;
+  }
+
+  function resolvePublicInfo(record){
+    const embeddedPublic = record?.public || null;
+    const resolvedPublic = embeddedPublic
+      || (record?.public_id ? publics.find(p => p.id === record.public_id) : null);
+    const name = record?.publico || resolvedPublic?.name || null;
+    const description = resolvedPublic?.description || null;
+    const id = record?.public_id || resolvedPublic?.id || null;
+    return { name, description, id };
   }
 
   function isUnassignedPublic(value){
@@ -751,8 +768,16 @@
     };
     $("modalProject").textContent = exp?.project_name || "—";
     $("modalExperiment").textContent = exp ? `Experimento #${exp.id}` : "—";
-    $("modalPublico").textContent = record.publico || "—";
-    $("modalPublicoMeta").textContent = record.public_id ? `Publico #${record.public_id}` : "—";
+    const publicInfo = resolvePublicInfo(record);
+    if (publicInfo.name) {
+      $("modalPublicoName").textContent = publicInfo.name;
+      $("modalPublicoMeta").textContent = publicInfo.id ? `Público #${publicInfo.id}` : "—";
+      $("modalPublicoDesc").textContent = publicInfo.description || "Sin descripción.";
+    } else {
+      $("modalPublicoName").textContent = "Sin público";
+      $("modalPublicoMeta").textContent = "—";
+      $("modalPublicoDesc").textContent = "—";
+    }
     $("modalHypothesis").textContent = exp?.hypothesis || "—";
     $("modalHypothesisMeta").textContent = exp?.hypothesis_type || "—";
     $("modalStatus").textContent = record.record_status || "—";
