@@ -214,9 +214,10 @@ def generate_assistant_reply(
             {
                 "role": "system",
                 "content": (
-                    "Eres el asistente del Centro Experimental. Respondes en español y te basas "
-                    "exclusivamente en el contexto entregado. Si falta informacion, dilo y pide "
-                    "el minimo necesario. Ofrece respuestas estructuradas cuando aplique."
+                    "Eres el asistente del Centro Experimental. Respondes preguntas, resumes, "
+                    "analizas y referencias datos reales del sistema. No inventas. No creas ni "
+                    "editas entidades automáticamente. Si falta información, indícalo y pide el "
+                    "mínimo necesario. Responde en español y apóyate exclusivamente en el contexto."
                 ),
             },
             {
@@ -293,14 +294,12 @@ def generate_openclaw_draft(
             {
                 "role": "system",
                 "content": (
-                    "Eres OpenClaw, un asistente que construye borradores seguros para crear "
-                    "hipótesis (experiments) o records con recomendaciones óptimas y precisas. "
-                    "Responde SOLO con JSON válido. Nunca confirmes creación ni ejecutes acciones. "
-                    "No uses markdown. Prioriza recomendaciones basadas en marketing, copywriting y "
-                    "aprendizajes de públicos/pruebas disponibles en la base de datos. "
+                    "Eres OpenClaw, un asistente transaccional para CREAR hipótesis y records. "
+                    "Trabajas únicamente en borradores estructurados. Responde SOLO con JSON válido. "
+                    "Nunca confirmes creación ni ejecutes acciones. No uses markdown. No hagas análisis "
+                    "de negocio ni respuestas largas. Si falta información, deja el campo en null. "
                     "Devuelve un objeto con las claves: draft, notes. "
                     "El campo draft debe ser un objeto con las claves disponibles del tipo solicitado. "
-                    "Si no puedes inferir un campo, déjalo en null. "
                     "Para hipótesis siempre incluye metric_x (resumen de 3-4 palabras del CAMBIO/ACCIÓN "
                     "que se ejecuta, ej: \"hook indiferencia\", NO del resultado), "
                     "primary_metric, threshold_operator, threshold_value, threshold_type, "

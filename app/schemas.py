@@ -488,6 +488,14 @@ class ChatRequest(BaseModel):
     model: Optional[str] = Field(default=None, max_length=200)
 
 
-class ChatResponse(BaseModel):
+class ConsultChatResponse(BaseModel):
     answer: str
-    citations: list[str] = []
+    refs: dict[str, Any] | None = None
+
+
+class OpenClawChatResponse(BaseModel):
+    mode: Literal["draft", "preview", "needs_input", "ready_to_confirm", "created"]
+    draft: dict[str, Any] | None = None
+    questions: list[str] = []
+    next_actions: list[str] = []
+    message: str

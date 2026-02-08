@@ -186,6 +186,7 @@ class ChatMemory(Base):
     __tablename__ = "chat_memory"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    assistant_type: Mapped[str] = mapped_column(String(20), nullable=False, default="consult", index=True)
     memory_type: Mapped[str] = mapped_column(String(30), nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
     references_json: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -198,6 +199,7 @@ class ChatMessage(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     conversation_id: Mapped[str | None] = mapped_column(String(100), nullable=True, index=True)
+    assistant_type: Mapped[str] = mapped_column(String(20), nullable=False, default="consult", index=True)
     role: Mapped[str] = mapped_column(String(20), nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
     references_json: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -209,6 +211,7 @@ class AssistantDraft(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     conversation_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    assistant_type: Mapped[str] = mapped_column(String(20), nullable=False, default="openclaw", index=True)
     draft_type: Mapped[str] = mapped_column(String(20), nullable=False)
     payload_json: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
