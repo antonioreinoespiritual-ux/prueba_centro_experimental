@@ -305,6 +305,7 @@ def generate_openclaw_draft(
                     "que se ejecuta, ej: \"hook indiferencia\", NO del resultado), "
                     "primary_metric, threshold_operator, threshold_value, threshold_type, "
                     "volume_min_value y volume_unit. "
+                    "Nunca omitas hypothesis_type en hipótesis; el JSON debe venir completo. "
                     "No incluyas campos de records en hipótesis (ej: hook_type, cta_type, execution_type)."
                 ),
             },

@@ -182,6 +182,8 @@ def _draft_missing_fields(draft_type: str, draft: dict) -> list[str]:
             missing.append("traffic_type")
         if not draft.get("metric_x"):
             missing.append("metric_x")
+        if not draft.get("hypothesis_type"):
+            missing.append("hypothesis_type")
         if not draft.get("primary_metric"):
             missing.append("primary_metric")
         if not draft.get("threshold_operator"):
@@ -258,6 +260,97 @@ def _sanitize_experiment_draft(draft: dict) -> dict:
     for key in disallowed:
         cleaned.pop(key, None)
     return cleaned
+
+
+def _infer_hypothesis_type(text: str) -> str:
+    lowered = text.lower()
+    mapping = [
+        ("retenc", "retention"),
+        ("monet", "monetization"),
+        ("credibil", "trust_credibility"),
+        ("precio", "pricing"),
+        ("pricing", "pricing"),
+        ("friccion", "funnel_friction"),
+        ("funnel", "funnel_friction"),
+        ("activ", "activation"),
+        ("adquis", "acquisition"),
+        ("trafic", "acquisition"),
+        ("mmf", "message_market_fit"),
+        ("message-market", "message_market_fit"),
+        ("channel", "channel_fit"),
+        ("canal", "channel_fit"),
+    ]
+    for token, result in mapping:
+        if token in lowered:
+            return result
+    return "activation"
+
+
+def _infer_primary_metric(text: str) -> str | None:
+    lowered = text.lower()
+    mapping = [
+        ("ctr", "ctr"),
+        ("cpc", "cpc"),
+        ("retencion", "retention_pct"),
+        ("retención", "retention_pct"),
+        ("watch", "avg_watch_time"),
+        ("tiempo", "avg_watch_time"),
+        ("views profile", "views"),
+        ("views", "views"),
+        ("vistas", "views"),
+        ("clics", "clicks"),
+        ("clicks", "clicks"),
+        ("purchase", "purchase_rate"),
+        ("compras", "purchase_rate"),
+        ("lead", "lead_rate"),
+        ("checkout", "initiate_checkout_rate"),
+    ]
+    for token, result in mapping:
+        if token in lowered:
+            return result
+    return None
+
+
+def _infer_metric_x(hypothesis: str) -> str | None:
+    match = re.search(r"si\s+(.*?)\s+entonces", hypothesis, flags=re.IGNORECASE)
+    if match:
+        phrase = match.group(1).strip()
+        phrase = " ".join(phrase.split())
+        return phrase[:60]
+    return None
+
+
+def _auto_fill_experiment_draft(draft: dict) -> dict:
+    updated = dict(draft)
+    hypothesis = updated.get("hypothesis") or ""
+
+    if not updated.get("metric_x"):
+        inferred = _infer_metric_x(hypothesis)
+        if inferred:
+            updated["metric_x"] = inferred
+
+    if not updated.get("hypothesis_type"):
+        updated["hypothesis_type"] = _infer_hypothesis_type(hypothesis)
+
+    if not updated.get("primary_metric"):
+        inferred_metric = _infer_primary_metric(hypothesis)
+        if inferred_metric:
+            updated["primary_metric"] = inferred_metric
+
+    if not updated.get("threshold_operator"):
+        updated["threshold_operator"] = ">="
+    if updated.get("threshold_value") is None:
+        updated["threshold_value"] = 10
+    if not updated.get("threshold_type"):
+        updated["threshold_type"] = "percentage"
+
+    if updated.get("volume_min_value") is None:
+        updated["volume_min_value"] = 1000
+    if not updated.get("volume_unit"):
+        candidate = updated.get("primary_metric")
+        updated["volume_unit"] = candidate if candidate in schemas.VolumeUnit.__args__ else "views"
+
+    return updated
 
 
 def _extract_ids(message: str) -> dict[str, list[int]]:
@@ -655,6 +748,7 @@ def assistant_chat(
 
         if draft_type == "experiment":
             merged_draft = _sanitize_experiment_draft(merged_draft)
+            merged_draft = _auto_fill_experiment_draft(merged_draft)
             merged_draft.setdefault("experiment_status", "draft")
         if draft_type == "record":
             merged_draft.setdefault("record_status", "draft")
