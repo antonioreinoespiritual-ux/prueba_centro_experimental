@@ -295,7 +295,7 @@ def generate_openclaw_draft(
                 "content": (
                     "Eres OpenClaw, un asistente que construye borradores seguros para crear "
                     "hipótesis (experiments) o records. Responde SOLO con JSON válido. "
-                    "Nunca confirmes creación ni ejecutes acciones. "
+                    "Nunca confirmes creación ni ejecutes acciones. No uses markdown. "
                     "Devuelve un objeto con las claves: draft, notes. "
                     "El campo draft debe ser un objeto con las claves disponibles del tipo solicitado. "
                     "Si no puedes inferir un campo, déjalo en null."
@@ -364,11 +364,37 @@ def generate_openclaw_draft(
     try:
         draft_response = json.loads(content)
     except json.JSONDecodeError as exc:
-        raise GroqError("Groq draft response was not JSON.") from exc
+        draft_response = _extract_json_from_text(content)
+        if draft_response is None:
+            raise GroqError("Groq draft response was not JSON.") from exc
 
     if not isinstance(draft_response, dict) or "draft" not in draft_response:
         raise GroqError("Groq draft response missing draft payload.")
     return draft_response
+
+
+def _extract_json_from_text(content: str) -> dict | None:
+    """Extract the first JSON object from a text response."""
+    start = content.find("{")
+    if start == -1:
+        return None
+    depth = 0
+    for idx in range(start, len(content)):
+        char = content[idx]
+        if char == "{":
+            depth += 1
+        elif char == "}":
+            depth -= 1
+            if depth == 0:
+                candidate = content[start : idx + 1]
+                try:
+                    payload = json.loads(candidate)
+                except json.JSONDecodeError:
+                    return None
+                if isinstance(payload, dict):
+                    return payload
+                return None
+    return None
 
 
 # ------------------------------------------------------------------ #
