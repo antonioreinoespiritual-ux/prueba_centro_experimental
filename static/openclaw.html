@@ -113,6 +113,15 @@
       container.scrollTop = container.scrollHeight;
     }
 
+    function isResetCommand(text) {
+      const normalized = text.trim().toLowerCase();
+      return ["cancelar", "reset", "nuevo", "cancelar borrador", "nuevo borrador"].includes(normalized);
+    }
+
+    function clearDraftState() {
+      localStorage.removeItem(STORAGE_CONVO_KEY);
+    }
+
     function setStatus(text, tone = "default") {
       const status = $("chatStatus");
       status.textContent = text;
@@ -155,6 +164,9 @@
         });
         saveMessages(messages);
         renderMessages(messages);
+        if (isResetCommand(content)) {
+          clearDraftState();
+        }
         setStatus("Listo.");
       } catch (error) {
         setStatus(`Error al enviar el mensaje: ${error.message}`, "error");

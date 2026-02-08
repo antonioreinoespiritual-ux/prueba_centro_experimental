@@ -494,7 +494,7 @@ class ConsultChatResponse(BaseModel):
 
 
 class OpenClawChatResponse(BaseModel):
-    mode: Literal["draft", "preview", "needs_input", "ready_to_confirm", "created"]
+    mode: Literal["idle", "drafting", "draft", "preview", "needs_input", "ready_to_confirm", "created"]
     draft: dict[str, Any] | None = None
     questions: list[str] = []
     next_actions: list[str] = []

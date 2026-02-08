@@ -58,6 +58,9 @@ _DRAFT_CANCEL_PHRASES = (
     "eliminar borrador de hipótesis",
     "reiniciar hipotesis",
     "reiniciar hipótesis",
+    "reset",
+    "nuevo",
+    "nuevo borrador",
 )
 
 
@@ -119,15 +122,32 @@ def _is_cancel_message(message: str) -> bool:
     return any(phrase in lowered for phrase in _DRAFT_CANCEL_PHRASES)
 
 
-def _is_draft_intent(message: str) -> str | None:
+def _is_openclaw_explicit_intent(message: str) -> str | None:
     lowered = _normalize_text(message)
-    if "hipotesis" in lowered or "hipótesis" in lowered:
+    if "crear hipótesis" in lowered or "crear hipotesis" in lowered:
         return "experiment"
-    if "record" in lowered or "récord" in lowered or "prueba" in lowered:
+    if "nueva hipótesis" in lowered or "nueva hipotesis" in lowered:
+        return "experiment"
+    if "crear record" in lowered or "nuevo record" in lowered:
         return "record"
-    if "borrador" in lowered:
+    if "crear prueba" in lowered:
         return "record"
     return None
+
+
+def _is_trivial_openclaw_message(message: str) -> bool:
+    lowered = _normalize_text(message)
+    return lowered in {
+        "hola",
+        "hello",
+        "buenas",
+        "buenos dias",
+        "buenos días",
+        "gracias",
+        "ok",
+        "okay",
+        "listo",
+    }
 
 
 def _looks_like_hypothesis_statement(message: str) -> bool:
@@ -200,8 +220,6 @@ def _draft_missing_fields(draft_type: str, draft: dict) -> list[str]:
             missing.append("hypothesis")
         if not draft.get("traffic_type"):
             missing.append("traffic_type")
-        if not draft.get("metric_x"):
-            missing.append("metric_x")
         if not draft.get("hypothesis_type"):
             missing.append("hypothesis_type")
         if not draft.get("primary_metric"):
@@ -217,18 +235,17 @@ def _draft_missing_fields(draft_type: str, draft: dict) -> list[str]:
         if not draft.get("volume_unit"):
             missing.append("volume_unit")
     if draft_type == "record":
-        if not draft.get("project_name"):
-            missing.append("project_name")
-        if not draft.get("metric_x"):
-            missing.append("metric_x")
-        if not draft.get("experiment_id"):
-            missing.append("experiment_id")
+        if not draft.get("record_name"):
+            missing.append("record_name")
+        has_experiment_reference = draft.get("experiment_id") or (
+            draft.get("project_name") and draft.get("metric_x")
+        )
+        if not has_experiment_reference:
+            missing.append("experiment_reference")
         if not (draft.get("public_id") or draft.get("publico")):
             missing.append("public_id/publico")
         if not draft.get("execution_type"):
             missing.append("execution_type")
-        if not draft.get("session_id"):
-            missing.append("session_id")
     return missing
 
 
@@ -371,8 +388,13 @@ def _auto_fill_experiment_draft(draft: dict) -> dict:
     if updated.get("volume_min_value") is None:
         updated["volume_min_value"] = 1000
     if not updated.get("volume_unit"):
-        candidate = updated.get("primary_metric")
-        updated["volume_unit"] = candidate if candidate in schemas.VolumeUnit.__args__ else "views"
+        primary_metric = updated.get("primary_metric")
+        fallback = "views" if primary_metric != "views" else "clicks"
+        updated["volume_unit"] = (
+            fallback if fallback in schemas.VolumeUnit.__args__ else schemas.VolumeUnit.__args__[0]
+        )
+    if updated.get("volume_unit") == updated.get("primary_metric"):
+        updated["volume_unit"] = "clicks" if updated["primary_metric"] != "clicks" else "views"
 
     return updated
 
@@ -769,7 +791,6 @@ def _openclaw_questions(missing: list[str]) -> list[str]:
         "project_name": "¿Cuál es el nombre del proyecto?",
         "hypothesis": "¿Cuál es la hipótesis exacta?",
         "traffic_type": "¿Qué tipo de tráfico aplica (paid/organic/etc.)?",
-        "metric_x": "¿Cuál es el cambio/acción (metric_x) de la hipótesis?",
         "hypothesis_type": "¿Qué tipo de hipótesis es?",
         "primary_metric": "¿Cuál es la métrica primaria?",
         "threshold_operator": "¿Qué operador de umbral se usa (>=, <=, etc.)?",
@@ -777,10 +798,10 @@ def _openclaw_questions(missing: list[str]) -> list[str]:
         "threshold_type": "¿El umbral es porcentaje o absoluto?",
         "volume_min_value": "¿Cuál es el volumen mínimo requerido?",
         "volume_unit": "¿Qué unidad de volumen aplica?",
-        "experiment_id": "¿A qué experimento (ID) se vincula este record?",
+        "experiment_reference": "¿A qué hipótesis (ID) se vincula este record?",
         "public_id/publico": "¿Qué público se usará (ID o nombre)?",
         "execution_type": "¿Cuál es el tipo de ejecución?",
-        "session_id": "¿Qué session_id debemos usar?",
+        "record_name": "¿Cómo se llamará este record?",
     }
     questions = []
     for field in missing:
@@ -893,32 +914,54 @@ def assistant_openclaw(
 
     conversation_id = payload.conversation_id
 
-    draft = _get_draft(db, conversation_id, assistant_type="openclaw")
-    draft_type = draft.draft_type if draft else _is_draft_intent(message)
-    model_hint = payload.model or ""
-    if not draft_type and "llama-4-scout" in model_hint and _looks_like_hypothesis_statement(message):
-        draft_type = "experiment"
     if _is_cancel_message(message):
         _clear_draft(db, conversation_id, assistant_type="openclaw")
         return schemas.OpenClawChatResponse(
-            mode="draft",
+            mode="idle",
             draft=None,
             questions=[],
-            next_actions=["Indica si quieres crear una hipótesis o un record."],
+            next_actions=["Escribe: “crear hipótesis …” o “crear record …” para iniciar."],
             message="Borrador descartado. Puedes iniciar uno nuevo cuando quieras.",
         )
 
-    if not draft_type:
+    draft = _get_draft(db, conversation_id, assistant_type="openclaw")
+    explicit_intent = _is_openclaw_explicit_intent(message)
+    if not draft and _is_confirm_message(message):
         return schemas.OpenClawChatResponse(
-            mode="needs_input",
+            mode="idle",
             draft=None,
-            questions=["¿Quieres crear una hipótesis o un record? Describe el borrador inicial."],
-            next_actions=["Describe la hipótesis o el record con los datos clave."],
+            questions=[],
+            next_actions=["Escribe: “crear hipótesis …” o “crear record …”."],
+            message="No hay ningún borrador activo. Inicia uno con “crear hipótesis …” o “crear record …”.",
+        )
+
+    if draft and _is_trivial_openclaw_message(message):
+        existing_payload = json.loads(draft.payload_json)
+        return schemas.OpenClawChatResponse(
+            mode="drafting",
+            draft=existing_payload.get("draft"),
+            questions=[],
+            next_actions=["¿Quieres continuar con el borrador actual o resetear?"],
+            message="¿Quieres continuar con el borrador actual o resetear?",
+        )
+
+    if not draft and not explicit_intent:
+        return schemas.OpenClawChatResponse(
+            mode="idle",
+            draft=None,
+            questions=[],
+            next_actions=["Escribe: “crear hipótesis …” o “crear record …”. Para consultas usa chat.html."],
             message=(
-                "Este chat está dedicado a crear hipótesis y records con OpenClaw. "
-                "Comparte el borrador inicial para avanzar."
+                "Este chat es solo para crear hipótesis/records. "
+                "Escribe: “crear hipótesis …” o “crear record …”. Para consultas usa chat.html."
             ),
         )
+
+    draft_type = draft.draft_type if draft else explicit_intent
+    if draft and explicit_intent and explicit_intent != draft.draft_type:
+        _clear_draft(db, conversation_id, assistant_type="openclaw")
+        draft = None
+        draft_type = explicit_intent
 
     openclaw_context = _build_openclaw_context(db)
     existing_payload = json.loads(draft.payload_json) if draft else {}
