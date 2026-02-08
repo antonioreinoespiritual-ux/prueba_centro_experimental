@@ -370,11 +370,21 @@
     const select = $("metricFilter");
     const prev = select.value;
     select.innerHTML = "";
+    const projectFilter = $("projectFilter").value;
+    if (!projectFilter) {
+      const optPlaceholder = document.createElement("option");
+      optPlaceholder.value = "";
+      optPlaceholder.textContent = "Selecciona un proyecto";
+      select.appendChild(optPlaceholder);
+      select.value = "";
+      select.disabled = true;
+      return;
+    }
+    select.disabled = false;
     const optAll = document.createElement("option");
     optAll.value = "";
     optAll.textContent = "Todas";
     select.appendChild(optAll);
-    const projectFilter = $("projectFilter").value;
     const metrics = experiments
       .filter((exp) => !projectFilter || exp.project_name === projectFilter)
       .map((exp) => normalizeMetricX(exp))
