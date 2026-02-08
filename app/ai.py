@@ -199,6 +199,79 @@ def generate_experiment_analysis(
     return str(content).strip()
 
 
+def generate_assistant_reply(context: str, message: str) -> str:
+    api_key = get_groq_api_key()
+    if not api_key:
+        raise ValueError("Missing GROQ_API_KEY. Define it in the .env file.")
+
+    payload = {
+        "model": get_groq_model(),
+        "messages": [
+            {
+                "role": "system",
+                "content": (
+                    "Eres el asistente del Centro Experimental. Respondes en español y te basas "
+                    "exclusivamente en el contexto entregado. Si falta informacion, dilo y pide "
+                    "el minimo necesario. Ofrece respuestas estructuradas cuando aplique."
+                ),
+            },
+            {
+                "role": "user",
+                "content": (
+                    "Contexto actual del Centro Experimental (usa solo esta informacion):\n"
+                    f"{context}\n\nPregunta del usuario:\n{message}"
+                ),
+            },
+        ],
+        "temperature": 0.2,
+        "max_tokens": 900,
+    }
+
+    try:
+        resp = requests.post(
+            get_groq_api_url(),
+            json=payload,
+            headers={
+                "Authorization": f"Bearer {api_key}",
+            },
+            timeout=45,
+        )
+    except requests.ConnectionError as exc:
+        raise GroqError(f"Groq connection error: {exc}") from exc
+    except requests.Timeout as exc:
+        raise GroqError("Groq request timed out.") from exc
+    except Exception as exc:
+        raise GroqError(f"Groq request failed: {exc}") from exc
+
+    if resp.status_code != 200:
+        error_body = resp.text
+        error_message = _extract_error_message(error_body)
+        if resp.status_code == 402:
+            raise GroqError(
+                "Groq sin saldo. Agrega creditos o actualiza la API key.",
+                status_code=402,
+            )
+        if error_message:
+            raise GroqError(f"Groq error: {error_message}")
+        raise GroqError(f"Groq HTTP error {resp.status_code}: {error_body}")
+
+    body = resp.text
+
+    try:
+        response_data = json.loads(body)
+    except json.JSONDecodeError as exc:
+        raise GroqError("Groq returned invalid JSON.") from exc
+
+    content = (
+        response_data.get("choices", [{}])[0]
+        .get("message", {})
+        .get("content")
+    )
+    if not content:
+        raise GroqError("Groq response missing content.")
+    return str(content).strip()
+
+
 # ------------------------------------------------------------------ #
 #  PROMPT VERSIONS
 # ------------------------------------------------------------------ #

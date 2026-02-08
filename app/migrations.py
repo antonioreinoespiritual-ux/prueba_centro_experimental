@@ -188,5 +188,37 @@ def ensure_schema() -> None:
             ON record_update_audits (record_id)
         """)
 
+    # --- Chat memory ---
+    cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='chat_memory'")
+    if not cur.fetchone():
+        cur.execute("""
+            CREATE TABLE chat_memory (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                memory_type VARCHAR(30) NOT NULL,
+                content TEXT NOT NULL,
+                references TEXT,
+                created_at DATETIME NOT NULL DEFAULT (datetime('now')),
+                updated_at DATETIME
+            )
+        """)
+
+    # --- Chat messages ---
+    cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='chat_messages'")
+    if not cur.fetchone():
+        cur.execute("""
+            CREATE TABLE chat_messages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                conversation_id VARCHAR(100),
+                role VARCHAR(20) NOT NULL,
+                content TEXT NOT NULL,
+                references TEXT,
+                created_at DATETIME NOT NULL DEFAULT (datetime('now'))
+            )
+        """)
+        cur.execute("""
+            CREATE INDEX IF NOT EXISTS ix_chat_messages_conversation_id
+            ON chat_messages (conversation_id)
+        """)
+
     conn.commit()
     conn.close()

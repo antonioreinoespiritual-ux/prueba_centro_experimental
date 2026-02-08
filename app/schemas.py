@@ -474,3 +474,13 @@ class BulkRecordUpdateResponse(BaseModel):
     unknown_fields: dict[str, list[str]] = {}
     errors: dict[str, list[str]] = {}
     preview: list[BulkRecordUpdatePreview] = []
+
+
+class ChatRequest(BaseModel):
+    message: str = Field(min_length=1, max_length=4000)
+    conversation_id: Optional[str] = Field(default=None, max_length=100)
+
+
+class ChatResponse(BaseModel):
+    answer: str
+    citations: list[str] = []

@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Chat — Centro Experimental</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/design-system.css">
+  <style>
+    .chat-shell { display: grid; grid-template-rows: auto 1fr auto; height: calc(100vh - 64px); gap: var(--space-md); }
+    .chat-panel { background: var(--surface-2); border: 1px solid var(--glass-border); border-radius: var(--radius-xl); padding: var(--space-lg); box-shadow: var(--shadow-lg); overflow: hidden; display: flex; flex-direction: column; }
+    .chat-messages { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: var(--space-md); padding-right: var(--space-sm); }
+    .chat-message { max-width: 80%; padding: var(--space-md); border-radius: 12px; font-size: 0.9rem; line-height: 1.6; white-space: pre-wrap; }
+    .chat-message--user { align-self: flex-end; background: rgba(124,58,237,0.15); border: 1px solid rgba(124,58,237,0.35); }
+    .chat-message--assistant { align-self: flex-start; background: var(--surface-1); border: 1px solid var(--glass-border); }
+    .chat-meta { font-size: 0.75rem; color: var(--text-muted); margin-top: var(--space-xs); }
+    .chat-input { display: grid; grid-template-columns: 1fr auto; gap: var(--space-sm); align-items: end; }
+    .chat-input textarea { min-height: 64px; resize: vertical; }
+    .chat-status { font-size: 0.8rem; color: var(--text-muted); }
+  </style>
+</head>
+<body>
+  <div class="app-container" role="main">
+    <div class="top-bar">
+      <div>
+        <h1 class="top-bar__title">Chat del Centro Experimental</h1>
+        <p class="top-bar__subtitle">Asistente con contexto en tiempo real.</p>
+      </div>
+      <div class="top-bar__actions">
+        <a class="btn-link" href="/" aria-label="Volver a Home">Volver</a>
+        <button id="btnNewConversation" class="btn-secondary">Nueva conversación</button>
+      </div>
+    </div>
+
+    <div class="chat-shell">
+      <div class="chat-panel">
+        <div class="chat-messages" id="chatMessages"></div>
+        <div class="chat-status mt-sm" id="chatStatus">Listo.</div>
+      </div>
+
+      <div class="card">
+        <div class="chat-input">
+          <div>
+            <label for="chatInput">Escribe tu mensaje</label>
+            <textarea id="chatInput" placeholder="Pregunta sobre proyectos, hipótesis, records, públicos..."></textarea>
+          </div>
+          <button id="btnSend" class="btn-ai">Enviar</button>
+        </div>
+        <div class="text-xs text-muted mt-sm">Enter para enviar · Shift+Enter para nueva línea</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = "";
+    const STORAGE_KEY = "centro_chat_messages";
+    const STORAGE_CONVO_KEY = "centro_chat_conversation_id";
+    const $ = (id) => document.getElementById(id);
+
+    function loadConversationId() {
+      let convo = localStorage.getItem(STORAGE_CONVO_KEY);
+      if (!convo) {
+        convo = `conv-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+        localStorage.setItem(STORAGE_CONVO_KEY, convo);
+      }
+      return convo;
+    }
+
+    function loadMessages() {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return [];
+      try {
+        return JSON.parse(raw);
+      } catch (e) {
+        return [];
+      }
+    }
+
+    function saveMessages(messages) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
+    }
+
+    function renderMessages(messages) {
+      const container = $("chatMessages");
+      container.innerHTML = "";
+      messages.forEach(msg => {
+        const bubble = document.createElement("div");
+        bubble.className = `chat-message chat-message--${msg.role}`;
+        bubble.textContent = msg.content;
+        container.appendChild(bubble);
+        if (msg.citations?.length) {
+          const meta = document.createElement("div");
+          meta.className = "chat-meta";
+          meta.textContent = `Referencias: ${msg.citations.join(", ")}`;
+          container.appendChild(meta);
+        }
+      });
+      container.scrollTop = container.scrollHeight;
+    }
+
+    function setStatus(text, tone = "default") {
+      const status = $("chatStatus");
+      status.textContent = text;
+      status.style.color = tone === "error" ? "var(--danger)" : "var(--text-muted)";
+    }
+
+    async function sendMessage() {
+      const textarea = $("chatInput");
+      const content = textarea.value.trim();
+      if (!content) return;
+      const convoId = loadConversationId();
+      const messages = loadMessages();
+      messages.push({ role: "user", content });
+      saveMessages(messages);
+      renderMessages(messages);
+      textarea.value = "";
+      setStatus("Pensando…");
+      $("btnSend").disabled = true;
+
+      try {
+        const response = await fetch(`${API_BASE}/assistant/chat`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: content, conversation_id: convoId }),
+        });
+        if (!response.ok) {
+          throw new Error(await response.text());
+        }
+        const data = await response.json();
+        messages.push({ role: "assistant", content: data.answer, citations: data.citations || [] });
+        saveMessages(messages);
+        renderMessages(messages);
+        setStatus("Listo.");
+      } catch (error) {
+        setStatus("Error al enviar el mensaje.", "error");
+      } finally {
+        $("btnSend").disabled = false;
+      }
+    }
+
+    function resetConversation() {
+      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(STORAGE_CONVO_KEY);
+      renderMessages([]);
+      setStatus("Nueva conversación iniciada.");
+    }
+
+    $("btnSend").addEventListener("click", sendMessage);
+    $("btnNewConversation").addEventListener("click", resetConversation);
+    $("chatInput").addEventListener("keydown", (event) => {
+      if (event.key === "Enter" && !event.shiftKey) {
+        event.preventDefault();
+        sendMessage();
+      }
+    });
+
+    renderMessages(loadMessages());
+  </script>
+</body>
+</html>
