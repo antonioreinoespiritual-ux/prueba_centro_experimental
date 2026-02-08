@@ -123,16 +123,18 @@
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ message: content, conversation_id: convoId }),
         });
+        let data = null;
         if (!response.ok) {
-          throw new Error(await response.text());
+          const errorText = await response.text();
+          throw new Error(errorText || "Error desconocido");
         }
-        const data = await response.json();
+        data = await response.json();
         messages.push({ role: "assistant", content: data.answer, citations: data.citations || [] });
         saveMessages(messages);
         renderMessages(messages);
         setStatus("Listo.");
       } catch (error) {
-        setStatus("Error al enviar el mensaje.", "error");
+        setStatus(`Error al enviar el mensaje: ${error.message}`, "error");
       } finally {
         $("btnSend").disabled = false;
       }

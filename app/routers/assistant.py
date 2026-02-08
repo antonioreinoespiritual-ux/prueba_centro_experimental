@@ -309,6 +309,34 @@ def _build_context(
     return json.dumps(context, ensure_ascii=False, indent=2), citations
 
 
+def _fallback_answer(context_json: str, error_message: str) -> str:
+    try:
+        payload = json.loads(context_json)
+    except json.JSONDecodeError:
+        return (
+            "No pude contactar la IA en este momento. "
+            f"Detalle: {error_message}"
+        )
+    summary = payload.get("summary", {})
+    experiments = payload.get("experiments_recent", [])
+    records = payload.get("records_recent", [])
+    publics = payload.get("publics_recent", [])
+    parts = [
+        "No pude contactar la IA en este momento, pero te dejo un resumen rápido:",
+        f"- Experimentos totales: {summary.get('experiments_total', '—')}",
+        f"- Records totales: {summary.get('records_total', '—')}",
+        f"- Públicos totales: {summary.get('publics_total', '—')}",
+    ]
+    if experiments:
+        parts.append(f"- Último experimento: {experiments[0].get('project_name', '—')}")
+    if records:
+        parts.append(f"- Último record: {records[0].get('record_name', records[0].get('id', '—'))}")
+    if publics:
+        parts.append(f"- Último público: {publics[0].get('name', '—')}")
+    parts.append(f"Detalle del error: {error_message}")
+    return "\n".join(parts)
+
+
 @router.post("/assistant/chat", response_model=schemas.ChatResponse)
 def assistant_chat(
     payload: schemas.ChatRequest,
@@ -333,7 +361,7 @@ def assistant_chat(
     try:
         answer = ai.generate_assistant_reply(context_json, message)
     except ai.GroqError as exc:
-        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+        answer = _fallback_answer(context_json, str(exc))
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
