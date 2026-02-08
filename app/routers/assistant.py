@@ -122,25 +122,18 @@ def _is_cancel_message(message: str) -> bool:
     return any(phrase in lowered for phrase in _DRAFT_CANCEL_PHRASES)
 
 
-def _openclaw_intent_details(message: str) -> tuple[str | None, bool]:
+def _detect_openclaw_intent(message: str) -> tuple[str | None, bool]:
     lowered = _normalize_text(message)
-    patterns = [
-        (r"\bcrear hipótesis\b", "experiment"),
-        (r"\bcrear hipotesis\b", "experiment"),
-        (r"\bnueva hipótesis\b", "experiment"),
-        (r"\bnueva hipotesis\b", "experiment"),
-        (r"\bcrear record\b", "record"),
-        (r"\bnuevo record\b", "record"),
-        (r"\bcrear prueba\b", "record"),
-    ]
-    for pattern, draft_type in patterns:
-        match = re.search(pattern, lowered)
-        if not match:
-            continue
-        remainder = lowered[match.end():]
-        remainder = remainder.strip(" :-–—\t\n\r")
-        has_payload = bool(remainder)
-        return draft_type, has_payload
+    experiment_terms = ["hipotesis", "hipótesis", "experimento", "experiment"]
+    record_terms = ["record", "récord", "prueba"]
+    has_experiment = any(term in lowered for term in experiment_terms)
+    has_record = any(term in lowered for term in record_terms)
+    if has_experiment and has_record:
+        return None, True
+    if has_experiment:
+        return "experiment", False
+    if has_record:
+        return "record", False
     return None, False
 
 
@@ -201,6 +194,22 @@ def _infer_traffic_type_from_message(message: str) -> str | None:
         if token in lowered:
             return traffic_type
     return None
+
+
+def _infer_threshold_from_message(message: str) -> tuple[float | None, str | None, str | None]:
+    match = re.search(r"(\d+(?:[.,]\d+)?)\s*%", message)
+    if not match:
+        return None, None, None
+    raw_value = match.group(1).replace(",", ".")
+    try:
+        value = float(raw_value)
+    except ValueError:
+        return None, None, None
+    operator = ">="
+    lowered = _normalize_text(message)
+    if "baja" in lowered or "dismin" in lowered:
+        operator = "<="
+    return value, "percentage", operator
 
 
 def _get_draft(db: Session, conversation_id: str, assistant_type: str) -> AssistantDraft | None:
@@ -837,16 +846,16 @@ def _fallback_answer(context_json: str, error_message: str) -> str:
 
 def _openclaw_questions(missing: list[str]) -> list[str]:
     mapping = {
-        "project_name": "¿Cuál es el nombre del proyecto?",
-        "hypothesis": "¿Cuál es la hipótesis exacta?",
-        "traffic_type": "¿Qué tipo de tráfico aplica (paid/organic/etc.)?",
-        "hypothesis_type": "¿Qué tipo de hipótesis es?",
+        "project_name": "¿project_name?",
+        "hypothesis": "¿hypothesis? (texto completo)",
+        "traffic_type": "¿traffic_type? (organic/paid/live)",
+        "hypothesis_type": "¿hypothesis_type? (activation/acquisition/etc.)",
         "primary_metric": "¿Cuál es la métrica primaria?",
-        "threshold_operator": "¿Qué operador de umbral se usa (>=, <=, etc.)?",
-        "threshold_value": "¿Cuál es el valor del umbral?",
-        "threshold_type": "¿El umbral es porcentaje o absoluto?",
-        "volume_min_value": "¿Cuál es el volumen mínimo requerido?",
-        "volume_unit": "¿Qué unidad de volumen aplica?",
+        "threshold_operator": "¿threshold_operator? (>=, <=, etc.)",
+        "threshold_value": "¿threshold_value?",
+        "threshold_type": "¿threshold_type? (percentage/absolute)",
+        "volume_min_value": "¿volume_min_value?",
+        "volume_unit": "¿volume_unit? (clicks/views/etc.)",
         "experiment_reference": "¿A qué hipótesis (ID) se vincula este record?",
         "public_id/publico": "¿Qué público se usará (ID o nombre)?",
         "execution_type": "¿Cuál es el tipo de ejecución?",
@@ -974,7 +983,7 @@ def assistant_openclaw(
         )
 
     draft = _get_draft(db, conversation_id, assistant_type="openclaw")
-    explicit_intent, has_payload = _openclaw_intent_details(message)
+    explicit_intent, ambiguous_intent = _detect_openclaw_intent(message)
     if not draft and _is_confirm_message(message):
         return schemas.OpenClawChatResponse(
             mode="idle",
@@ -987,25 +996,21 @@ def assistant_openclaw(
     if draft and _is_trivial_openclaw_message(message):
         existing_payload = json.loads(draft.payload_json)
         return schemas.OpenClawChatResponse(
-            mode="drafting",
+            mode="draft",
             draft=existing_payload.get("draft"),
             questions=[],
             next_actions=["¿Quieres continuar con el borrador actual o resetear?"],
             message="¿Quieres continuar con el borrador actual o resetear?",
         )
 
-    if not draft and explicit_intent and not has_payload:
+    if ambiguous_intent:
+        existing_payload = json.loads(draft.payload_json) if draft else {}
         return schemas.OpenClawChatResponse(
-            mode="idle",
-            draft=None,
-            questions=[],
-            next_actions=[
-                "Incluye detalles después del comando, por ejemplo: “crear hipótesis: …” o “crear record: …”.",
-            ],
-            message=(
-                "Para iniciar un borrador necesito más detalles. "
-                "Escribe “crear hipótesis: …” o “crear record: …” con la información inicial."
-            ),
+            mode="needs_input",
+            draft=existing_payload.get("draft", {}),
+            questions=["¿Quieres crear una hipótesis o un record?"],
+            next_actions=["Responde con “hipótesis” o “record”."],
+            message="Detecté intención de hipótesis y record. Necesito que aclares.",
         )
 
     if not draft and not explicit_intent:
@@ -1038,9 +1043,11 @@ def assistant_openclaw(
         )
     except ai.GroqError as exc:
         _set_cooldown_from_error(str(exc))
+        fallback_draft = existing_payload.get("draft") if existing_payload else None
+        mode = "draft" if fallback_draft else "idle"
         return schemas.OpenClawChatResponse(
-            mode="needs_input",
-            draft=None,
+            mode=mode,
+            draft=fallback_draft,
             questions=[],
             next_actions=["Reintenta el borrador cuando el servicio esté disponible."],
             message=f"No pude contactar la IA OpenClaw en este momento. Detalle: {exc}",
@@ -1050,14 +1057,24 @@ def assistant_openclaw(
     merged_draft = _merge_draft(existing_payload.get("draft", {}), incoming_draft)
 
     if draft_type == "experiment":
-        if not merged_draft.get("hypothesis") and _looks_like_hypothesis_statement(message):
+        if not merged_draft.get("hypothesis"):
             extracted = _extract_hypothesis_from_message(message)
             if extracted:
                 merged_draft["hypothesis"] = extracted
+            elif _looks_like_hypothesis_statement(message):
+                merged_draft["hypothesis"] = message.strip()
         if not merged_draft.get("traffic_type"):
             inferred_traffic = _infer_traffic_type_from_message(message)
             if inferred_traffic:
                 merged_draft["traffic_type"] = inferred_traffic
+        if merged_draft.get("threshold_value") is None:
+            value, threshold_type, operator = _infer_threshold_from_message(message)
+            if value is not None:
+                merged_draft["threshold_value"] = value
+                if threshold_type and not merged_draft.get("threshold_type"):
+                    merged_draft["threshold_type"] = threshold_type
+                if operator and not merged_draft.get("threshold_operator"):
+                    merged_draft["threshold_operator"] = operator
         merged_draft = _sanitize_experiment_draft(merged_draft)
         merged_draft = _auto_fill_experiment_draft(merged_draft)
         merged_draft.setdefault("experiment_status", "draft")
@@ -1167,8 +1184,8 @@ def assistant_openclaw(
                 ),
             )
 
-    mode = "needs_input" if missing else "ready_to_confirm"
-    message_text = "Faltan datos para continuar." if missing else "Borrador listo para confirmar."
+    mode = "needs_input" if missing else "draft"
+    message_text = "Faltan datos para continuar." if missing else "Borrador listo para revisar."
     return schemas.OpenClawChatResponse(
         mode=mode,
         draft=merged_draft,
