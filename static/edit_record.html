@@ -362,6 +362,10 @@
     }
   }
 
+  function normalizeMetricX(exp) {
+    return exp.metric_x || exp.independent_variable || "";
+  }
+
   function fillMetricFilter() {
     const select = $("metricFilter");
     const prev = select.value;
@@ -373,8 +377,14 @@
     const projectFilter = $("projectFilter").value;
     const metrics = experiments
       .filter((exp) => !projectFilter || exp.project_name === projectFilter)
-      .map((exp) => exp.metric_x)
+      .map((exp) => normalizeMetricX(exp))
       .filter(Boolean);
+    if (!metrics.length) {
+      const optNone = document.createElement("option");
+      optNone.value = "__none__";
+      optNone.textContent = "Sin métrica X";
+      select.appendChild(optNone);
+    }
     [...new Set(metrics)].forEach((metric) => {
       const opt = document.createElement("option");
       opt.value = metric;
@@ -392,8 +402,13 @@
     const projectFilter = $("projectFilter").value;
     const metricFilter = $("metricFilter").value;
     const allowedExperimentIds = experiments
-      .filter((exp) => (!projectFilter || exp.project_name === projectFilter)
-        && (!metricFilter || exp.metric_x === metricFilter))
+      .filter((exp) => {
+        if (projectFilter && exp.project_name !== projectFilter) return false;
+        if (!metricFilter) return true;
+        const metricX = normalizeMetricX(exp);
+        if (metricFilter === "__none__") return !metricX;
+        return metricX === metricFilter;
+      })
       .map((exp) => exp.id);
     const filtered = records.filter((rec) => allowedExperimentIds.includes(rec.experiment_id));
     filtered.slice(0, 12).forEach((rec) => {
