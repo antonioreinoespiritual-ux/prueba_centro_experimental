@@ -262,13 +262,37 @@ def _infer_hook_text_from_message(message: str) -> str | None:
 
 
 def _infer_publico_from_message(message: str) -> str | None:
-    match = re.search(r"p[úu]blico\s+(.*)", message, flags=re.IGNORECASE)
+    match = re.search(r"p[úu]blico\s*[:\-–—]?\s*(.+)", message, flags=re.IGNORECASE)
     if not match:
         return None
     publico = match.group(1).strip()
     if not publico:
         return None
     return publico[:200]
+
+
+def _infer_project_name_from_message(message: str) -> str | None:
+    match = re.search(r"(?:proyecto|project)\s*[:\-–—]?\s*(.+)", message, flags=re.IGNORECASE)
+    if not match:
+        return None
+    project_name = match.group(1).strip()
+    if not project_name:
+        return None
+    return project_name[:200]
+
+
+def _infer_metric_x_from_message(message: str) -> str | None:
+    match = re.search(
+        r"(?:m[eé]trica\s*x|metric[_ ]x|independiente_x|independiente|variable\s*x)\s*[:\-–—]?\s*(.+)",
+        message,
+        flags=re.IGNORECASE,
+    )
+    if not match:
+        return None
+    metric_x = match.group(1).strip()
+    if not metric_x:
+        return None
+    return metric_x[:100]
 
 
 def _get_draft(db: Session, conversation_id: str, assistant_type: str) -> AssistantDraft | None:
@@ -1126,13 +1150,14 @@ def assistant_openclaw(
 
     if draft and _is_trivial_openclaw_message(message):
         existing_payload = json.loads(draft.payload_json)
-        return schemas.OpenClawChatResponse(
-            mode="draft",
-            draft=existing_payload.get("draft"),
-            questions=[],
-            next_actions=["¿Quieres continuar con el borrador actual o resetear?"],
-            message="¿Quieres continuar con el borrador actual o resetear?",
-        )
+        if existing_payload.get("stage") != "record_context":
+            return schemas.OpenClawChatResponse(
+                mode="draft",
+                draft=existing_payload.get("draft"),
+                questions=[],
+                next_actions=["¿Quieres continuar con el borrador actual o resetear?"],
+                message="¿Quieres continuar con el borrador actual o resetear?",
+            )
 
     if ambiguous_intent:
         existing_payload = json.loads(draft.payload_json) if draft else {}
@@ -1162,7 +1187,75 @@ def assistant_openclaw(
         draft = None
         draft_type = explicit_intent
 
+    if draft_type == "record" and not draft:
+        record_context = {
+            "project_name": _infer_project_name_from_message(message),
+            "publico": _infer_publico_from_message(message),
+            "metric_x": _infer_metric_x_from_message(message),
+        }
+        record_context = {key: value for key, value in record_context.items() if value}
+        missing_context = [key for key in ("project_name", "publico", "metric_x") if not record_context.get(key)]
+        _save_draft(
+            db,
+            conversation_id,
+            "openclaw",
+            "record",
+            {
+                "draft": record_context,
+                "missing_fields": missing_context,
+                "stage": "record_context",
+            },
+        )
+        return schemas.OpenClawChatResponse(
+            mode="needs_input",
+            draft=record_context,
+            questions=[
+                "¿Para qué proyecto es este record?",
+                "¿Para qué público es este record?",
+                "¿Cuál es la métrica X (independiente_x)?",
+            ],
+            next_actions=["Responde con proyecto, público y métrica X para iniciar el borrador."],
+            message="Antes de crear el record necesito proyecto, público y métrica X.",
+        )
+
     existing_payload = json.loads(draft.payload_json) if draft else {}
+    if existing_payload.get("stage") == "record_context":
+        record_context = dict(existing_payload.get("draft", {}))
+        project_name = _infer_project_name_from_message(message)
+        publico = _infer_publico_from_message(message)
+        metric_x = _infer_metric_x_from_message(message)
+        if project_name:
+            record_context["project_name"] = project_name
+        if publico:
+            record_context["publico"] = publico
+        if metric_x:
+            record_context["metric_x"] = metric_x
+        missing_context = [key for key in ("project_name", "publico", "metric_x") if not record_context.get(key)]
+        if missing_context:
+            _save_draft(
+                db,
+                conversation_id,
+                "openclaw",
+                "record",
+                {
+                    "draft": record_context,
+                    "missing_fields": missing_context,
+                    "stage": "record_context",
+                },
+            )
+            return schemas.OpenClawChatResponse(
+                mode="needs_input",
+                draft=record_context,
+                questions=[
+                    "¿Para qué proyecto es este record?",
+                    "¿Para qué público es este record?",
+                    "¿Cuál es la métrica X (independiente_x)?",
+                ],
+                next_actions=["Responde con proyecto, público y métrica X para iniciar el borrador."],
+                message="Necesito proyecto, público y métrica X para continuar.",
+            )
+        existing_payload = {"draft": record_context}
+
     is_confirm = _is_confirm_message(message)
     if is_confirm and draft:
         merged_draft = existing_payload.get("draft", {})
