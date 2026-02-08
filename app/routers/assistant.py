@@ -135,16 +135,25 @@ def _looks_like_hypothesis_statement(message: str) -> bool:
     return "si " in lowered and "entonces" in lowered
 
 
-def _get_draft(db: Session, conversation_id: str) -> AssistantDraft | None:
+def _get_draft(db: Session, conversation_id: str, assistant_type: str) -> AssistantDraft | None:
     return db.execute(
         select(AssistantDraft)
-        .where(AssistantDraft.conversation_id == conversation_id)
+        .where(
+            AssistantDraft.conversation_id == conversation_id,
+            AssistantDraft.assistant_type == assistant_type,
+        )
         .order_by(desc(AssistantDraft.updated_at), desc(AssistantDraft.created_at))
     ).scalar_one_or_none()
 
 
-def _save_draft(db: Session, conversation_id: str, draft_type: str, payload: dict) -> AssistantDraft:
-    existing = _get_draft(db, conversation_id)
+def _save_draft(
+    db: Session,
+    conversation_id: str,
+    assistant_type: str,
+    draft_type: str,
+    payload: dict,
+) -> AssistantDraft:
+    existing = _get_draft(db, conversation_id, assistant_type)
     payload_json = json.dumps(payload, ensure_ascii=False)
     if existing:
         existing.draft_type = draft_type
@@ -156,6 +165,7 @@ def _save_draft(db: Session, conversation_id: str, draft_type: str, payload: dic
         return existing
     draft = AssistantDraft(
         conversation_id=conversation_id,
+        assistant_type=assistant_type,
         draft_type=draft_type,
         payload_json=payload_json,
     )
@@ -165,8 +175,8 @@ def _save_draft(db: Session, conversation_id: str, draft_type: str, payload: dic
     return draft
 
 
-def _clear_draft(db: Session, conversation_id: str) -> None:
-    draft = _get_draft(db, conversation_id)
+def _clear_draft(db: Session, conversation_id: str, assistant_type: str) -> None:
+    draft = _get_draft(db, conversation_id, assistant_type)
     if draft:
         db.delete(draft)
         db.commit()
@@ -439,6 +449,7 @@ def _build_context(
     db: Session,
     message: str,
     conversation_id: str | None,
+    assistant_type: str,
 ) -> tuple[str, list[str]]:
     citations: list[str] = []
 
@@ -466,14 +477,22 @@ def _build_context(
         db.execute(select(AIAnalysis).order_by(desc(AIAnalysis.created_at)).limit(15)).scalars()
     )
     memories = list(
-        db.execute(select(ChatMemory).order_by(desc(ChatMemory.updated_at), desc(ChatMemory.created_at)).limit(15)).scalars()
+        db.execute(
+            select(ChatMemory)
+            .where(ChatMemory.assistant_type == assistant_type)
+            .order_by(desc(ChatMemory.updated_at), desc(ChatMemory.created_at))
+            .limit(15)
+        ).scalars()
     )
     conversation_messages: list[ChatMessage] = []
     if conversation_id:
         conversation_messages = list(
             db.execute(
                 select(ChatMessage)
-                .where(ChatMessage.conversation_id == conversation_id)
+                .where(
+                    ChatMessage.conversation_id == conversation_id,
+                    ChatMessage.assistant_type == assistant_type,
+                )
                 .order_by(desc(ChatMessage.created_at))
                 .limit(8)
             ).scalars()
@@ -787,8 +806,15 @@ def assistant_chat(
     client_key = request.client.host if request.client else "unknown"
     _check_rate_limit(client_key)
 
+    normalized = _normalize_text(message)
+    if ("crear" in normalized or "crea" in normalized) and _is_draft_intent(message):
+        return schemas.ConsultChatResponse(
+            answer="Para crear hipótesis o records usa el Chat OpenClaw.",
+            refs=None,
+        )
+
     conversation_id = payload.conversation_id
-    context_json, citations = _build_context(db, message, conversation_id)
+    context_json, citations = _build_context(db, message, conversation_id, assistant_type="consult")
 
     memory_trigger = None
     lowered = message.lower().strip()
@@ -807,6 +833,7 @@ def assistant_chat(
     db.add(
         ChatMessage(
             conversation_id=conversation_id,
+            assistant_type="consult",
             role="user",
             content=message,
         )
@@ -814,6 +841,7 @@ def assistant_chat(
     db.add(
         ChatMessage(
             conversation_id=conversation_id,
+            assistant_type="consult",
             role="assistant",
             content=answer,
             references_json=json.dumps(citations, ensure_ascii=False) if citations else None,
@@ -822,6 +850,7 @@ def assistant_chat(
     if memory_trigger:
         db.add(
             ChatMemory(
+                assistant_type="consult",
                 memory_type="insight",
                 content=memory_trigger,
                 references_json=json.dumps(citations, ensure_ascii=False) if citations else None,
@@ -833,6 +862,7 @@ def assistant_chat(
     )
     db.add(
         ChatMemory(
+            assistant_type="consult",
             memory_type="auto_summary",
             content=auto_memory,
             references_json=json.dumps(citations, ensure_ascii=False) if citations else None,
@@ -859,13 +889,13 @@ def assistant_openclaw(
 
     conversation_id = payload.conversation_id
 
-    draft = _get_draft(db, conversation_id)
+    draft = _get_draft(db, conversation_id, assistant_type="openclaw")
     draft_type = draft.draft_type if draft else _is_draft_intent(message)
     model_hint = payload.model or ""
     if not draft_type and "llama-4-scout" in model_hint and _looks_like_hypothesis_statement(message):
         draft_type = "experiment"
     if _is_cancel_message(message):
-        _clear_draft(db, conversation_id)
+        _clear_draft(db, conversation_id, assistant_type="openclaw")
         return schemas.OpenClawChatResponse(
             mode="draft",
             draft=None,
@@ -926,6 +956,7 @@ def assistant_openclaw(
     _save_draft(
         db,
         conversation_id,
+        "openclaw",
         draft_type,
         {
             "draft": merged_draft,
@@ -969,7 +1000,7 @@ def assistant_openclaw(
                 exp.id,
                 f"Hipótesis creada vía asistente. Timestamp: {datetime.utcnow().isoformat()}",
             )
-            _clear_draft(db, conversation_id)
+            _clear_draft(db, conversation_id, assistant_type="openclaw")
             return schemas.OpenClawChatResponse(
                 mode="created",
                 draft=merged_draft,
@@ -1006,7 +1037,7 @@ def assistant_openclaw(
                 record.id,
                 f"Record creado vía asistente. Timestamp: {datetime.utcnow().isoformat()}",
             )
-            _clear_draft(db, conversation_id)
+            _clear_draft(db, conversation_id, assistant_type="openclaw")
             return schemas.OpenClawChatResponse(
                 mode="created",
                 draft=merged_draft,

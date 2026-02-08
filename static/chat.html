@@ -62,9 +62,9 @@
 
   <script>
     const API_BASE = "";
-    const STORAGE_KEY = "centro_chat_messages";
-    const STORAGE_CONVO_KEY = "centro_chat_conversation_id";
-    const STORAGE_MODEL_KEY = "centro_chat_model";
+    const STORAGE_KEY = "ce_chat_consult_messages";
+    const STORAGE_CONVO_KEY = "ce_chat_consult_conversation_id";
+    const STORAGE_MODEL_KEY = "ce_chat_consult_model";
     const MODEL_CHAT_1 = "";
     const MODEL_CHAT_2 = "meta-llama/llama-4-scout-17b-16e-instruct";
     const $ = (id) => document.getElementById(id);
@@ -72,7 +72,7 @@
     function loadConversationId() {
       let convo = localStorage.getItem(STORAGE_CONVO_KEY);
       if (!convo) {
-        convo = `conv-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+        convo = `consult-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
         localStorage.setItem(STORAGE_CONVO_KEY, convo);
       }
       return convo;

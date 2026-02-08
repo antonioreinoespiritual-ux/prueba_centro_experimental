@@ -196,6 +196,7 @@ def ensure_schema() -> None:
         cur.execute("""
             CREATE TABLE chat_memory (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                assistant_type VARCHAR(20) NOT NULL DEFAULT 'consult',
                 memory_type VARCHAR(30) NOT NULL,
                 content TEXT NOT NULL,
                 references_json TEXT,
@@ -203,8 +204,18 @@ def ensure_schema() -> None:
                 updated_at DATETIME
             )
         """)
+        cur.execute("""
+            CREATE INDEX IF NOT EXISTS ix_chat_memory_assistant_type
+            ON chat_memory (assistant_type)
+        """)
     elif not _column_exists(cur, "chat_memory", "references_json"):
         cur.execute("ALTER TABLE chat_memory ADD COLUMN references_json TEXT")
+    if _column_exists(cur, "chat_memory", "assistant_type") is False:
+        cur.execute("ALTER TABLE chat_memory ADD COLUMN assistant_type VARCHAR(20) NOT NULL DEFAULT 'consult'")
+        cur.execute("""
+            CREATE INDEX IF NOT EXISTS ix_chat_memory_assistant_type
+            ON chat_memory (assistant_type)
+        """)
 
     # --- Chat messages ---
     cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='chat_messages'")
@@ -213,6 +224,7 @@ def ensure_schema() -> None:
             CREATE TABLE chat_messages (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 conversation_id VARCHAR(100),
+                assistant_type VARCHAR(20) NOT NULL DEFAULT 'consult',
                 role VARCHAR(20) NOT NULL,
                 content TEXT NOT NULL,
                 references_json TEXT,
@@ -223,8 +235,18 @@ def ensure_schema() -> None:
             CREATE INDEX IF NOT EXISTS ix_chat_messages_conversation_id
             ON chat_messages (conversation_id)
         """)
+        cur.execute("""
+            CREATE INDEX IF NOT EXISTS ix_chat_messages_assistant_type
+            ON chat_messages (assistant_type)
+        """)
     elif not _column_exists(cur, "chat_messages", "references_json"):
         cur.execute("ALTER TABLE chat_messages ADD COLUMN references_json TEXT")
+    if _column_exists(cur, "chat_messages", "assistant_type") is False:
+        cur.execute("ALTER TABLE chat_messages ADD COLUMN assistant_type VARCHAR(20) NOT NULL DEFAULT 'consult'")
+        cur.execute("""
+            CREATE INDEX IF NOT EXISTS ix_chat_messages_assistant_type
+            ON chat_messages (assistant_type)
+        """)
 
     # --- Assistant drafts ---
     cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='assistant_drafts'")
@@ -233,6 +255,7 @@ def ensure_schema() -> None:
             CREATE TABLE assistant_drafts (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 conversation_id VARCHAR(100) NOT NULL,
+                assistant_type VARCHAR(20) NOT NULL DEFAULT 'openclaw',
                 draft_type VARCHAR(20) NOT NULL,
                 payload_json TEXT NOT NULL,
                 created_at DATETIME NOT NULL DEFAULT (datetime('now')),
@@ -242,6 +265,16 @@ def ensure_schema() -> None:
         cur.execute("""
             CREATE INDEX IF NOT EXISTS ix_assistant_drafts_conversation_id
             ON assistant_drafts (conversation_id)
+        """)
+        cur.execute("""
+            CREATE INDEX IF NOT EXISTS ix_assistant_drafts_assistant_type
+            ON assistant_drafts (assistant_type)
+        """)
+    if _column_exists(cur, "assistant_drafts", "assistant_type") is False:
+        cur.execute("ALTER TABLE assistant_drafts ADD COLUMN assistant_type VARCHAR(20) NOT NULL DEFAULT 'openclaw'")
+        cur.execute("""
+            CREATE INDEX IF NOT EXISTS ix_assistant_drafts_assistant_type
+            ON assistant_drafts (assistant_type)
         """)
 
     conn.commit()
