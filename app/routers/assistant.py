@@ -130,6 +130,11 @@ def _is_draft_intent(message: str) -> str | None:
     return None
 
 
+def _looks_like_hypothesis_statement(message: str) -> bool:
+    lowered = _normalize_text(message)
+    return "si " in lowered and "entonces" in lowered
+
+
 def _get_draft(db: Session, conversation_id: str) -> AssistantDraft | None:
     return db.execute(
         select(AssistantDraft)
@@ -720,6 +725,9 @@ def assistant_chat(
 
     draft = _get_draft(db, conversation_id)
     draft_type = draft.draft_type if draft else _is_draft_intent(message)
+    model_hint = payload.model or ""
+    if not draft_type and "llama-4-scout" in model_hint and _looks_like_hypothesis_statement(message):
+        draft_type = "experiment"
     if _is_cancel_message(message):
         _clear_draft(db, conversation_id)
         return schemas.ChatResponse(
