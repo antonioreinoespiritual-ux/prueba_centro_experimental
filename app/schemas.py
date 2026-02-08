@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional, Literal
+from typing import Optional, Literal, Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -446,3 +446,42 @@ class RecordOut(BaseModel):
 
     created_at: datetime
     updated_at: Optional[datetime] = None
+
+
+class BulkRecordUpdateItem(BaseModel):
+    record_id: Optional[int] = None
+    session_id: Optional[str] = None
+    record_name: Optional[str] = None
+    fields: dict[str, Any] = Field(default_factory=dict)
+
+
+class BulkRecordUpdateRequest(BaseModel):
+    updates: list[BulkRecordUpdateItem] = Field(default_factory=list)
+
+
+class BulkRecordUpdatePreview(BaseModel):
+    record_identifier: str
+    record_id: Optional[int] = None
+    status: Literal["ready", "not_found", "error"]
+    fields_to_update: list[str] = []
+    unknown_fields: list[str] = []
+    errors: list[str] = []
+
+
+class BulkRecordUpdateResponse(BaseModel):
+    updated_count: int = 0
+    not_found: list[str] = []
+    unknown_fields: dict[str, list[str]] = {}
+    errors: dict[str, list[str]] = {}
+    preview: list[BulkRecordUpdatePreview] = []
+
+
+class ChatRequest(BaseModel):
+    message: str = Field(min_length=1, max_length=4000)
+    conversation_id: Optional[str] = Field(default=None, max_length=100)
+    model: Optional[str] = Field(default=None, max_length=200)
+
+
+class ChatResponse(BaseModel):
+    answer: str
+    citations: list[str] = []

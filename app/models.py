@@ -125,6 +125,15 @@ class ExperimentRecord(Base):
     public: Mapped[Public | None] = relationship("Public", back_populates="records")
 
 
+class RecordUpdateAudit(Base):
+    __tablename__ = "record_update_audits"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    record_id: Mapped[int] = mapped_column(ForeignKey("experiment_records.id"), nullable=False, index=True)
+    source: Mapped[str] = mapped_column(String(100), nullable=False)
+    changed_fields: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+
 class Documentation(Base):
     __tablename__ = "documentation"
     __table_args__ = (
@@ -168,4 +177,26 @@ class AIAnalysis(Base):
     prompt_version: Mapped[str] = mapped_column(String(50), nullable=False)
     input_snapshot: Mapped[str] = mapped_column(Text, nullable=False)
     output: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class ChatMemory(Base):
+    __tablename__ = "chat_memory"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    memory_type: Mapped[str] = mapped_column(String(30), nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    references_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, onupdate=datetime.utcnow)
+
+
+class ChatMessage(Base):
+    __tablename__ = "chat_messages"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    conversation_id: Mapped[str | None] = mapped_column(String(100), nullable=True, index=True)
+    role: Mapped[str] = mapped_column(String(20), nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    references_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
