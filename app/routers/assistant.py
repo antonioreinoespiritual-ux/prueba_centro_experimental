@@ -135,6 +135,11 @@ def _looks_like_hypothesis_statement(message: str) -> bool:
     return "si " in lowered and "entonces" in lowered
 
 
+def _is_creation_request(message: str) -> bool:
+    lowered = _normalize_text(message)
+    return " crear " in f" {lowered} " or " crea " in f" {lowered} "
+
+
 def _get_draft(db: Session, conversation_id: str, assistant_type: str) -> AssistantDraft | None:
     return db.execute(
         select(AssistantDraft)
@@ -806,10 +811,9 @@ def assistant_chat(
     client_key = request.client.host if request.client else "unknown"
     _check_rate_limit(client_key)
 
-    normalized = _normalize_text(message)
-    if ("crear" in normalized or "crea" in normalized) and _is_draft_intent(message):
+    if _is_creation_request(message):
         return schemas.ConsultChatResponse(
-            answer="Para crear hipótesis o records usa el Chat OpenClaw.",
+            answer="Para crear usa OpenClaw.",
             refs=None,
         )
 
