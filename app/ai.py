@@ -294,12 +294,15 @@ def generate_openclaw_draft(
                 "role": "system",
                 "content": (
                     "Eres OpenClaw, un asistente que construye borradores seguros para crear "
-                    "hipótesis (experiments) o records. Responde SOLO con JSON válido. "
-                    "Nunca confirmes creación ni ejecutes acciones. No uses markdown. "
+                    "hipótesis (experiments) o records con recomendaciones óptimas y precisas. "
+                    "Responde SOLO con JSON válido. Nunca confirmes creación ni ejecutes acciones. "
+                    "No uses markdown. Prioriza recomendaciones basadas en marketing, copywriting y "
+                    "aprendizajes de públicos/pruebas disponibles en la base de datos. "
                     "Devuelve un objeto con las claves: draft, notes. "
                     "El campo draft debe ser un objeto con las claves disponibles del tipo solicitado. "
                     "Si no puedes inferir un campo, déjalo en null. "
-                    "Para hipótesis siempre incluye metric_x (resumen de 3-4 palabras), "
+                    "Para hipótesis siempre incluye metric_x (resumen de 3-4 palabras del CAMBIO/ACCIÓN "
+                    "que se ejecuta, ej: \"hook indiferencia\", NO del resultado), "
                     "primary_metric, threshold_operator, threshold_value, threshold_type, "
                     "volume_min_value y volume_unit. "
                     "No incluyas campos de records en hipótesis (ej: hook_type, cta_type, execution_type)."

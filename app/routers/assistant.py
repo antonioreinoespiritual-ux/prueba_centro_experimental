@@ -527,12 +527,20 @@ def _build_openclaw_context(db: Session) -> dict:
             select(Public).order_by(desc(Public.updated_at), desc(Public.created_at)).limit(100)
         ).scalars()
     )
+    records = list(
+        db.execute(
+            select(ExperimentRecord)
+            .order_by(desc(ExperimentRecord.updated_at), desc(ExperimentRecord.created_at))
+            .limit(120)
+        ).scalars()
+    )
     return {
         "experiments": [
             {
                 "id": exp.id,
                 "project_name": exp.project_name,
                 "hypothesis": exp.hypothesis,
+                "metric_x": exp.metric_x,
                 "primary_metric": exp.primary_metric,
                 "traffic_type": exp.traffic_type,
                 "status": exp.experiment_status,
@@ -543,6 +551,22 @@ def _build_openclaw_context(db: Session) -> dict:
         "publics": [
             {"id": public.id, "name": public.name, "description": public.description}
             for public in publics
+        ],
+        "records_recent": [
+            {
+                "id": record.id,
+                "experiment_id": record.experiment_id,
+                "record_name": record.record_name,
+                "execution_type": record.execution_type,
+                "publico": record.publico,
+                "hook_text": record.hook_text,
+                "hook_type": record.hook_type,
+                "cta_text": record.cta_text,
+                "cta_type": record.cta_type,
+                "record_status": record.record_status,
+                "created_at": record.created_at.isoformat(),
+            }
+            for record in records
         ],
         "allowed_enums": {
             "traffic_type": list(schemas.TrafficType.__args__),
