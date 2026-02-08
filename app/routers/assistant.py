@@ -486,6 +486,40 @@ def _auto_fill_experiment_draft(draft: dict) -> dict:
     return updated
 
 
+def _normalize_experiment_enums(draft: dict) -> dict:
+    updated = dict(draft)
+    primary_metric = updated.get("primary_metric")
+    if isinstance(primary_metric, str):
+        metric_map = {
+            "clics": "clicks",
+            "click": "clicks",
+            "clicks": "clicks",
+            "compras": "purchase_rate",
+            "purchase": "purchase_rate",
+            "retencion": "retention_pct",
+            "retención": "retention_pct",
+            "tiempo": "avg_watch_time",
+            "views": "views",
+            "vistas": "views",
+        }
+        normalized_metric = metric_map.get(primary_metric.lower())
+        if normalized_metric:
+            updated["primary_metric"] = normalized_metric
+    volume_unit = updated.get("volume_unit")
+    if isinstance(volume_unit, str):
+        unit_map = {
+            "clics": "clicks",
+            "click": "clicks",
+            "clicks": "clicks",
+            "views": "views",
+            "vistas": "views",
+        }
+        normalized_unit = unit_map.get(volume_unit.lower())
+        if normalized_unit:
+            updated["volume_unit"] = normalized_unit
+    return updated
+
+
 def _resolve_experiment_id(
     db: Session,
     project_name: str | None,
@@ -1113,6 +1147,7 @@ def assistant_openclaw(
                 merged_draft["volume_unit"] = volume_unit
         merged_draft = _sanitize_experiment_draft(merged_draft)
         merged_draft = _auto_fill_experiment_draft(merged_draft)
+        merged_draft = _normalize_experiment_enums(merged_draft)
         merged_draft.setdefault("experiment_status", "draft")
     if draft_type == "record":
         merged_draft.setdefault("record_status", "draft")
