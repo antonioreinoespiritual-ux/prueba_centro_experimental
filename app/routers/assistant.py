@@ -122,25 +122,18 @@ def _is_cancel_message(message: str) -> bool:
     return any(phrase in lowered for phrase in _DRAFT_CANCEL_PHRASES)
 
 
-def _openclaw_intent_details(message: str) -> tuple[str | None, bool]:
+def _detect_openclaw_intent(message: str) -> tuple[str | None, bool]:
     lowered = _normalize_text(message)
-    patterns = [
-        (r"\bcrear hipótesis\b", "experiment"),
-        (r"\bcrear hipotesis\b", "experiment"),
-        (r"\bnueva hipótesis\b", "experiment"),
-        (r"\bnueva hipotesis\b", "experiment"),
-        (r"\bcrear record\b", "record"),
-        (r"\bnuevo record\b", "record"),
-        (r"\bcrear prueba\b", "record"),
-    ]
-    for pattern, draft_type in patterns:
-        match = re.search(pattern, lowered)
-        if not match:
-            continue
-        remainder = lowered[match.end():]
-        remainder = remainder.strip(" :-–—\t\n\r")
-        has_payload = bool(remainder)
-        return draft_type, has_payload
+    experiment_terms = ["hipotesis", "hipótesis", "experimento", "experiment"]
+    record_terms = ["record", "récord", "prueba"]
+    has_experiment = any(term in lowered for term in experiment_terms)
+    has_record = any(term in lowered for term in record_terms)
+    if has_experiment and has_record:
+        return None, True
+    if has_experiment:
+        return "experiment", False
+    if has_record:
+        return "record", False
     return None, False
 
 
@@ -167,6 +160,115 @@ def _looks_like_hypothesis_statement(message: str) -> bool:
 def _is_creation_request(message: str) -> bool:
     lowered = _normalize_text(message)
     return " crear " in f" {lowered} " or " crea " in f" {lowered} "
+
+
+def _extract_hypothesis_from_message(message: str) -> str | None:
+    match = re.search(
+        r"(?:crear|crea|nueva)\s+hip[oó]tesis[:\-–—]?\s*(.+)",
+        message,
+        flags=re.IGNORECASE,
+    )
+    if not match:
+        return None
+    hypothesis = match.group(1).strip()
+    hypothesis = re.sub(r"^de que\s+", "", hypothesis, flags=re.IGNORECASE).strip()
+    if not hypothesis:
+        return None
+    return hypothesis
+
+
+def _infer_traffic_type_from_message(message: str) -> str | None:
+    lowered = _normalize_text(message)
+    mapping = [
+        ("paid", "paid"),
+        ("pago", "paid"),
+        ("anuncio", "paid"),
+        ("ads", "paid"),
+        ("organic", "organic"),
+        ("orgánico", "organic"),
+        ("organico", "organic"),
+        ("live", "live"),
+        ("en vivo", "live"),
+    ]
+    for token, traffic_type in mapping:
+        if token in lowered:
+            return traffic_type
+    return None
+
+
+def _infer_threshold_from_message(message: str) -> tuple[float | None, str | None, str | None]:
+    match = re.search(r"(\d+(?:[.,]\d+)?)\s*%", message)
+    if not match:
+        return None, None, None
+    raw_value = match.group(1).replace(",", ".")
+    try:
+        value = float(raw_value)
+    except ValueError:
+        return None, None, None
+    operator = ">="
+    lowered = _normalize_text(message)
+    if "baja" in lowered or "dismin" in lowered:
+        operator = "<="
+    return value, "percentage", operator
+
+
+def _infer_volume_from_message(message: str) -> tuple[int | None, str | None]:
+    lowered = _normalize_text(message)
+    unit = None
+    if "click" in lowered or "clic" in lowered:
+        unit = "clicks"
+    elif "view" in lowered or "vista" in lowered:
+        unit = "views"
+    match = re.search(
+        r"(?:volumen\s+m[ií]nimo|volumen\s+minimo|minimo|mínimo|al\s+menos|por\s+lo\s+menos)\s*(?:de\s*)?(\d+)",
+        lowered,
+    )
+    if not match:
+        return None, unit
+    try:
+        value = int(match.group(1))
+    except ValueError:
+        return None, unit
+    return value, unit
+
+
+def _infer_execution_type_from_message(message: str) -> str | None:
+    lowered = _normalize_text(message)
+    mapping = [
+        ("paid", "paid_ad"),
+        ("pago", "paid_ad"),
+        ("anuncio", "paid_ad"),
+        ("ads", "paid_ad"),
+        ("organic", "organic_video"),
+        ("orgánico", "organic_video"),
+        ("organico", "organic_video"),
+        ("live", "live_session"),
+        ("en vivo", "live_session"),
+    ]
+    for token, execution_type in mapping:
+        if token in lowered:
+            return execution_type
+    return None
+
+
+def _infer_hook_text_from_message(message: str) -> str | None:
+    match = re.search(r"hook\s+(.*)", message, flags=re.IGNORECASE)
+    if not match:
+        return None
+    hook_text = match.group(1).strip()
+    if not hook_text:
+        return None
+    return hook_text[:2000]
+
+
+def _infer_publico_from_message(message: str) -> str | None:
+    match = re.search(r"p[úu]blico\s+(.*)", message, flags=re.IGNORECASE)
+    if not match:
+        return None
+    publico = match.group(1).strip()
+    if not publico:
+        return None
+    return publico[:200]
 
 
 def _get_draft(db: Session, conversation_id: str, assistant_type: str) -> AssistantDraft | None:
@@ -348,8 +450,8 @@ def _infer_primary_metric(text: str) -> str | None:
         ("views profile", "views"),
         ("views", "views"),
         ("vistas", "views"),
-        ("clics", "clicks"),
-        ("clicks", "clicks"),
+        ("clics", "views"),
+        ("clicks", "views"),
         ("purchase", "purchase_rate"),
         ("compras", "purchase_rate"),
         ("lead", "lead_rate"),
@@ -367,6 +469,15 @@ def _infer_metric_x(hypothesis: str) -> str | None:
         phrase = match.group(1).strip()
         phrase = " ".join(phrase.split())
         return phrase[:60]
+    hook_match = re.search(
+        r"hook\s+([a-záéíóúñ]+(?:\s+[a-záéíóúñ]+){0,2})",
+        hypothesis,
+        flags=re.IGNORECASE,
+    )
+    if hook_match:
+        phrase = hook_match.group(1).strip()
+        phrase = " ".join(phrase.split())
+        return f"hook {phrase}"[:60]
     return None
 
 
@@ -414,6 +525,40 @@ def _auto_fill_experiment_draft(draft: dict) -> dict:
     return updated
 
 
+def _normalize_experiment_enums(draft: dict) -> dict:
+    updated = dict(draft)
+    primary_metric = updated.get("primary_metric")
+    if isinstance(primary_metric, str):
+        metric_map = {
+            "clics": "views",
+            "click": "views",
+            "clicks": "views",
+            "compras": "purchase_rate",
+            "purchase": "purchase_rate",
+            "retencion": "retention_pct",
+            "retención": "retention_pct",
+            "tiempo": "avg_watch_time",
+            "views": "views",
+            "vistas": "views",
+        }
+        normalized_metric = metric_map.get(primary_metric.lower())
+        if normalized_metric:
+            updated["primary_metric"] = normalized_metric
+    volume_unit = updated.get("volume_unit")
+    if isinstance(volume_unit, str):
+        unit_map = {
+            "clics": "clicks",
+            "click": "clicks",
+            "clicks": "clicks",
+            "views": "views",
+            "vistas": "views",
+        }
+        normalized_unit = unit_map.get(volume_unit.lower())
+        if normalized_unit:
+            updated["volume_unit"] = normalized_unit
+    return updated
+
+
 def _resolve_experiment_id(
     db: Session,
     project_name: str | None,
@@ -432,6 +577,12 @@ def _resolve_experiment_id(
     ).scalar_one_or_none()
 
 
+def _fallback_experiment_reference(db: Session) -> Experiment | None:
+    return db.execute(
+        select(Experiment).order_by(desc(Experiment.updated_at), desc(Experiment.created_at)).limit(1)
+    ).scalar_one_or_none()
+
+
 def _auto_fill_record_draft(db: Session, draft: dict) -> dict:
     updated = dict(draft)
     if not updated.get("experiment_id"):
@@ -440,6 +591,29 @@ def _auto_fill_record_draft(db: Session, draft: dict) -> dict:
             updated.get("project_name"),
             updated.get("metric_x"),
         )
+    return updated
+
+
+def _normalize_record_enums(draft: dict) -> dict:
+    updated = dict(draft)
+    execution_type = updated.get("execution_type")
+    if isinstance(execution_type, str):
+        mapping = {
+            "organic": "organic_video",
+            "organico": "organic_video",
+            "orgánico": "organic_video",
+            "organic_video": "organic_video",
+            "paid": "paid_ad",
+            "pago": "paid_ad",
+            "ads": "paid_ad",
+            "paid_ad": "paid_ad",
+            "live": "live_session",
+            "en vivo": "live_session",
+            "live_session": "live_session",
+        }
+        normalized = mapping.get(execution_type.lower())
+        if normalized:
+            updated["execution_type"] = normalized
     return updated
 
 
@@ -803,16 +977,16 @@ def _fallback_answer(context_json: str, error_message: str) -> str:
 
 def _openclaw_questions(missing: list[str]) -> list[str]:
     mapping = {
-        "project_name": "¿Cuál es el nombre del proyecto?",
-        "hypothesis": "¿Cuál es la hipótesis exacta?",
-        "traffic_type": "¿Qué tipo de tráfico aplica (paid/organic/etc.)?",
-        "hypothesis_type": "¿Qué tipo de hipótesis es?",
+        "project_name": "¿project_name?",
+        "hypothesis": "¿hypothesis? (texto completo)",
+        "traffic_type": "¿traffic_type? (organic/paid/live)",
+        "hypothesis_type": "¿hypothesis_type? (activation/acquisition/etc.)",
         "primary_metric": "¿Cuál es la métrica primaria?",
-        "threshold_operator": "¿Qué operador de umbral se usa (>=, <=, etc.)?",
-        "threshold_value": "¿Cuál es el valor del umbral?",
-        "threshold_type": "¿El umbral es porcentaje o absoluto?",
-        "volume_min_value": "¿Cuál es el volumen mínimo requerido?",
-        "volume_unit": "¿Qué unidad de volumen aplica?",
+        "threshold_operator": "¿threshold_operator? (>=, <=, etc.)",
+        "threshold_value": "¿threshold_value?",
+        "threshold_type": "¿threshold_type? (percentage/absolute)",
+        "volume_min_value": "¿volume_min_value?",
+        "volume_unit": "¿volume_unit? (clicks/views/etc.)",
         "experiment_reference": "¿A qué hipótesis (ID) se vincula este record?",
         "public_id/publico": "¿Qué público se usará (ID o nombre)?",
         "execution_type": "¿Cuál es el tipo de ejecución?",
@@ -940,7 +1114,7 @@ def assistant_openclaw(
         )
 
     draft = _get_draft(db, conversation_id, assistant_type="openclaw")
-    explicit_intent, has_payload = _openclaw_intent_details(message)
+    explicit_intent, ambiguous_intent = _detect_openclaw_intent(message)
     if not draft and _is_confirm_message(message):
         return schemas.OpenClawChatResponse(
             mode="idle",
@@ -953,25 +1127,21 @@ def assistant_openclaw(
     if draft and _is_trivial_openclaw_message(message):
         existing_payload = json.loads(draft.payload_json)
         return schemas.OpenClawChatResponse(
-            mode="drafting",
+            mode="draft",
             draft=existing_payload.get("draft"),
             questions=[],
             next_actions=["¿Quieres continuar con el borrador actual o resetear?"],
             message="¿Quieres continuar con el borrador actual o resetear?",
         )
 
-    if not draft and explicit_intent and not has_payload:
+    if ambiguous_intent:
+        existing_payload = json.loads(draft.payload_json) if draft else {}
         return schemas.OpenClawChatResponse(
-            mode="idle",
-            draft=None,
-            questions=[],
-            next_actions=[
-                "Incluye detalles después del comando, por ejemplo: “crear hipótesis: …” o “crear record: …”.",
-            ],
-            message=(
-                "Para iniciar un borrador necesito más detalles. "
-                "Escribe “crear hipótesis: …” o “crear record: …” con la información inicial."
-            ),
+            mode="needs_input",
+            draft=existing_payload.get("draft", {}),
+            questions=["¿Quieres crear una hipótesis o un record?"],
+            next_actions=["Responde con “hipótesis” o “record”."],
+            message="Detecté intención de hipótesis y record. Necesito que aclares.",
         )
 
     if not draft and not explicit_intent:
@@ -1004,9 +1174,11 @@ def assistant_openclaw(
         )
     except ai.GroqError as exc:
         _set_cooldown_from_error(str(exc))
+        fallback_draft = existing_payload.get("draft") if existing_payload else None
+        mode = "draft" if fallback_draft else "idle"
         return schemas.OpenClawChatResponse(
-            mode="needs_input",
-            draft=None,
+            mode=mode,
+            draft=fallback_draft,
             questions=[],
             next_actions=["Reintenta el borrador cuando el servicio esté disponible."],
             message=f"No pude contactar la IA OpenClaw en este momento. Detalle: {exc}",
@@ -1016,17 +1188,65 @@ def assistant_openclaw(
     merged_draft = _merge_draft(existing_payload.get("draft", {}), incoming_draft)
 
     if draft_type == "experiment":
+        if not merged_draft.get("hypothesis"):
+            extracted = _extract_hypothesis_from_message(message)
+            if extracted:
+                merged_draft["hypothesis"] = extracted
+            elif _looks_like_hypothesis_statement(message):
+                merged_draft["hypothesis"] = message.strip()
+        if not merged_draft.get("project_name"):
+            merged_draft["project_name"] = "General"
+        if not merged_draft.get("traffic_type"):
+            inferred_traffic = _infer_traffic_type_from_message(message)
+            merged_draft["traffic_type"] = inferred_traffic or "organic"
+        if merged_draft.get("threshold_value") is None:
+            value, threshold_type, operator = _infer_threshold_from_message(message)
+            if value is not None:
+                merged_draft["threshold_value"] = value
+                if threshold_type and not merged_draft.get("threshold_type"):
+                    merged_draft["threshold_type"] = threshold_type
+                if operator and not merged_draft.get("threshold_operator"):
+                    merged_draft["threshold_operator"] = operator
+        if merged_draft.get("volume_min_value") is None or not merged_draft.get("volume_unit"):
+            volume_value, volume_unit = _infer_volume_from_message(message)
+            if merged_draft.get("volume_min_value") is None and volume_value is not None:
+                merged_draft["volume_min_value"] = volume_value
+            if not merged_draft.get("volume_unit") and volume_unit:
+                merged_draft["volume_unit"] = volume_unit
         merged_draft = _sanitize_experiment_draft(merged_draft)
         merged_draft = _auto_fill_experiment_draft(merged_draft)
+        merged_draft = _normalize_experiment_enums(merged_draft)
         merged_draft.setdefault("experiment_status", "draft")
     if draft_type == "record":
+        if not merged_draft.get("project_name"):
+            merged_draft["project_name"] = "General"
+        if not merged_draft.get("metric_x"):
+            inferred_metric = _infer_metric_x(message)
+            if inferred_metric:
+                merged_draft["metric_x"] = inferred_metric
         merged_draft.setdefault("record_status", "draft")
         merged_draft.setdefault(
             "session_id",
             existing_payload.get("draft", {}).get("session_id")
             or f"openclaw-{int(time.time())}",
         )
+        if not merged_draft.get("execution_type"):
+            merged_draft["execution_type"] = _infer_execution_type_from_message(message) or "organic_video"
+        if not merged_draft.get("record_name"):
+            record_hint = merged_draft.get("metric_x") or merged_draft.get("hook_text") or merged_draft["execution_type"]
+            merged_draft["record_name"] = f"Record {record_hint}".strip()
+        if not (merged_draft.get("public_id") or merged_draft.get("publico")):
+            merged_draft["publico"] = _infer_publico_from_message(message) or "General"
+        if not merged_draft.get("hook_text"):
+            merged_draft["hook_text"] = _infer_hook_text_from_message(message)
         merged_draft = _auto_fill_record_draft(db, merged_draft)
+        merged_draft = _normalize_record_enums(merged_draft)
+        if not merged_draft.get("experiment_id"):
+            fallback_experiment = _fallback_experiment_reference(db)
+            if fallback_experiment:
+                merged_draft["experiment_id"] = fallback_experiment.id
+                merged_draft.setdefault("project_name", fallback_experiment.project_name)
+                merged_draft.setdefault("metric_x", fallback_experiment.metric_x)
 
     missing = _draft_missing_fields(draft_type, merged_draft)
     _save_draft(
@@ -1051,6 +1271,11 @@ def assistant_openclaw(
                 message="Faltan datos antes de confirmar la creación.",
             )
         if draft_type == "experiment":
+            metric_x_value = merged_draft.get("metric_x") or _infer_metric_x(merged_draft.get("hypothesis", ""))
+            if metric_x_value:
+                merged_draft["metric_x"] = metric_x_value
+            if metric_x_value and not merged_draft.get("independent_variable"):
+                merged_draft["independent_variable"] = metric_x_value
             exp_payload = schemas.ExperimentCreate(
                 project_name=merged_draft["project_name"],
                 hypothesis=merged_draft["hypothesis"],
@@ -1125,8 +1350,8 @@ def assistant_openclaw(
                 ),
             )
 
-    mode = "needs_input" if missing else "ready_to_confirm"
-    message_text = "Faltan datos para continuar." if missing else "Borrador listo para confirmar."
+    mode = "needs_input" if missing else "draft"
+    message_text = "Faltan datos para continuar." if missing else "Borrador listo para revisar."
     return schemas.OpenClawChatResponse(
         mode=mode,
         draft=merged_draft,

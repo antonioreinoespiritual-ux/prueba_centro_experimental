@@ -156,10 +156,13 @@
         if (data.mode) metaParts.push(`Modo: ${data.mode}`);
         if (data.questions?.length) metaParts.push(`Preguntas: ${data.questions.join(" | ")}`);
         if (data.next_actions?.length) metaParts.push(`Siguientes pasos: ${data.next_actions.join(" | ")}`);
-        if (data.draft) metaParts.push(`Draft: ${JSON.stringify(data.draft, null, 2)}`);
+        let contentText = data.message || "Respuesta recibida.";
+        if (data.draft) {
+          contentText += `\n\nBorrador:\n${JSON.stringify(data.draft, null, 2)}`;
+        }
         messages.push({
           role: "assistant",
-          content: data.message || "Respuesta recibida.",
+          content: contentText,
           meta: metaParts.join("\n"),
         });
         saveMessages(messages);
