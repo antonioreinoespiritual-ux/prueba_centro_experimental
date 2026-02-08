@@ -298,7 +298,9 @@ def generate_openclaw_draft(
                     "Nunca confirmes creación ni ejecutes acciones. No uses markdown. "
                     "Devuelve un objeto con las claves: draft, notes. "
                     "El campo draft debe ser un objeto con las claves disponibles del tipo solicitado. "
-                    "Si no puedes inferir un campo, déjalo en null."
+                    "Si no puedes inferir un campo, déjalo en null. "
+                    "Para hipótesis siempre incluye threshold_operator, threshold_value, "
+                    "threshold_type, volume_min_value y volume_unit."
                 ),
             },
             {

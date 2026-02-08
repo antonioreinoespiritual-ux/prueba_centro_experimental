@@ -173,6 +173,16 @@ def _draft_missing_fields(draft_type: str, draft: dict) -> list[str]:
             missing.append("traffic_type")
         if not draft.get("primary_metric"):
             missing.append("primary_metric")
+        if not draft.get("threshold_operator"):
+            missing.append("threshold_operator")
+        if draft.get("threshold_value") is None:
+            missing.append("threshold_value")
+        if not draft.get("threshold_type"):
+            missing.append("threshold_type")
+        if draft.get("volume_min_value") is None:
+            missing.append("volume_min_value")
+        if not draft.get("volume_unit"):
+            missing.append("volume_unit")
     if draft_type == "record":
         if not draft.get("experiment_id"):
             missing.append("experiment_id")
