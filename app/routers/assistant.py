@@ -756,136 +756,6 @@ def assistant_chat(
     conversation_id = payload.conversation_id
     context_json, citations = _build_context(db, message, conversation_id)
 
-    draft = _get_draft(db, conversation_id)
-    draft_type = draft.draft_type if draft else _is_draft_intent(message)
-    model_hint = payload.model or ""
-    if not draft_type and "llama-4-scout" in model_hint and _looks_like_hypothesis_statement(message):
-        draft_type = "experiment"
-    if _is_cancel_message(message):
-        _clear_draft(db, conversation_id)
-        return schemas.ChatResponse(
-            answer="Borrador descartado. Puedes iniciar uno nuevo cuando quieras.",
-            citations=citations,
-        )
-
-    if draft_type:
-        openclaw_context = _build_openclaw_context(db)
-        existing_payload = json.loads(draft.payload_json) if draft else {}
-        try:
-            draft_response = ai.generate_openclaw_draft(
-                message=message,
-                draft_type=draft_type,
-                context=openclaw_context,
-                existing_draft=existing_payload.get("draft"),
-                model_override=payload.model,
-            )
-        except ai.GroqError as exc:
-            _set_cooldown_from_error(str(exc))
-            answer = _fallback_answer(context_json, str(exc))
-            return schemas.ChatResponse(answer=answer, citations=citations)
-
-        incoming_draft = draft_response.get("draft", {})
-        merged_draft = _merge_draft(existing_payload.get("draft", {}), incoming_draft)
-
-        if draft_type == "experiment":
-            merged_draft = _sanitize_experiment_draft(merged_draft)
-            merged_draft = _auto_fill_experiment_draft(merged_draft)
-            merged_draft.setdefault("experiment_status", "draft")
-        if draft_type == "record":
-            merged_draft.setdefault("record_status", "draft")
-            merged_draft.setdefault(
-                "session_id",
-                existing_payload.get("draft", {}).get("session_id")
-                or f"openclaw-{int(time.time())}",
-            )
-            merged_draft = _auto_fill_record_draft(db, merged_draft)
-
-        missing = _draft_missing_fields(draft_type, merged_draft)
-        _save_draft(
-            db,
-            conversation_id,
-            draft_type,
-            {
-                "draft": merged_draft,
-                "missing_fields": missing,
-                "notes": draft_response.get("notes"),
-            },
-        )
-
-        if _is_confirm_message(message):
-            if missing:
-                return schemas.ChatResponse(
-                    answer=_render_draft_response(draft_type, merged_draft, missing),
-                    citations=citations,
-                )
-            if draft_type == "experiment":
-                exp_payload = schemas.ExperimentCreate(
-                    project_name=merged_draft["project_name"],
-                    hypothesis=merged_draft["hypothesis"],
-                    traffic_type=merged_draft["traffic_type"],
-                    contexto=merged_draft.get("contexto"),
-                    hypothesis_type=merged_draft.get("hypothesis_type"),
-                    independent_variable=merged_draft.get("independent_variable"),
-                    metric_x=merged_draft.get("metric_x"),
-                    primary_metric=merged_draft.get("primary_metric"),
-                    validation_threshold=merged_draft.get("validation_threshold"),
-                    threshold_value=merged_draft.get("threshold_value"),
-                    threshold_type=merged_draft.get("threshold_type"),
-                    threshold_operator=merged_draft.get("threshold_operator"),
-                    experiment_status="running",
-                    min_volume=merged_draft.get("min_volume"),
-                    volume_min_value=merged_draft.get("volume_min_value"),
-                    volume_unit=merged_draft.get("volume_unit"),
-                )
-                exp = crud.create_experiment(db, exp_payload)
-                crud.create_documentation_note(
-                    db,
-                    "experiment",
-                    exp.id,
-                    f"Hipótesis creada vía asistente. Timestamp: {datetime.utcnow().isoformat()}",
-                )
-                _clear_draft(db, conversation_id)
-                answer = (
-                    f"Hipótesis creada con ID {exp.id}. Estado inicial: {exp.experiment_status}.\n"
-                    "Si quieres, ahora podemos crear records para esta hipótesis."
-                )
-                return schemas.ChatResponse(answer=answer, citations=citations)
-            if draft_type == "record":
-                record_payload = schemas.RecordCreate(
-                    experiment_id=merged_draft["experiment_id"],
-                    session_id=merged_draft["session_id"],
-                    iteration_number=merged_draft.get("iteration_number"),
-                    contexto_record=merged_draft.get("contexto_record"),
-                    execution_type=merged_draft.get("execution_type"),
-                    record_name=merged_draft.get("record_name"),
-                    public_id=merged_draft.get("public_id"),
-                    publico=merged_draft.get("publico"),
-                    hook_text=merged_draft.get("hook_text"),
-                    hook_type=merged_draft.get("hook_type"),
-                    cta_text=merged_draft.get("cta_text"),
-                    cta_type=merged_draft.get("cta_type"),
-                    creative_id=merged_draft.get("creative_id"),
-                    record_status="collecting",
-                )
-                record = crud.create_record(db, record_payload)
-                crud.create_documentation_note(
-                    db,
-                    "record",
-                    record.id,
-                    f"Record creado vía asistente. Timestamp: {datetime.utcnow().isoformat()}",
-                )
-                _clear_draft(db, conversation_id)
-                answer = (
-                    f"Record creado con ID {record.id}. Estado inicial: {record.record_status}.\n"
-                    "Ya está listo para recibir métricas."
-                )
-                return schemas.ChatResponse(answer=answer, citations=citations)
-
-        return schemas.ChatResponse(
-            answer=_render_draft_response(draft_type, merged_draft, missing),
-            citations=citations,
-        )
-
     memory_trigger = None
     lowered = message.lower().strip()
     if lowered.startswith("memoriza:") or lowered.startswith("guardar:"):
@@ -937,3 +807,158 @@ def assistant_chat(
     db.commit()
 
     return schemas.ChatResponse(answer=answer, citations=citations)
+
+
+@router.post("/assistant/openclaw", response_model=schemas.ChatResponse)
+def assistant_openclaw(
+    payload: schemas.ChatRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    message = payload.message.strip()
+    if not message:
+        raise HTTPException(status_code=400, detail="Message is required.")
+
+    client_key = request.client.host if request.client else "unknown"
+    _check_rate_limit(client_key)
+
+    conversation_id = payload.conversation_id
+    context_json, citations = _build_context(db, message, conversation_id)
+
+    draft = _get_draft(db, conversation_id)
+    draft_type = draft.draft_type if draft else _is_draft_intent(message)
+    model_hint = payload.model or ""
+    if not draft_type and "llama-4-scout" in model_hint and _looks_like_hypothesis_statement(message):
+        draft_type = "experiment"
+    if _is_cancel_message(message):
+        _clear_draft(db, conversation_id)
+        return schemas.ChatResponse(
+            answer="Borrador descartado. Puedes iniciar uno nuevo cuando quieras.",
+            citations=citations,
+        )
+
+    if not draft_type:
+        return schemas.ChatResponse(
+            answer=(
+                "Este chat está dedicado a crear hipótesis y records con OpenClaw. "
+                "Si necesitas consultas generales del centro experimental, usa el botón CHAT."
+            ),
+            citations=citations,
+        )
+
+    openclaw_context = _build_openclaw_context(db)
+    existing_payload = json.loads(draft.payload_json) if draft else {}
+    try:
+        draft_response = ai.generate_openclaw_draft(
+            message=message,
+            draft_type=draft_type,
+            context=openclaw_context,
+            existing_draft=existing_payload.get("draft"),
+            model_override=payload.model,
+        )
+    except ai.GroqError as exc:
+        _set_cooldown_from_error(str(exc))
+        answer = _fallback_answer(context_json, str(exc))
+        return schemas.ChatResponse(answer=answer, citations=citations)
+
+    incoming_draft = draft_response.get("draft", {})
+    merged_draft = _merge_draft(existing_payload.get("draft", {}), incoming_draft)
+
+    if draft_type == "experiment":
+        merged_draft = _sanitize_experiment_draft(merged_draft)
+        merged_draft = _auto_fill_experiment_draft(merged_draft)
+        merged_draft.setdefault("experiment_status", "draft")
+    if draft_type == "record":
+        merged_draft.setdefault("record_status", "draft")
+        merged_draft.setdefault(
+            "session_id",
+            existing_payload.get("draft", {}).get("session_id")
+            or f"openclaw-{int(time.time())}",
+        )
+        merged_draft = _auto_fill_record_draft(db, merged_draft)
+
+    missing = _draft_missing_fields(draft_type, merged_draft)
+    _save_draft(
+        db,
+        conversation_id,
+        draft_type,
+        {
+            "draft": merged_draft,
+            "missing_fields": missing,
+            "notes": draft_response.get("notes"),
+        },
+    )
+
+    if _is_confirm_message(message):
+        if missing:
+            return schemas.ChatResponse(
+                answer=_render_draft_response(draft_type, merged_draft, missing),
+                citations=citations,
+            )
+        if draft_type == "experiment":
+            exp_payload = schemas.ExperimentCreate(
+                project_name=merged_draft["project_name"],
+                hypothesis=merged_draft["hypothesis"],
+                traffic_type=merged_draft["traffic_type"],
+                contexto=merged_draft.get("contexto"),
+                hypothesis_type=merged_draft.get("hypothesis_type"),
+                independent_variable=merged_draft.get("independent_variable"),
+                metric_x=merged_draft.get("metric_x"),
+                primary_metric=merged_draft.get("primary_metric"),
+                validation_threshold=merged_draft.get("validation_threshold"),
+                threshold_value=merged_draft.get("threshold_value"),
+                threshold_type=merged_draft.get("threshold_type"),
+                threshold_operator=merged_draft.get("threshold_operator"),
+                experiment_status="running",
+                min_volume=merged_draft.get("min_volume"),
+                volume_min_value=merged_draft.get("volume_min_value"),
+                volume_unit=merged_draft.get("volume_unit"),
+            )
+            exp = crud.create_experiment(db, exp_payload)
+            crud.create_documentation_note(
+                db,
+                "experiment",
+                exp.id,
+                f"Hipótesis creada vía asistente. Timestamp: {datetime.utcnow().isoformat()}",
+            )
+            _clear_draft(db, conversation_id)
+            answer = (
+                f"Hipótesis creada con ID {exp.id}. Estado inicial: {exp.experiment_status}.\n"
+                "Si quieres, ahora podemos crear records para esta hipótesis."
+            )
+            return schemas.ChatResponse(answer=answer, citations=citations)
+        if draft_type == "record":
+            record_payload = schemas.RecordCreate(
+                experiment_id=merged_draft["experiment_id"],
+                session_id=merged_draft["session_id"],
+                iteration_number=merged_draft.get("iteration_number"),
+                contexto_record=merged_draft.get("contexto_record"),
+                execution_type=merged_draft.get("execution_type"),
+                record_name=merged_draft.get("record_name"),
+                public_id=merged_draft.get("public_id"),
+                publico=merged_draft.get("publico"),
+                hook_text=merged_draft.get("hook_text"),
+                hook_type=merged_draft.get("hook_type"),
+                cta_text=merged_draft.get("cta_text"),
+                cta_type=merged_draft.get("cta_type"),
+                creative_id=merged_draft.get("creative_id"),
+                record_status="collecting",
+            )
+            record = crud.create_record(db, record_payload)
+            crud.create_documentation_note(
+                db,
+                "record",
+                record.id,
+                f"Record creado vía asistente. Timestamp: {datetime.utcnow().isoformat()}",
+            )
+            _clear_draft(db, conversation_id)
+            answer = (
+                f"Record creado con ID {record.id}. Estado inicial: {record.record_status}.\n"
+                "Ya está listo para recibir métricas."
+            )
+            return schemas.ChatResponse(answer=answer, citations=citations)
+
+    return schemas.ChatResponse(
+        answer=_render_draft_response(draft_type, merged_draft, missing),
+        citations=citations,
+    )
