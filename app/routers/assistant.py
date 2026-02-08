@@ -47,6 +47,10 @@ _CONFIRM_PHRASES = (
 
 _DRAFT_CANCEL_PHRASES = (
     "cancelar borrador",
+    "cancelar",
+    "borrar borrador",
+    "borrar",
+    "eliminar",
     "descartar borrador",
     "reiniciar borrador",
     "eliminar borrador",
@@ -176,6 +180,8 @@ def _draft_missing_fields(draft_type: str, draft: dict) -> list[str]:
             missing.append("hypothesis")
         if not draft.get("traffic_type"):
             missing.append("traffic_type")
+        if not draft.get("metric_x"):
+            missing.append("metric_x")
         if not draft.get("primary_metric"):
             missing.append("primary_metric")
         if not draft.get("threshold_operator"):
@@ -660,6 +666,7 @@ def assistant_chat(
                     contexto=merged_draft.get("contexto"),
                     hypothesis_type=merged_draft.get("hypothesis_type"),
                     independent_variable=merged_draft.get("independent_variable"),
+                    metric_x=merged_draft.get("metric_x"),
                     primary_metric=merged_draft.get("primary_metric"),
                     validation_threshold=merged_draft.get("validation_threshold"),
                     threshold_value=merged_draft.get("threshold_value"),

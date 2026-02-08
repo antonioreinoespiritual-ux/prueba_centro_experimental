@@ -27,6 +27,7 @@ class Experiment(Base):
     # --- Lean Hypothesis fields (new) ---
     hypothesis_type: Mapped[str | None] = mapped_column(String(50), nullable=True)
     independent_variable: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    metric_x: Mapped[str | None] = mapped_column(String(100), nullable=True)
     primary_metric: Mapped[str | None] = mapped_column(String(100), nullable=True)
     validation_threshold: Mapped[str | None] = mapped_column(String(200), nullable=True)
     threshold_value: Mapped[float | None] = mapped_column(Float, nullable=True)

@@ -299,8 +299,9 @@ def generate_openclaw_draft(
                     "Devuelve un objeto con las claves: draft, notes. "
                     "El campo draft debe ser un objeto con las claves disponibles del tipo solicitado. "
                     "Si no puedes inferir un campo, déjalo en null. "
-                    "Para hipótesis siempre incluye primary_metric, threshold_operator, threshold_value, "
-                    "threshold_type, volume_min_value y volume_unit. "
+                    "Para hipótesis siempre incluye metric_x (resumen de 3-4 palabras), "
+                    "primary_metric, threshold_operator, threshold_value, threshold_type, "
+                    "volume_min_value y volume_unit. "
                     "No incluyas campos de records en hipótesis (ej: hook_type, cta_type, execution_type)."
                 ),
             },

@@ -29,6 +29,7 @@ def ensure_schema() -> None:
     experiment_columns = [
         ("hypothesis_type", "VARCHAR(50)"),
         ("independent_variable", "VARCHAR(500)"),
+        ("metric_x", "VARCHAR(100)"),
         ("primary_metric", "VARCHAR(100)"),
         ("validation_threshold", "VARCHAR(200)"),
         ("threshold_value", "FLOAT"),

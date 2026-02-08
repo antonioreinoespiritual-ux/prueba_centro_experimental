@@ -22,6 +22,7 @@ def create_experiment(db: Session, data: schemas.ExperimentCreate):
         traffic_type=data.traffic_type,
         hypothesis_type=data.hypothesis_type,
         independent_variable=(data.independent_variable or "").strip() or None,
+        metric_x=(data.metric_x or "").strip() or None,
         primary_metric=data.primary_metric,
         validation_threshold=(data.validation_threshold or "").strip() or None,
         threshold_value=data.threshold_value,
