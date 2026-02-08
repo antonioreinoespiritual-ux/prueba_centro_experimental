@@ -1162,106 +1162,113 @@ def assistant_openclaw(
         draft = None
         draft_type = explicit_intent
 
-    openclaw_context = _build_openclaw_context(db)
     existing_payload = json.loads(draft.payload_json) if draft else {}
-    try:
-        draft_response = ai.generate_openclaw_draft(
-            message=message,
-            draft_type=draft_type,
-            context=openclaw_context,
-            existing_draft=existing_payload.get("draft"),
-            model_override=payload.model,
+    is_confirm = _is_confirm_message(message)
+    if is_confirm and draft:
+        merged_draft = existing_payload.get("draft", {})
+        missing = existing_payload.get("missing_fields") or _draft_missing_fields(draft_type, merged_draft)
+    else:
+        openclaw_context = _build_openclaw_context(db)
+        try:
+            draft_response = ai.generate_openclaw_draft(
+                message=message,
+                draft_type=draft_type,
+                context=openclaw_context,
+                existing_draft=existing_payload.get("draft"),
+                model_override=payload.model,
+            )
+        except ai.GroqError as exc:
+            _set_cooldown_from_error(str(exc))
+            fallback_draft = existing_payload.get("draft") if existing_payload else None
+            mode = "draft" if fallback_draft else "idle"
+            return schemas.OpenClawChatResponse(
+                mode=mode,
+                draft=fallback_draft,
+                questions=[],
+                next_actions=["Reintenta el borrador cuando el servicio esté disponible."],
+                message=f"No pude contactar la IA OpenClaw en este momento. Detalle: {exc}",
+            )
+
+        incoming_draft = draft_response.get("draft", {})
+        merged_draft = _merge_draft(existing_payload.get("draft", {}), incoming_draft)
+
+    if not (is_confirm and draft):
+        if draft_type == "experiment":
+            if not merged_draft.get("hypothesis"):
+                extracted = _extract_hypothesis_from_message(message)
+                if extracted:
+                    merged_draft["hypothesis"] = extracted
+                elif _looks_like_hypothesis_statement(message):
+                    merged_draft["hypothesis"] = message.strip()
+            if not merged_draft.get("project_name"):
+                merged_draft["project_name"] = "General"
+            if not merged_draft.get("traffic_type"):
+                inferred_traffic = _infer_traffic_type_from_message(message)
+                merged_draft["traffic_type"] = inferred_traffic or "organic"
+            if merged_draft.get("threshold_value") is None:
+                value, threshold_type, operator = _infer_threshold_from_message(message)
+                if value is not None:
+                    merged_draft["threshold_value"] = value
+                    if threshold_type and not merged_draft.get("threshold_type"):
+                        merged_draft["threshold_type"] = threshold_type
+                    if operator and not merged_draft.get("threshold_operator"):
+                        merged_draft["threshold_operator"] = operator
+            if merged_draft.get("volume_min_value") is None or not merged_draft.get("volume_unit"):
+                volume_value, volume_unit = _infer_volume_from_message(message)
+                if merged_draft.get("volume_min_value") is None and volume_value is not None:
+                    merged_draft["volume_min_value"] = volume_value
+                if not merged_draft.get("volume_unit") and volume_unit:
+                    merged_draft["volume_unit"] = volume_unit
+            merged_draft = _sanitize_experiment_draft(merged_draft)
+            merged_draft = _auto_fill_experiment_draft(merged_draft)
+            merged_draft = _normalize_experiment_enums(merged_draft)
+            merged_draft.setdefault("experiment_status", "draft")
+        if draft_type == "record":
+            if not merged_draft.get("project_name"):
+                merged_draft["project_name"] = "General"
+            if not merged_draft.get("metric_x"):
+                inferred_metric = _infer_metric_x(message)
+                if inferred_metric:
+                    merged_draft["metric_x"] = inferred_metric
+            merged_draft.setdefault("record_status", "draft")
+            merged_draft.setdefault(
+                "session_id",
+                existing_payload.get("draft", {}).get("session_id")
+                or f"openclaw-{int(time.time())}",
+            )
+            if not merged_draft.get("execution_type"):
+                merged_draft["execution_type"] = _infer_execution_type_from_message(message) or "organic_video"
+            if not merged_draft.get("record_name"):
+                record_hint = merged_draft.get("metric_x") or merged_draft.get("hook_text") or merged_draft["execution_type"]
+                merged_draft["record_name"] = f"Record {record_hint}".strip()
+            if not (merged_draft.get("public_id") or merged_draft.get("publico")):
+                merged_draft["publico"] = _infer_publico_from_message(message) or "General"
+            if not merged_draft.get("hook_text"):
+                merged_draft["hook_text"] = _infer_hook_text_from_message(message)
+            merged_draft = _auto_fill_record_draft(db, merged_draft)
+            merged_draft = _normalize_record_enums(merged_draft)
+            if not merged_draft.get("experiment_id"):
+                fallback_experiment = _fallback_experiment_reference(db)
+                if fallback_experiment:
+                    merged_draft["experiment_id"] = fallback_experiment.id
+                    merged_draft.setdefault("project_name", fallback_experiment.project_name)
+                    merged_draft.setdefault("metric_x", fallback_experiment.metric_x)
+
+    if not (is_confirm and draft):
+        missing = _draft_missing_fields(draft_type, merged_draft)
+        _save_draft(
+            db,
+            conversation_id,
+            "openclaw",
+            draft_type,
+            {
+                "draft": merged_draft,
+                "missing_fields": missing,
+                "notes": draft_response.get("notes"),
+            },
         )
-    except ai.GroqError as exc:
-        _set_cooldown_from_error(str(exc))
-        fallback_draft = existing_payload.get("draft") if existing_payload else None
-        mode = "draft" if fallback_draft else "idle"
-        return schemas.OpenClawChatResponse(
-            mode=mode,
-            draft=fallback_draft,
-            questions=[],
-            next_actions=["Reintenta el borrador cuando el servicio esté disponible."],
-            message=f"No pude contactar la IA OpenClaw en este momento. Detalle: {exc}",
-        )
 
-    incoming_draft = draft_response.get("draft", {})
-    merged_draft = _merge_draft(existing_payload.get("draft", {}), incoming_draft)
-
-    if draft_type == "experiment":
-        if not merged_draft.get("hypothesis"):
-            extracted = _extract_hypothesis_from_message(message)
-            if extracted:
-                merged_draft["hypothesis"] = extracted
-            elif _looks_like_hypothesis_statement(message):
-                merged_draft["hypothesis"] = message.strip()
-        if not merged_draft.get("project_name"):
-            merged_draft["project_name"] = "General"
-        if not merged_draft.get("traffic_type"):
-            inferred_traffic = _infer_traffic_type_from_message(message)
-            merged_draft["traffic_type"] = inferred_traffic or "organic"
-        if merged_draft.get("threshold_value") is None:
-            value, threshold_type, operator = _infer_threshold_from_message(message)
-            if value is not None:
-                merged_draft["threshold_value"] = value
-                if threshold_type and not merged_draft.get("threshold_type"):
-                    merged_draft["threshold_type"] = threshold_type
-                if operator and not merged_draft.get("threshold_operator"):
-                    merged_draft["threshold_operator"] = operator
-        if merged_draft.get("volume_min_value") is None or not merged_draft.get("volume_unit"):
-            volume_value, volume_unit = _infer_volume_from_message(message)
-            if merged_draft.get("volume_min_value") is None and volume_value is not None:
-                merged_draft["volume_min_value"] = volume_value
-            if not merged_draft.get("volume_unit") and volume_unit:
-                merged_draft["volume_unit"] = volume_unit
-        merged_draft = _sanitize_experiment_draft(merged_draft)
-        merged_draft = _auto_fill_experiment_draft(merged_draft)
-        merged_draft = _normalize_experiment_enums(merged_draft)
-        merged_draft.setdefault("experiment_status", "draft")
-    if draft_type == "record":
-        if not merged_draft.get("project_name"):
-            merged_draft["project_name"] = "General"
-        if not merged_draft.get("metric_x"):
-            inferred_metric = _infer_metric_x(message)
-            if inferred_metric:
-                merged_draft["metric_x"] = inferred_metric
-        merged_draft.setdefault("record_status", "draft")
-        merged_draft.setdefault(
-            "session_id",
-            existing_payload.get("draft", {}).get("session_id")
-            or f"openclaw-{int(time.time())}",
-        )
-        if not merged_draft.get("execution_type"):
-            merged_draft["execution_type"] = _infer_execution_type_from_message(message) or "organic_video"
-        if not merged_draft.get("record_name"):
-            record_hint = merged_draft.get("metric_x") or merged_draft.get("hook_text") or merged_draft["execution_type"]
-            merged_draft["record_name"] = f"Record {record_hint}".strip()
-        if not (merged_draft.get("public_id") or merged_draft.get("publico")):
-            merged_draft["publico"] = _infer_publico_from_message(message) or "General"
-        if not merged_draft.get("hook_text"):
-            merged_draft["hook_text"] = _infer_hook_text_from_message(message)
-        merged_draft = _auto_fill_record_draft(db, merged_draft)
-        merged_draft = _normalize_record_enums(merged_draft)
-        if not merged_draft.get("experiment_id"):
-            fallback_experiment = _fallback_experiment_reference(db)
-            if fallback_experiment:
-                merged_draft["experiment_id"] = fallback_experiment.id
-                merged_draft.setdefault("project_name", fallback_experiment.project_name)
-                merged_draft.setdefault("metric_x", fallback_experiment.metric_x)
-
-    missing = _draft_missing_fields(draft_type, merged_draft)
-    _save_draft(
-        db,
-        conversation_id,
-        "openclaw",
-        draft_type,
-        {
-            "draft": merged_draft,
-            "missing_fields": missing,
-            "notes": draft_response.get("notes"),
-        },
-    )
-
-    if _is_confirm_message(message):
+    if is_confirm:
         if missing:
             return schemas.OpenClawChatResponse(
                 mode="needs_input",
@@ -1271,11 +1278,6 @@ def assistant_openclaw(
                 message="Faltan datos antes de confirmar la creación.",
             )
         if draft_type == "experiment":
-            metric_x_value = merged_draft.get("metric_x") or _infer_metric_x(merged_draft.get("hypothesis", ""))
-            if metric_x_value:
-                merged_draft["metric_x"] = metric_x_value
-            if metric_x_value and not merged_draft.get("independent_variable"):
-                merged_draft["independent_variable"] = metric_x_value
             exp_payload = schemas.ExperimentCreate(
                 project_name=merged_draft["project_name"],
                 hypothesis=merged_draft["hypothesis"],
@@ -1289,7 +1291,7 @@ def assistant_openclaw(
                 threshold_value=merged_draft.get("threshold_value"),
                 threshold_type=merged_draft.get("threshold_type"),
                 threshold_operator=merged_draft.get("threshold_operator"),
-                experiment_status="running",
+                experiment_status=merged_draft.get("experiment_status") or "draft",
                 min_volume=merged_draft.get("min_volume"),
                 volume_min_value=merged_draft.get("volume_min_value"),
                 volume_unit=merged_draft.get("volume_unit"),
@@ -1329,7 +1331,7 @@ def assistant_openclaw(
                 cta_text=merged_draft.get("cta_text"),
                 cta_type=merged_draft.get("cta_type"),
                 creative_id=merged_draft.get("creative_id"),
-                record_status="collecting",
+                record_status=merged_draft.get("record_status"),
             )
             record = crud.create_record(db, record_payload)
             crud.create_documentation_note(
