@@ -232,6 +232,45 @@ def _infer_volume_from_message(message: str) -> tuple[int | None, str | None]:
     return value, unit
 
 
+def _infer_execution_type_from_message(message: str) -> str | None:
+    lowered = _normalize_text(message)
+    mapping = [
+        ("paid", "paid"),
+        ("pago", "paid"),
+        ("anuncio", "paid"),
+        ("ads", "paid"),
+        ("organic", "organic"),
+        ("orgánico", "organic"),
+        ("organico", "organic"),
+        ("live", "live"),
+        ("en vivo", "live"),
+    ]
+    for token, execution_type in mapping:
+        if token in lowered:
+            return execution_type
+    return None
+
+
+def _infer_hook_text_from_message(message: str) -> str | None:
+    match = re.search(r"hook\s+(.*)", message, flags=re.IGNORECASE)
+    if not match:
+        return None
+    hook_text = match.group(1).strip()
+    if not hook_text:
+        return None
+    return hook_text[:2000]
+
+
+def _infer_publico_from_message(message: str) -> str | None:
+    match = re.search(r"p[úu]blico\s+(.*)", message, flags=re.IGNORECASE)
+    if not match:
+        return None
+    publico = match.group(1).strip()
+    if not publico:
+        return None
+    return publico[:200]
+
+
 def _get_draft(db: Session, conversation_id: str, assistant_type: str) -> AssistantDraft | None:
     return db.execute(
         select(AssistantDraft)
@@ -535,6 +574,12 @@ def _resolve_experiment_id(
         )
         .order_by(desc(Experiment.updated_at), desc(Experiment.created_at))
         .limit(1)
+    ).scalar_one_or_none()
+
+
+def _fallback_experiment_reference(db: Session) -> Experiment | None:
+    return db.execute(
+        select(Experiment).order_by(desc(Experiment.updated_at), desc(Experiment.created_at)).limit(1)
     ).scalar_one_or_none()
 
 
@@ -1150,13 +1195,34 @@ def assistant_openclaw(
         merged_draft = _normalize_experiment_enums(merged_draft)
         merged_draft.setdefault("experiment_status", "draft")
     if draft_type == "record":
+        if not merged_draft.get("project_name"):
+            merged_draft["project_name"] = "General"
+        if not merged_draft.get("metric_x"):
+            inferred_metric = _infer_metric_x(message)
+            if inferred_metric:
+                merged_draft["metric_x"] = inferred_metric
         merged_draft.setdefault("record_status", "draft")
         merged_draft.setdefault(
             "session_id",
             existing_payload.get("draft", {}).get("session_id")
             or f"openclaw-{int(time.time())}",
         )
+        if not merged_draft.get("execution_type"):
+            merged_draft["execution_type"] = _infer_execution_type_from_message(message) or "organic"
+        if not merged_draft.get("record_name"):
+            record_hint = merged_draft.get("metric_x") or merged_draft.get("hook_text") or merged_draft["execution_type"]
+            merged_draft["record_name"] = f"Record {record_hint}".strip()
+        if not (merged_draft.get("public_id") or merged_draft.get("publico")):
+            merged_draft["publico"] = _infer_publico_from_message(message) or "General"
+        if not merged_draft.get("hook_text"):
+            merged_draft["hook_text"] = _infer_hook_text_from_message(message)
         merged_draft = _auto_fill_record_draft(db, merged_draft)
+        if not merged_draft.get("experiment_id"):
+            fallback_experiment = _fallback_experiment_reference(db)
+            if fallback_experiment:
+                merged_draft["experiment_id"] = fallback_experiment.id
+                merged_draft.setdefault("project_name", fallback_experiment.project_name)
+                merged_draft.setdefault("metric_x", fallback_experiment.metric_x)
 
     missing = _draft_missing_fields(draft_type, merged_draft)
     _save_draft(
