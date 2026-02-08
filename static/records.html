@@ -249,6 +249,11 @@
               <div class="stat-chip__meta" id="modalExperiment">—</div>
             </div>
             <div class="stat-chip mt-md">
+              <div class="stat-chip__label">Público</div>
+              <div class="stat-chip__value" id="modalPublico">—</div>
+              <div class="stat-chip__meta" id="modalPublicoMeta">—</div>
+            </div>
+            <div class="stat-chip mt-md">
               <div class="stat-chip__label">Hipótesis</div>
               <div class="stat-chip__value" id="modalHypothesis">—</div>
               <div class="stat-chip__meta" id="modalHypothesisMeta">—</div>
@@ -746,6 +751,8 @@
     };
     $("modalProject").textContent = exp?.project_name || "—";
     $("modalExperiment").textContent = exp ? `Experimento #${exp.id}` : "—";
+    $("modalPublico").textContent = record.publico || "—";
+    $("modalPublicoMeta").textContent = record.public_id ? `Publico #${record.public_id}` : "—";
     $("modalHypothesis").textContent = exp?.hypothesis || "—";
     $("modalHypothesisMeta").textContent = exp?.hypothesis_type || "—";
     $("modalStatus").textContent = record.record_status || "—";
