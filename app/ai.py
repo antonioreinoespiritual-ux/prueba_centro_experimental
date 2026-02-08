@@ -276,6 +276,101 @@ def generate_assistant_reply(
     return str(content).strip()
 
 
+def generate_openclaw_draft(
+    message: str,
+    draft_type: str,
+    context: dict,
+    existing_draft: dict | None = None,
+    model_override: str | None = None,
+) -> dict:
+    api_key = get_groq_api_key()
+    if not api_key:
+        raise ValueError("Missing GROQ_API_KEY. Define it in the .env file.")
+
+    payload = {
+        "model": model_override or get_groq_model(),
+        "messages": [
+            {
+                "role": "system",
+                "content": (
+                    "Eres OpenClaw, un asistente que construye borradores seguros para crear "
+                    "hipótesis (experiments) o records. Responde SOLO con JSON válido. "
+                    "Nunca confirmes creación ni ejecutes acciones. "
+                    "Devuelve un objeto con las claves: draft, notes. "
+                    "El campo draft debe ser un objeto con las claves disponibles del tipo solicitado. "
+                    "Si no puedes inferir un campo, déjalo en null."
+                ),
+            },
+            {
+                "role": "user",
+                "content": json.dumps(
+                    {
+                        "draft_type": draft_type,
+                        "message": message,
+                        "existing_draft": existing_draft or {},
+                        "context": context,
+                    },
+                    ensure_ascii=False,
+                ),
+            },
+        ],
+        "temperature": 0.2,
+        "max_tokens": 800,
+    }
+
+    try:
+        resp = requests.post(
+            get_groq_api_url(),
+            json=payload,
+            headers={
+                "Authorization": f"Bearer {api_key}",
+            },
+            timeout=45,
+        )
+    except requests.ConnectionError as exc:
+        raise GroqError(f"Groq connection error: {exc}") from exc
+    except requests.Timeout as exc:
+        raise GroqError("Groq request timed out.") from exc
+    except Exception as exc:
+        raise GroqError(f"Groq request failed: {exc}") from exc
+
+    if resp.status_code != 200:
+        error_body = resp.text
+        error_message = _extract_error_message(error_body)
+        if resp.status_code == 402:
+            raise GroqError(
+                "Groq sin saldo. Agrega creditos o actualiza la API key.",
+                status_code=402,
+            )
+        if error_message:
+            raise GroqError(f"Groq error: {error_message}")
+        raise GroqError(f"Groq HTTP error {resp.status_code}: {error_body}")
+
+    body = resp.text
+
+    try:
+        response_data = json.loads(body)
+    except json.JSONDecodeError as exc:
+        raise GroqError("Groq returned invalid JSON.") from exc
+
+    content = (
+        response_data.get("choices", [{}])[0]
+        .get("message", {})
+        .get("content")
+    )
+    if not content:
+        raise GroqError("Groq response missing content.")
+
+    try:
+        draft_response = json.loads(content)
+    except json.JSONDecodeError as exc:
+        raise GroqError("Groq draft response was not JSON.") from exc
+
+    if not isinstance(draft_response, dict) or "draft" not in draft_response:
+        raise GroqError("Groq draft response missing draft payload.")
+    return draft_response
+
+
 # ------------------------------------------------------------------ #
 #  PROMPT VERSIONS
 # ------------------------------------------------------------------ #

@@ -66,6 +66,7 @@ class ExperimentRecord(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     experiment_id: Mapped[int] = mapped_column(ForeignKey("experiments.id"), nullable=False, index=True)
     session_id: Mapped[str] = mapped_column(String(200), nullable=False, index=True)
+    iteration_number: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     clicks: Mapped[int | None] = mapped_column(Integer, nullable=True)
     views: Mapped[int | None] = mapped_column(Integer, nullable=True)
@@ -200,3 +201,14 @@ class ChatMessage(Base):
     content: Mapped[str] = mapped_column(Text, nullable=False)
     references_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class AssistantDraft(Base):
+    __tablename__ = "assistant_drafts"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    conversation_id: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    draft_type: Mapped[str] = mapped_column(String(20), nullable=False)
+    payload_json: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, onupdate=datetime.utcnow)

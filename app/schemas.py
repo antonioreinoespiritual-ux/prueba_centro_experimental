@@ -94,7 +94,7 @@ CtaType = Literal[
     "informativo",
 ]
 
-RecordStatus = Literal["collecting", "closed"]
+RecordStatus = Literal["draft", "collecting", "closed"]
 
 
 EntityType = Literal["experiment", "record"]
@@ -297,6 +297,7 @@ class PublicDetail(BaseModel):
 class RecordCreate(BaseModel):
     experiment_id: int
     session_id: str = Field(min_length=1, max_length=200)
+    iteration_number: Optional[int] = Field(default=None, ge=1)
 
     # Contexto cualitativo (documentacion, NO metrica)
     contexto_record: Optional[str] = Field(default=None, max_length=50000)
@@ -351,6 +352,7 @@ class RecordCreate(BaseModel):
     cta_text: Optional[str] = Field(default=None, max_length=500)
     cta_type: Optional[CtaType] = None
     creative_id: Optional[str] = Field(default=None, max_length=200)
+    record_status: Optional[RecordStatus] = None
 
 
 class RecordUpdate(BaseModel):
@@ -397,6 +399,7 @@ class RecordOut(BaseModel):
     id: int
     experiment_id: int
     session_id: str
+    iteration_number: Optional[int] = None
 
     clicks: Optional[int] = None
     views: Optional[int] = None
