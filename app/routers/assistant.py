@@ -1274,6 +1274,8 @@ def assistant_openclaw(
             metric_x_value = merged_draft.get("metric_x") or _infer_metric_x(merged_draft.get("hypothesis", ""))
             if metric_x_value:
                 merged_draft["metric_x"] = metric_x_value
+            if metric_x_value and not merged_draft.get("independent_variable"):
+                merged_draft["independent_variable"] = metric_x_value
             exp_payload = schemas.ExperimentCreate(
                 project_name=merged_draft["project_name"],
                 hypothesis=merged_draft["hypothesis"],
