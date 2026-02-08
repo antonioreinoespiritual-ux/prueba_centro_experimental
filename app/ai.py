@@ -199,13 +199,17 @@ def generate_experiment_analysis(
     return str(content).strip()
 
 
-def generate_assistant_reply(context: str, message: str) -> str:
+def generate_assistant_reply(
+    context: str,
+    message: str,
+    model_override: str | None = None,
+) -> str:
     api_key = get_groq_api_key()
     if not api_key:
         raise ValueError("Missing GROQ_API_KEY. Define it in the .env file.")
 
     payload = {
-        "model": get_groq_model(),
+        "model": model_override or get_groq_model(),
         "messages": [
             {
                 "role": "system",

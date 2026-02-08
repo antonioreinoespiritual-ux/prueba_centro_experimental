@@ -479,6 +479,7 @@ class BulkRecordUpdateResponse(BaseModel):
 class ChatRequest(BaseModel):
     message: str = Field(min_length=1, max_length=4000)
     conversation_id: Optional[str] = Field(default=None, max_length=100)
+    model: Optional[str] = Field(default=None, max_length=200)
 
 
 class ChatResponse(BaseModel):

@@ -379,8 +379,9 @@ def assistant_chat(
     if lowered.startswith("memoriza:") or lowered.startswith("guardar:"):
         memory_trigger = message.split(":", 1)[-1].strip()
 
+    model_override = payload.model.strip() if payload.model else None
     try:
-        answer = ai.generate_assistant_reply(context_json, message)
+        answer = ai.generate_assistant_reply(context_json, message, model_override=model_override)
     except ai.GroqError as exc:
         _set_cooldown_from_error(str(exc))
         answer = _fallback_answer(context_json, str(exc))

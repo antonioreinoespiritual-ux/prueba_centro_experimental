@@ -32,6 +32,15 @@
       </div>
     </div>
 
+    <div class="card">
+      <div class="flex gap-sm items-center">
+        <span class="tag">Modelo activo:</span>
+        <button id="btnChat1" class="btn-ai" type="button">Chat 1</button>
+        <button id="btnChat2" class="btn-secondary" type="button">Chat 2</button>
+        <span class="text-xs text-muted" id="modelHint">Chat 1 usa el modelo actual.</span>
+      </div>
+    </div>
+
     <div class="chat-shell">
       <div class="chat-panel">
         <div class="chat-messages" id="chatMessages"></div>
@@ -55,6 +64,9 @@
     const API_BASE = "";
     const STORAGE_KEY = "centro_chat_messages";
     const STORAGE_CONVO_KEY = "centro_chat_conversation_id";
+    const STORAGE_MODEL_KEY = "centro_chat_model";
+    const MODEL_CHAT_1 = "";
+    const MODEL_CHAT_2 = "meta-llama/llama-4-scout-17b-16e-instruct";
     const $ = (id) => document.getElementById(id);
 
     function loadConversationId() {
@@ -74,6 +86,24 @@
       } catch (e) {
         return [];
       }
+    }
+
+    function loadModel() {
+      return localStorage.getItem(STORAGE_MODEL_KEY) || MODEL_CHAT_1;
+    }
+
+    function saveModel(model) {
+      localStorage.setItem(STORAGE_MODEL_KEY, model);
+      updateModelUI(model);
+    }
+
+    function updateModelUI(model) {
+      const isChat2 = model === MODEL_CHAT_2;
+      $("btnChat1").className = isChat2 ? "btn-secondary" : "btn-ai";
+      $("btnChat2").className = isChat2 ? "btn-ai" : "btn-secondary";
+      $("modelHint").textContent = isChat2
+        ? "Chat 2 usa meta-llama/llama-4-scout-17b-16e-instruct."
+        : "Chat 1 usa el modelo actual.";
     }
 
     function saveMessages(messages) {
@@ -109,6 +139,7 @@
       const content = textarea.value.trim();
       if (!content) return;
       const convoId = loadConversationId();
+      const model = loadModel();
       const messages = loadMessages();
       messages.push({ role: "user", content });
       saveMessages(messages);
@@ -121,7 +152,7 @@
         const response = await fetch(`${API_BASE}/assistant/chat`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message: content, conversation_id: convoId }),
+          body: JSON.stringify({ message: content, conversation_id: convoId, model }),
         });
         let data = null;
         if (!response.ok) {
@@ -143,12 +174,16 @@
     function resetConversation() {
       localStorage.removeItem(STORAGE_KEY);
       localStorage.removeItem(STORAGE_CONVO_KEY);
+      localStorage.removeItem(STORAGE_MODEL_KEY);
       renderMessages([]);
       setStatus("Nueva conversación iniciada.");
+      updateModelUI(MODEL_CHAT_1);
     }
 
     $("btnSend").addEventListener("click", sendMessage);
     $("btnNewConversation").addEventListener("click", resetConversation);
+    $("btnChat1").addEventListener("click", () => saveModel(MODEL_CHAT_1));
+    $("btnChat2").addEventListener("click", () => saveModel(MODEL_CHAT_2));
     $("chatInput").addEventListener("keydown", (event) => {
       if (event.key === "Enter" && !event.shiftKey) {
         event.preventDefault();
@@ -157,6 +192,7 @@
     });
 
     renderMessages(loadMessages());
+    updateModelUI(loadModel());
   </script>
 </body>
 </html>
