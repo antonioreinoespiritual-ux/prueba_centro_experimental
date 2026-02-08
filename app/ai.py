@@ -276,6 +276,137 @@ def generate_assistant_reply(
     return str(content).strip()
 
 
+def generate_openclaw_draft(
+    message: str,
+    draft_type: str,
+    context: dict,
+    existing_draft: dict | None = None,
+    model_override: str | None = None,
+) -> dict:
+    api_key = get_groq_api_key()
+    if not api_key:
+        raise ValueError("Missing GROQ_API_KEY. Define it in the .env file.")
+
+    payload = {
+        "model": model_override or get_groq_model(),
+        "messages": [
+            {
+                "role": "system",
+                "content": (
+                    "Eres OpenClaw, un asistente que construye borradores seguros para crear "
+                    "hipótesis (experiments) o records con recomendaciones óptimas y precisas. "
+                    "Responde SOLO con JSON válido. Nunca confirmes creación ni ejecutes acciones. "
+                    "No uses markdown. Prioriza recomendaciones basadas en marketing, copywriting y "
+                    "aprendizajes de públicos/pruebas disponibles en la base de datos. "
+                    "Devuelve un objeto con las claves: draft, notes. "
+                    "El campo draft debe ser un objeto con las claves disponibles del tipo solicitado. "
+                    "Si no puedes inferir un campo, déjalo en null. "
+                    "Para hipótesis siempre incluye metric_x (resumen de 3-4 palabras del CAMBIO/ACCIÓN "
+                    "que se ejecuta, ej: \"hook indiferencia\", NO del resultado), "
+                    "primary_metric, threshold_operator, threshold_value, threshold_type, "
+                    "volume_min_value y volume_unit. "
+                    "Nunca omitas hypothesis_type en hipótesis; el JSON debe venir completo. "
+                    "No incluyas campos de records en hipótesis (ej: hook_type, cta_type, execution_type). "
+                    "Para records, siempre incluye project_name y metric_x para enlazar con la hipótesis "
+                    "y recuerda que un record es una prueba que recolecta evidencia."
+                ),
+            },
+            {
+                "role": "user",
+                "content": json.dumps(
+                    {
+                        "draft_type": draft_type,
+                        "message": message,
+                        "existing_draft": existing_draft or {},
+                        "context": context,
+                    },
+                    ensure_ascii=False,
+                ),
+            },
+        ],
+        "temperature": 0.2,
+        "max_tokens": 800,
+    }
+
+    try:
+        resp = requests.post(
+            get_groq_api_url(),
+            json=payload,
+            headers={
+                "Authorization": f"Bearer {api_key}",
+            },
+            timeout=45,
+        )
+    except requests.ConnectionError as exc:
+        raise GroqError(f"Groq connection error: {exc}") from exc
+    except requests.Timeout as exc:
+        raise GroqError("Groq request timed out.") from exc
+    except Exception as exc:
+        raise GroqError(f"Groq request failed: {exc}") from exc
+
+    if resp.status_code != 200:
+        error_body = resp.text
+        error_message = _extract_error_message(error_body)
+        if resp.status_code == 402:
+            raise GroqError(
+                "Groq sin saldo. Agrega creditos o actualiza la API key.",
+                status_code=402,
+            )
+        if error_message:
+            raise GroqError(f"Groq error: {error_message}")
+        raise GroqError(f"Groq HTTP error {resp.status_code}: {error_body}")
+
+    body = resp.text
+
+    try:
+        response_data = json.loads(body)
+    except json.JSONDecodeError as exc:
+        raise GroqError("Groq returned invalid JSON.") from exc
+
+    content = (
+        response_data.get("choices", [{}])[0]
+        .get("message", {})
+        .get("content")
+    )
+    if not content:
+        raise GroqError("Groq response missing content.")
+
+    try:
+        draft_response = json.loads(content)
+    except json.JSONDecodeError as exc:
+        draft_response = _extract_json_from_text(content)
+        if draft_response is None:
+            raise GroqError("Groq draft response was not JSON.") from exc
+
+    if not isinstance(draft_response, dict) or "draft" not in draft_response:
+        raise GroqError("Groq draft response missing draft payload.")
+    return draft_response
+
+
+def _extract_json_from_text(content: str) -> dict | None:
+    """Extract the first JSON object from a text response."""
+    start = content.find("{")
+    if start == -1:
+        return None
+    depth = 0
+    for idx in range(start, len(content)):
+        char = content[idx]
+        if char == "{":
+            depth += 1
+        elif char == "}":
+            depth -= 1
+            if depth == 0:
+                candidate = content[start : idx + 1]
+                try:
+                    payload = json.loads(candidate)
+                except json.JSONDecodeError:
+                    return None
+                if isinstance(payload, dict):
+                    return payload
+                return None
+    return None
+
+
 # ------------------------------------------------------------------ #
 #  PROMPT VERSIONS
 # ------------------------------------------------------------------ #

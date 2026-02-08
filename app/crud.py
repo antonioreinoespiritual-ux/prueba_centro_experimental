@@ -22,6 +22,7 @@ def create_experiment(db: Session, data: schemas.ExperimentCreate):
         traffic_type=data.traffic_type,
         hypothesis_type=data.hypothesis_type,
         independent_variable=(data.independent_variable or "").strip() or None,
+        metric_x=(data.metric_x or "").strip() or None,
         primary_metric=data.primary_metric,
         validation_threshold=(data.validation_threshold or "").strip() or None,
         threshold_value=data.threshold_value,
@@ -310,6 +311,7 @@ def create_record(db: Session, data: schemas.RecordCreate):
     obj = models.ExperimentRecord(
         experiment_id=data.experiment_id,
         session_id=data.session_id,
+        iteration_number=data.iteration_number,
 
         clicks=data.clicks,
         views=data.views,
@@ -360,7 +362,7 @@ def create_record(db: Session, data: schemas.RecordCreate):
         cta_text=cta_text,
         cta_type=data.cta_type,
         creative_id=creative_id,
-        record_status="collecting",
+        record_status=data.record_status or "collecting",
     )
     obj.updated_at = datetime.utcnow()
     exp = get_experiment(db, data.experiment_id)

@@ -26,11 +26,21 @@
       <div class="section-header">
         <div>
           <h2>Encuentra el récord</h2>
-          <div class="text-sm text-muted mt-sm">Puedes pegar el ID o venir desde la lista con el botón Editar.</div>
+          <div class="text-sm text-muted mt-sm">
+            Filtra por proyecto y métrica X para ver los records disponibles o pega el ID manualmente.
+          </div>
         </div>
         <span class="tag">Paso 1</span>
       </div>
-      <div class="grid grid-3 mt-md">
+      <div class="grid grid-4 mt-md">
+        <div class="field-group">
+          <label for="projectFilter">Proyecto</label>
+          <select id="projectFilter"></select>
+        </div>
+        <div class="field-group">
+          <label for="metricFilter">Métrica X</label>
+          <select id="metricFilter"></select>
+        </div>
         <div class="field-group">
           <label for="recordId">Record ID</label>
           <input id="recordId" type="number" min="1" placeholder="123" />
@@ -38,9 +48,14 @@
         <div class="field-group" style="display:flex; align-items:end;">
           <button id="btnLoad" class="btn-secondary" aria-label="Cargar record">Cargar récord</button>
         </div>
-        <div class="field-group" style="display:flex; align-items:end;">
-          <span class="tag" id="statusTag">Sin cargar</span>
-        </div>
+      </div>
+      <div class="mt-md">
+        <div class="text-sm text-muted">Records encontrados</div>
+        <div class="grid grid-2 mt-sm" id="recordList"></div>
+      </div>
+      <div class="mt-md" style="display:flex; align-items:center; gap: var(--space-sm);">
+        <span class="tag" id="statusTag">Sin cargar</span>
+        <span class="text-sm text-muted" id="filterHint">Selecciona un record para editar.</span>
       </div>
     </div>
 
@@ -276,6 +291,7 @@
   let currentRecord = null;
   let experiments = [];
   let publics = [];
+  let records = [];
 
   function showToast(message, type = "success") {
     const container = $("toastContainer");
@@ -326,6 +342,104 @@
     tag.className = "tag";
   }
 
+  function fillProjectFilter() {
+    const select = $("projectFilter");
+    const prev = select.value;
+    select.innerHTML = "";
+    const optAll = document.createElement("option");
+    optAll.value = "";
+    optAll.textContent = "Todos";
+    select.appendChild(optAll);
+    const projects = [...new Set(experiments.map((exp) => exp.project_name).filter(Boolean))];
+    projects.forEach((project) => {
+      const opt = document.createElement("option");
+      opt.value = project;
+      opt.textContent = project;
+      select.appendChild(opt);
+    });
+    if (prev && [...select.options].some(o => o.value === prev)) {
+      select.value = prev;
+    }
+  }
+
+  function normalizeMetricX(exp) {
+    return exp.metric_x || exp.independent_variable || "";
+  }
+
+  function fillMetricFilter() {
+    const select = $("metricFilter");
+    const prev = select.value;
+    select.innerHTML = "";
+    const projectFilter = $("projectFilter").value;
+    if (!projectFilter) {
+      const optPlaceholder = document.createElement("option");
+      optPlaceholder.value = "";
+      optPlaceholder.textContent = "Selecciona un proyecto";
+      select.appendChild(optPlaceholder);
+      select.value = "";
+      select.disabled = true;
+      return;
+    }
+    select.disabled = false;
+    const optAll = document.createElement("option");
+    optAll.value = "";
+    optAll.textContent = "Todas";
+    select.appendChild(optAll);
+    const metrics = experiments
+      .filter((exp) => !projectFilter || exp.project_name === projectFilter)
+      .map((exp) => normalizeMetricX(exp))
+      .filter(Boolean);
+    if (!metrics.length) {
+      const optNone = document.createElement("option");
+      optNone.value = "__none__";
+      optNone.textContent = "Sin métrica X";
+      select.appendChild(optNone);
+    }
+    [...new Set(metrics)].forEach((metric) => {
+      const opt = document.createElement("option");
+      opt.value = metric;
+      opt.textContent = metric;
+      select.appendChild(opt);
+    });
+    if (prev && [...select.options].some(o => o.value === prev)) {
+      select.value = prev;
+    }
+  }
+
+  function updateRecordList() {
+    const list = $("recordList");
+    list.innerHTML = "";
+    const projectFilter = $("projectFilter").value;
+    const metricFilter = $("metricFilter").value;
+    const allowedExperimentIds = experiments
+      .filter((exp) => {
+        if (projectFilter && exp.project_name !== projectFilter) return false;
+        if (!metricFilter) return true;
+        const metricX = normalizeMetricX(exp);
+        if (metricFilter === "__none__") return !metricX;
+        return metricX === metricFilter;
+      })
+      .map((exp) => exp.id);
+    const filtered = records.filter((rec) => allowedExperimentIds.includes(rec.experiment_id));
+    filtered.slice(0, 12).forEach((rec) => {
+      const exp = experiments.find((item) => item.id === rec.experiment_id);
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "btn-secondary";
+      button.style.textAlign = "left";
+      button.innerHTML = `<strong>#${rec.id}</strong> · ${rec.record_name || "Sin nombre"}<br><span class="text-xs text-muted">${exp?.project_name || "—"} · ${exp?.metric_x || "—"} · ${rec.record_status || "—"}</span>`;
+      button.addEventListener("click", () => {
+        $("recordId").value = rec.id;
+        loadRecord(rec.id);
+      });
+      list.appendChild(button);
+    });
+    const hint = $("filterHint");
+    hint.textContent = filtered.length
+      ? `Mostrando ${Math.min(filtered.length, 12)} de ${filtered.length} records.`
+      : "No hay records para este filtro.";
+  }
+
   function fillPublicSelect() {
     const select = $("publico");
     const prev = select.value;
@@ -370,7 +484,7 @@
     $("recordMeta").textContent = `Record #${record.id} · Session ${record.session_id}`;
     $("sumProject").textContent = exp?.project_name || "—";
     $("sumProjectMeta").textContent = exp?.traffic_type || "—";
-    $("sumMetricX").textContent = exp?.independent_variable || "—";
+    $("sumMetricX").textContent = exp?.metric_x || "—";
     $("sumMetricMeta").textContent = exp?.hypothesis || "—";
     $("sumStatus").textContent = record.record_status || "—";
     $("sumStatusMeta").textContent = `Actualizado: ${record.updated_at || record.created_at || "—"}`;
@@ -492,10 +606,22 @@
   $("btnReset").addEventListener("click", resetForm);
   $("btnClose").addEventListener("click", closeRecord);
   $("btnReopen").addEventListener("click", reopenRecord);
+  $("projectFilter").addEventListener("change", () => {
+    fillMetricFilter();
+    updateRecordList();
+  });
+  $("metricFilter").addEventListener("change", updateRecordList);
 
   async function init() {
-    publics = await apiGet("/publics");
+    [publics, experiments, records] = await Promise.all([
+      apiGet("/publics"),
+      apiGet("/experiments/"),
+      apiGet("/records/"),
+    ]);
     fillPublicSelect();
+    fillProjectFilter();
+    fillMetricFilter();
+    updateRecordList();
     const params = new URLSearchParams(window.location.search);
     const recordId = Number(params.get("id"));
     if (recordId) {

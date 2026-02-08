@@ -29,6 +29,7 @@ def ensure_schema() -> None:
     experiment_columns = [
         ("hypothesis_type", "VARCHAR(50)"),
         ("independent_variable", "VARCHAR(500)"),
+        ("metric_x", "VARCHAR(100)"),
         ("primary_metric", "VARCHAR(100)"),
         ("validation_threshold", "VARCHAR(200)"),
         ("threshold_value", "FLOAT"),
@@ -46,6 +47,7 @@ def ensure_schema() -> None:
             cur.execute(f"ALTER TABLE experiments ADD COLUMN {col_name} {col_type}")
 
     record_columns = [
+        ("iteration_number", "INTEGER"),
         ("execution_type", "VARCHAR(30)"),
         ("record_name", "VARCHAR(200)"),
         ("publico", "VARCHAR(200)"),
@@ -223,6 +225,24 @@ def ensure_schema() -> None:
         """)
     elif not _column_exists(cur, "chat_messages", "references_json"):
         cur.execute("ALTER TABLE chat_messages ADD COLUMN references_json TEXT")
+
+    # --- Assistant drafts ---
+    cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='assistant_drafts'")
+    if not cur.fetchone():
+        cur.execute("""
+            CREATE TABLE assistant_drafts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                conversation_id VARCHAR(100) NOT NULL,
+                draft_type VARCHAR(20) NOT NULL,
+                payload_json TEXT NOT NULL,
+                created_at DATETIME NOT NULL DEFAULT (datetime('now')),
+                updated_at DATETIME
+            )
+        """)
+        cur.execute("""
+            CREATE INDEX IF NOT EXISTS ix_assistant_drafts_conversation_id
+            ON assistant_drafts (conversation_id)
+        """)
 
     conn.commit()
     conn.close()

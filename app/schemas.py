@@ -94,7 +94,7 @@ CtaType = Literal[
     "informativo",
 ]
 
-RecordStatus = Literal["collecting", "closed"]
+RecordStatus = Literal["draft", "collecting", "closed"]
 
 
 EntityType = Literal["experiment", "record"]
@@ -163,6 +163,7 @@ class ExperimentCreate(BaseModel):
     # Lean hypothesis fields
     hypothesis_type: Optional[HypothesisType] = None
     independent_variable: Optional[str] = Field(default=None, max_length=500)
+    metric_x: Optional[str] = Field(default=None, max_length=100)
     primary_metric: Optional[PrimaryMetric] = None
     validation_threshold: Optional[str] = Field(default=None, max_length=200)
     threshold_value: Optional[float] = Field(default=None, ge=0)
@@ -178,6 +179,7 @@ class ExperimentUpdate(BaseModel):
     hypothesis: Optional[str] = Field(default=None, min_length=1, max_length=5000)
     hypothesis_type: Optional[HypothesisType] = None
     independent_variable: Optional[str] = Field(default=None, max_length=500)
+    metric_x: Optional[str] = Field(default=None, max_length=100)
     primary_metric: Optional[PrimaryMetric] = None
     validation_threshold: Optional[str] = Field(default=None, max_length=200)
     threshold_value: Optional[float] = Field(default=None, ge=0)
@@ -205,6 +207,7 @@ class ExperimentOut(BaseModel):
 
     hypothesis_type: Optional[str] = None
     independent_variable: Optional[str] = None
+    metric_x: Optional[str] = None
     primary_metric: Optional[str] = None
     validation_threshold: Optional[str] = None
     threshold_value: Optional[float] = None
@@ -297,6 +300,7 @@ class PublicDetail(BaseModel):
 class RecordCreate(BaseModel):
     experiment_id: int
     session_id: str = Field(min_length=1, max_length=200)
+    iteration_number: Optional[int] = Field(default=None, ge=1)
 
     # Contexto cualitativo (documentacion, NO metrica)
     contexto_record: Optional[str] = Field(default=None, max_length=50000)
@@ -351,6 +355,7 @@ class RecordCreate(BaseModel):
     cta_text: Optional[str] = Field(default=None, max_length=500)
     cta_type: Optional[CtaType] = None
     creative_id: Optional[str] = Field(default=None, max_length=200)
+    record_status: Optional[RecordStatus] = None
 
 
 class RecordUpdate(BaseModel):
@@ -397,6 +402,7 @@ class RecordOut(BaseModel):
     id: int
     experiment_id: int
     session_id: str
+    iteration_number: Optional[int] = None
 
     clicks: Optional[int] = None
     views: Optional[int] = None
