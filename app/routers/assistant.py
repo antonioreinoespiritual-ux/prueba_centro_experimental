@@ -27,6 +27,7 @@ router = APIRouter()
 _RATE_LIMIT_BUCKET: dict[str, list[float]] = {}
 _RATE_LIMIT_WINDOW_S = 60
 _RATE_LIMIT_MAX = 12
+_COOLDOWN_UNTIL: float | None = None
 
 
 def get_db():
@@ -39,11 +40,31 @@ def get_db():
 
 def _check_rate_limit(client_key: str) -> None:
     now = time.time()
+    if _COOLDOWN_UNTIL and now < _COOLDOWN_UNTIL:
+        remaining = int(_COOLDOWN_UNTIL - now)
+        raise HTTPException(
+            status_code=429,
+            detail=f"Cooldown activo. Intenta nuevamente en {remaining}s.",
+        )
     bucket = _RATE_LIMIT_BUCKET.setdefault(client_key, [])
     bucket[:] = [ts for ts in bucket if now - ts < _RATE_LIMIT_WINDOW_S]
     if len(bucket) >= _RATE_LIMIT_MAX:
         raise HTTPException(status_code=429, detail="Rate limit exceeded. Try again later.")
     bucket.append(now)
+
+
+def _set_cooldown_from_error(error_message: str) -> None:
+    global _COOLDOWN_UNTIL
+    match = re.search(r"in (?:(\d+)h)?(?:(\d+)m)?(?:(\d+(?:\.\d+)?)s)?", error_message)
+    if not match:
+        return
+    hours = float(match.group(1) or 0)
+    minutes = float(match.group(2) or 0)
+    seconds = float(match.group(3) or 0)
+    total_seconds = hours * 3600 + minutes * 60 + seconds
+    if total_seconds <= 0:
+        return
+    _COOLDOWN_UNTIL = time.time() + total_seconds
 
 
 def _compact_text(value: str, limit: int = 400) -> str:
@@ -361,6 +382,7 @@ def assistant_chat(
     try:
         answer = ai.generate_assistant_reply(context_json, message)
     except ai.GroqError as exc:
+        _set_cooldown_from_error(str(exc))
         answer = _fallback_answer(context_json, str(exc))
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
