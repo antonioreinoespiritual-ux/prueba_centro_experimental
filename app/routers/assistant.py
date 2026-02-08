@@ -1271,6 +1271,9 @@ def assistant_openclaw(
                 message="Faltan datos antes de confirmar la creación.",
             )
         if draft_type == "experiment":
+            metric_x_value = merged_draft.get("metric_x") or _infer_metric_x(merged_draft.get("hypothesis", ""))
+            if metric_x_value:
+                merged_draft["metric_x"] = metric_x_value
             exp_payload = schemas.ExperimentCreate(
                 project_name=merged_draft["project_name"],
                 hypothesis=merged_draft["hypothesis"],
