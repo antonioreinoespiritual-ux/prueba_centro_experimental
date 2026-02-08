@@ -212,6 +212,26 @@ def _infer_threshold_from_message(message: str) -> tuple[float | None, str | Non
     return value, "percentage", operator
 
 
+def _infer_volume_from_message(message: str) -> tuple[int | None, str | None]:
+    lowered = _normalize_text(message)
+    unit = None
+    if "click" in lowered or "clic" in lowered:
+        unit = "clicks"
+    elif "view" in lowered or "vista" in lowered:
+        unit = "views"
+    match = re.search(
+        r"(?:volumen\s+m[ií]nimo|volumen\s+minimo|minimo|mínimo|al\s+menos|por\s+lo\s+menos)\s*(?:de\s*)?(\d+)",
+        lowered,
+    )
+    if not match:
+        return None, unit
+    try:
+        value = int(match.group(1))
+    except ValueError:
+        return None, unit
+    return value, unit
+
+
 def _get_draft(db: Session, conversation_id: str, assistant_type: str) -> AssistantDraft | None:
     return db.execute(
         select(AssistantDraft)
@@ -410,6 +430,15 @@ def _infer_metric_x(hypothesis: str) -> str | None:
         phrase = match.group(1).strip()
         phrase = " ".join(phrase.split())
         return phrase[:60]
+    hook_match = re.search(
+        r"hook\s+([a-záéíóúñ]+(?:\s+[a-záéíóúñ]+){0,2})",
+        hypothesis,
+        flags=re.IGNORECASE,
+    )
+    if hook_match:
+        phrase = hook_match.group(1).strip()
+        phrase = " ".join(phrase.split())
+        return f"hook {phrase}"[:60]
     return None
 
 
@@ -1063,10 +1092,11 @@ def assistant_openclaw(
                 merged_draft["hypothesis"] = extracted
             elif _looks_like_hypothesis_statement(message):
                 merged_draft["hypothesis"] = message.strip()
+        if not merged_draft.get("project_name"):
+            merged_draft["project_name"] = "General"
         if not merged_draft.get("traffic_type"):
             inferred_traffic = _infer_traffic_type_from_message(message)
-            if inferred_traffic:
-                merged_draft["traffic_type"] = inferred_traffic
+            merged_draft["traffic_type"] = inferred_traffic or "organic"
         if merged_draft.get("threshold_value") is None:
             value, threshold_type, operator = _infer_threshold_from_message(message)
             if value is not None:
@@ -1075,6 +1105,12 @@ def assistant_openclaw(
                     merged_draft["threshold_type"] = threshold_type
                 if operator and not merged_draft.get("threshold_operator"):
                     merged_draft["threshold_operator"] = operator
+        if merged_draft.get("volume_min_value") is None or not merged_draft.get("volume_unit"):
+            volume_value, volume_unit = _infer_volume_from_message(message)
+            if merged_draft.get("volume_min_value") is None and volume_value is not None:
+                merged_draft["volume_min_value"] = volume_value
+            if not merged_draft.get("volume_unit") and volume_unit:
+                merged_draft["volume_unit"] = volume_unit
         merged_draft = _sanitize_experiment_draft(merged_draft)
         merged_draft = _auto_fill_experiment_draft(merged_draft)
         merged_draft.setdefault("experiment_status", "draft")
