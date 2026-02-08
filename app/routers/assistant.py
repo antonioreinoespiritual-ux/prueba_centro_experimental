@@ -97,7 +97,11 @@ def _serialize_record(record: ExperimentRecord) -> dict[str, Any]:
     }
 
 
-def _build_context(db: Session, message: str) -> tuple[str, list[str]]:
+def _build_context(
+    db: Session,
+    message: str,
+    conversation_id: str | None,
+) -> tuple[str, list[str]]:
     citations: list[str] = []
 
     experiments = list(
@@ -126,6 +130,16 @@ def _build_context(db: Session, message: str) -> tuple[str, list[str]]:
     memories = list(
         db.execute(select(ChatMemory).order_by(desc(ChatMemory.updated_at), desc(ChatMemory.created_at)).limit(15)).scalars()
     )
+    conversation_messages: list[ChatMessage] = []
+    if conversation_id:
+        conversation_messages = list(
+            db.execute(
+                select(ChatMessage)
+                .where(ChatMessage.conversation_id == conversation_id)
+                .order_by(desc(ChatMessage.created_at))
+                .limit(8)
+            ).scalars()
+        )
 
     ids = _extract_ids(message)
     matched_records: list[ExperimentRecord] = []
@@ -259,6 +273,14 @@ def _build_context(db: Session, message: str) -> tuple[str, list[str]]:
             }
             for memory in memories
         ],
+        "conversation_recent": [
+            {
+                "role": msg.role,
+                "content": _compact_text(msg.content, 240),
+                "created_at": msg.created_at.isoformat(),
+            }
+            for msg in reversed(conversation_messages)
+        ],
         "matches": {
             "records": matched_records_summary,
             "experiments": [
@@ -301,7 +323,7 @@ def assistant_chat(
     _check_rate_limit(client_key)
 
     conversation_id = payload.conversation_id
-    context_json, citations = _build_context(db, message)
+    context_json, citations = _build_context(db, message, conversation_id)
 
     memory_trigger = None
     lowered = message.lower().strip()
@@ -338,6 +360,17 @@ def assistant_chat(
                 references_json=json.dumps(citations, ensure_ascii=False) if citations else None,
             )
         )
+    auto_memory = (
+        f"Pregunta: {_compact_text(message, 180)} | "
+        f"Respuesta: {_compact_text(answer, 220)}"
+    )
+    db.add(
+        ChatMemory(
+            memory_type="auto_summary",
+            content=auto_memory,
+            references_json=json.dumps(citations, ensure_ascii=False) if citations else None,
+        )
+    )
     db.commit()
 
     return schemas.ChatResponse(answer=answer, citations=citations)
