@@ -202,6 +202,10 @@ def _draft_missing_fields(draft_type: str, draft: dict) -> list[str]:
         if not draft.get("volume_unit"):
             missing.append("volume_unit")
     if draft_type == "record":
+        if not draft.get("project_name"):
+            missing.append("project_name")
+        if not draft.get("metric_x"):
+            missing.append("metric_x")
         if not draft.get("experiment_id"):
             missing.append("experiment_id")
         if not (draft.get("public_id") or draft.get("publico")):
@@ -355,6 +359,35 @@ def _auto_fill_experiment_draft(draft: dict) -> dict:
         candidate = updated.get("primary_metric")
         updated["volume_unit"] = candidate if candidate in schemas.VolumeUnit.__args__ else "views"
 
+    return updated
+
+
+def _resolve_experiment_id(
+    db: Session,
+    project_name: str | None,
+    metric_x: str | None,
+) -> int | None:
+    if not project_name or not metric_x:
+        return None
+    return db.execute(
+        select(Experiment.id)
+        .where(
+            Experiment.project_name == project_name,
+            Experiment.metric_x == metric_x,
+        )
+        .order_by(desc(Experiment.updated_at), desc(Experiment.created_at))
+        .limit(1)
+    ).scalar_one_or_none()
+
+
+def _auto_fill_record_draft(db: Session, draft: dict) -> dict:
+    updated = dict(draft)
+    if not updated.get("experiment_id"):
+        updated["experiment_id"] = _resolve_experiment_id(
+            db,
+            updated.get("project_name"),
+            updated.get("metric_x"),
+        )
     return updated
 
 
@@ -765,6 +798,7 @@ def assistant_chat(
                 existing_payload.get("draft", {}).get("session_id")
                 or f"openclaw-{int(time.time())}",
             )
+            merged_draft = _auto_fill_record_draft(db, merged_draft)
 
         missing = _draft_missing_fields(draft_type, merged_draft)
         _save_draft(

@@ -306,7 +306,9 @@ def generate_openclaw_draft(
                     "primary_metric, threshold_operator, threshold_value, threshold_type, "
                     "volume_min_value y volume_unit. "
                     "Nunca omitas hypothesis_type en hipótesis; el JSON debe venir completo. "
-                    "No incluyas campos de records en hipótesis (ej: hook_type, cta_type, execution_type)."
+                    "No incluyas campos de records en hipótesis (ej: hook_type, cta_type, execution_type). "
+                    "Para records, siempre incluye project_name y metric_x para enlazar con la hipótesis "
+                    "y recuerda que un record es una prueba que recolecta evidencia."
                 ),
             },
             {
