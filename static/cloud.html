@@ -7,105 +7,117 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/css/design-system.css">
 </head>
-<body class="drive-body">
-  <div class="drive-app" role="main">
-    <header class="drive-header">
-      <div class="drive-header__brand">
-        <div class="drive-logo">
-          <span class="drive-logo__mark"></span>
-          <span class="drive-logo__text">Cloud Drive</span>
+<body class="cloud-body">
+  <div class="cloud-app" role="main">
+    <header class="cloud-topbar">
+      <div class="cloud-topbar__brand">
+        <div class="cloud-logo">
+          <span class="cloud-logo__mark"></span>
+          <span class="cloud-logo__text">Cloud Drive</span>
         </div>
-        <div class="drive-search">
-          <span class="drive-search__icon">🔍</span>
+        <div class="ds-input ds-input--search">
+          <span class="ds-input__icon">🔍</span>
           <input id="globalSearch" type="text" placeholder="Buscar en Cloud Drive" />
         </div>
       </div>
-      <div class="drive-header__actions">
-        <a class="drive-icon-btn" href="/static/index.html" aria-label="Volver al inicio">🏠</a>
-        <button class="drive-icon-btn" title="Sincronización">☁️</button>
-        <button class="drive-icon-btn" title="Configuración">⚙️</button>
+      <div class="cloud-topbar__actions">
+        <button class="ds-btn ds-btn--ghost" id="btnNew">Nuevo</button>
+        <button class="ds-btn ds-btn--ghost" title="Sincronización">☁️</button>
+        <button class="ds-btn ds-btn--ghost" title="Configuración">⚙️</button>
+        <a class="ds-btn ds-btn--ghost" href="/static/index.html" aria-label="Volver al inicio">🏠</a>
       </div>
     </header>
 
-    <div class="drive-layout">
-      <aside class="drive-sidebar">
-        <button class="drive-btn-primary" id="btnNewFolder">+ Nuevo</button>
-        <nav class="drive-nav">
-          <button class="drive-nav__item active">Mi unidad</button>
-          <button class="drive-nav__item">Hipótesis</button>
-          <button class="drive-nav__item">Records</button>
-          <button class="drive-nav__item">Compartidos</button>
-        </nav>
-        <div class="drive-storage">
-          <div class="drive-storage__label">Stack de integración</div>
-          <div class="drive-storage__meta">
-            Seafile Server · Nextcloud · tusd · Casbin · Meilisearch · ONLYOFFICE
+    <div class="cloud-layout">
+      <aside class="cloud-sidebar">
+        <div class="cloud-sidebar__section">
+          <button class="ds-btn ds-btn--primary" id="btnNewFolder">+ Nuevo</button>
+          <nav class="cloud-nav">
+            <button class="cloud-nav__item active">Mi unidad</button>
+            <button class="cloud-nav__item">Hipótesis</button>
+            <button class="cloud-nav__item">Records</button>
+            <button class="cloud-nav__item">Compartidos</button>
+            <button class="cloud-nav__item">Bibliotecas</button>
+          </nav>
+        </div>
+        <div class="cloud-sidebar__section">
+          <div class="cloud-meta-card">
+            <div class="cloud-meta-card__title">Stack de integración</div>
+            <div class="cloud-meta-card__body">
+              Seafile Server · Nextcloud · tusd · Casbin · Meilisearch · ONLYOFFICE
+            </div>
           </div>
         </div>
       </aside>
 
-      <main class="drive-content">
-        <div class="drive-topline">
+      <main class="cloud-content">
+        <div class="cloud-header">
           <div>
-            <div class="drive-title" id="pageTitle">Cloud Drive</div>
-            <div class="drive-subtitle" id="pageSubtitle">Bibliotecas por hipótesis y records.</div>
+            <div class="cloud-title" id="pageTitle">Cloud Drive</div>
+            <div class="cloud-subtitle" id="pageSubtitle">Bibliotecas por hipótesis y records.</div>
+            <div class="ds-breadcrumb" id="breadcrumb"></div>
           </div>
-          <div class="drive-topline__actions">
-            <button class="drive-pill" id="viewList">Lista</button>
-            <button class="drive-pill" id="viewGrid">Cuadrícula</button>
+          <div class="cloud-header__actions">
+            <div class="ds-tabs" role="tablist">
+              <button class="ds-tab active" id="viewList" role="tab" aria-selected="true">Lista</button>
+              <button class="ds-tab" id="viewGrid" role="tab" aria-selected="false">Cuadrícula</button>
+            </div>
+            <button class="ds-btn ds-btn--secondary" id="btnShare">Compartir</button>
           </div>
         </div>
 
-        <div class="drive-section">
-          <div class="drive-section__header">
+        <section class="cloud-section">
+          <div class="cloud-section__header">
             <h3>Bibliotecas</h3>
-            <span class="tag" id="libraryCount">0</span>
+            <span class="ds-badge" id="libraryCount">0</span>
           </div>
-          <div id="libraryGrid" class="drive-folder-row"></div>
-        </div>
+          <div id="libraryGrid" class="cloud-grid"></div>
+        </section>
 
-        <div class="drive-section">
-          <div class="drive-section__header">
+        <section class="cloud-section">
+          <div class="cloud-section__header">
             <h3>Archivos</h3>
-            <div class="drive-section__filters">
-              <input id="fileSearch" type="text" placeholder="Buscar archivos" />
-              <div class="drive-breadcrumb" id="breadcrumb"></div>
-              <input id="folderInput" type="text" placeholder="Nueva carpeta (ej: creatives/tiktok)" />
+            <div class="cloud-section__filters">
+              <div class="ds-input">
+                <input id="fileSearch" type="text" placeholder="Buscar archivos" />
+              </div>
+              <div class="ds-input">
+                <input id="folderInput" type="text" placeholder="Nueva carpeta (ej: creatives/tiktok)" />
+              </div>
               <input id="fileUpload" type="file" multiple />
-              <button id="btnUpload" class="drive-btn-primary">Cargar</button>
+              <button id="btnUpload" class="ds-btn ds-btn--primary">Cargar</button>
             </div>
           </div>
-          <div class="drive-table">
-            <div class="drive-table__header">
+          <div class="cloud-table">
+            <div class="cloud-table__header">
               <span>Nombre</span>
               <span>Propietario</span>
+              <span>Tamaño</span>
               <span>Fecha</span>
             </div>
-            <div id="fileList" class="drive-table__body"></div>
+            <div id="fileList" class="cloud-table__body"></div>
           </div>
-        </div>
+        </section>
       </main>
 
-      <aside class="drive-detail">
-        <div class="drive-detail__header">
-          <div class="drive-detail__title">Detalles</div>
+      <aside class="cloud-detail">
+        <div class="cloud-detail__header">
+          <div class="cloud-detail__title">Detalles</div>
         </div>
-        <div class="drive-detail__body" id="detailPanel">
-          <div class="drive-detail__placeholder">
+        <div class="cloud-detail__body" id="detailPanel">
+          <div class="cloud-detail__placeholder">
             Selecciona un elemento para ver los detalles.
           </div>
-          <div class="drive-stack">
-            <div class="drive-detail__section">
-              <div class="text-sm text-muted">Servicios conectados</div>
-              <ul class="drive-detail__list">
-                <li>haiwen/seafile-server</li>
-                <li>nextcloud/server</li>
-                <li>tus/tusd</li>
-                <li>casbin/casbin</li>
-                <li>meilisearch/meilisearch</li>
-                <li>ONLYOFFICE/DocumentServer</li>
-              </ul>
-            </div>
+          <div class="cloud-detail__section">
+            <div class="cloud-detail__label">Servicios conectados</div>
+            <ul class="cloud-detail__list">
+              <li>haiwen/seafile-server</li>
+              <li>nextcloud/server</li>
+              <li>tus/tusd</li>
+              <li>casbin/casbin</li>
+              <li>meilisearch/meilisearch</li>
+              <li>ONLYOFFICE/DocumentServer</li>
+            </ul>
           </div>
         </div>
       </aside>
@@ -156,22 +168,6 @@
     return response.json();
   }
 
-  async function apiPatch(path, body) {
-    const response = await fetch(API_BASE + path, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    if (!response.ok) throw new Error(await response.text());
-    return response.json();
-  }
-
-  async function apiDelete(path) {
-    const response = await fetch(API_BASE + path, { method: "DELETE" });
-    if (!response.ok) throw new Error(await response.text());
-    return response.json();
-  }
-
   function buildFolderSet() {
     const folders = new Set();
     filesCache.forEach((file) => {
@@ -216,7 +212,7 @@
     breadcrumb.innerHTML = "";
     const parts = currentFolder ? currentFolder.split("/") : [];
     const root = document.createElement("button");
-    root.className = "drive-breadcrumb__item";
+    root.className = "ds-breadcrumb__item";
     root.textContent = entityName || "Mi unidad";
     root.addEventListener("click", () => {
       currentFolder = "";
@@ -228,7 +224,7 @@
     parts.forEach((part) => {
       path = path ? `${path}/${part}` : part;
       const item = document.createElement("button");
-      item.className = "drive-breadcrumb__item";
+      item.className = "ds-breadcrumb__item";
       item.textContent = part;
       item.addEventListener("click", () => {
         currentFolder = path;
@@ -245,41 +241,48 @@
     const folders = getChildFolders(currentFolder);
     folders.forEach((folder) => {
       const card = document.createElement("button");
-      card.className = "drive-folder-card";
+      card.className = "ds-card cloud-card";
       const icon = document.createElement("div");
-      icon.className = "drive-folder-card__icon";
+      icon.className = "cloud-card__icon";
       icon.textContent = "📁";
       const name = document.createElement("div");
-      name.className = "drive-folder-card__name";
+      name.className = "cloud-card__name";
       name.textContent = folder.split("/").slice(-1)[0];
       const meta = document.createElement("div");
-      meta.className = "text-xs text-muted";
+      meta.className = "cloud-card__meta";
       meta.textContent = "Carpeta";
       card.append(icon, name, meta);
       card.addEventListener("click", () => {
         currentFolder = folder;
         renderFolders();
         renderFiles();
+        renderBreadcrumb();
       });
       grid.appendChild(card);
     });
-    $("libraryCount").textContent = `${folders.length + librariesCache.length}`;
     librariesCache.forEach((library) => {
       const card = document.createElement("a");
-      card.className = "drive-folder-card";
+      card.className = "ds-card cloud-card";
       card.href = `/static/cloud.html?type=${library.type}&id=${library.id}&name=${encodeURIComponent(library.name)}`;
       const icon = document.createElement("div");
-      icon.className = "drive-folder-card__icon";
+      icon.className = "cloud-card__icon";
       icon.textContent = library.icon;
       const name = document.createElement("div");
-      name.className = "drive-folder-card__name";
+      name.className = "cloud-card__name";
       name.textContent = library.name;
       const meta = document.createElement("div");
-      meta.className = "text-xs text-muted";
+      meta.className = "cloud-card__meta";
       meta.textContent = library.meta;
       card.append(icon, name, meta);
       grid.appendChild(card);
     });
+    $("libraryCount").textContent = `${folders.length + librariesCache.length}`;
+    if (!folders.length && !librariesCache.length) {
+      const empty = document.createElement("div");
+      empty.className = "ds-empty";
+      empty.textContent = "No hay bibliotecas disponibles todavía.";
+      grid.appendChild(empty);
+    }
   }
 
   function renderFiles() {
@@ -292,23 +295,25 @@
       : filtered;
     if (!results.length) {
       const empty = document.createElement("div");
-      empty.className = "drive-table__row";
+      empty.className = "cloud-table__row cloud-table__row--empty";
       empty.innerHTML = `<span class="text-muted">No hay archivos en esta carpeta.</span>`;
       list.appendChild(empty);
       return;
     }
     results.forEach((file) => {
       const row = document.createElement("div");
-      row.className = "drive-table__row";
+      row.className = "cloud-table__row";
       const name = document.createElement("button");
-      name.className = "drive-file-name";
+      name.className = "cloud-file";
       name.textContent = file.display_name;
       name.addEventListener("click", () => window.open(`/files/${file.id}/download`, "_blank"));
       const owner = document.createElement("span");
       owner.textContent = file.owner || "Cloud";
+      const size = document.createElement("span");
+      size.textContent = formatBytes(file.size_bytes);
       const date = document.createElement("span");
       date.textContent = new Date(file.created_at).toLocaleDateString("es");
-      row.append(name, owner, date);
+      row.append(name, owner, size, date);
       list.appendChild(row);
     });
   }
@@ -380,6 +385,16 @@
     }
   }
 
+  function setView(mode) {
+    const listTab = $("viewList");
+    const gridTab = $("viewGrid");
+    listTab.classList.toggle("active", mode === "list");
+    gridTab.classList.toggle("active", mode === "grid");
+    listTab.setAttribute("aria-selected", mode === "list");
+    gridTab.setAttribute("aria-selected", mode === "grid");
+    document.body.dataset.cloudView = mode;
+  }
+
   $("fileSearch").addEventListener("input", renderFiles);
   $("btnUpload").addEventListener("click", uploadFiles);
   $("btnNewFolder").addEventListener("click", async () => {
@@ -393,9 +408,12 @@
     renderFolders();
     renderFiles();
   });
+  $("viewList").addEventListener("click", () => setView("list"));
+  $("viewGrid").addEventListener("click", () => setView("grid"));
 
   (async () => {
     try {
+      setView("list");
       await loadLibraries();
       renderFolders();
       syncPageMeta();
