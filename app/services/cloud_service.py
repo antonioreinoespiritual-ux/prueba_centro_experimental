@@ -363,6 +363,46 @@ def search_items(db: Session, query: str) -> list[models.CloudItem]:
     return db.scalars(stmt).all()
 
 
+def build_display_map(
+    db: Session,
+    library_id: int | None,
+    parent_id: int | None,
+) -> list[dict[str, str | int | None]]:
+    if library_id is None:
+        return []
+    items = list_items(db, parent_id=parent_id, library_id=library_id)
+    entries: list[dict[str, str | int | None]] = []
+    for item in items:
+        display_name: str | None = None
+        badge: str | None = None
+        if item.item_type == "folder":
+            if item.name == "_System":
+                display_name = "Sistema"
+            elif item.name == "_Archived":
+                display_name = "Archivados"
+            match = re.match(r"^H(\d+)_", item.name)
+            if match:
+                exp_id = int(match.group(1))
+                experiment = db.get(models.Experiment, exp_id)
+                if experiment:
+                    display_name = (
+                        (experiment.independent_variable or "").strip()
+                        or (experiment.metric_x or "").strip()
+                        or f"Hipótesis {exp_id}"
+                    )
+                    badge = f"H{exp_id}"
+            match = re.match(r"^R(\d+)_", item.name)
+            if match:
+                record_id = int(match.group(1))
+                record = db.get(models.ExperimentRecord, record_id)
+                if record:
+                    display_name = (record.record_name or "").strip() or f"Record {record_id}"
+                    badge = f"R{record_id}"
+        if display_name:
+            entries.append({"item_id": item.id, "display_name": display_name, "badge": badge})
+    return entries
+
+
 def resolve_item_path(library: models.CloudLibrary, item: models.CloudItem) -> Path:
     rel_path = item.rel_path or item.path or item.name
     return _resolve_path(library, rel_path)

@@ -238,6 +238,23 @@ body {
   cursor: pointer;
 }
 
+.cloud-item__name {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cloud-item__badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(124, 108, 255, 0.15);
+  color: var(--cloud-text);
+  font-size: 12px;
+  font-weight: 600;
+}
+
 .cloud-table__row.is-selected {
   border-color: rgba(124, 108, 255, 0.6);
 }

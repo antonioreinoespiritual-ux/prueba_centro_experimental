@@ -2,7 +2,7 @@ import React from 'react';
 import { useCloudStore } from '../store/useCloudStore';
 
 export function DetailsPanel() {
-  const { selectedIds, items } = useCloudStore();
+  const { selectedIds, items, getDisplayNameForItem, getBadgeForItem } = useCloudStore();
 
   if (!selectedIds.length) {
     return (
@@ -27,7 +27,10 @@ export function DetailsPanel() {
           <>
             <div>
               <div className="cloud-detail__label">Nombre</div>
-              <p>{selected.name}</p>
+              <p>
+                {getDisplayNameForItem(selected)}{' '}
+                {getBadgeForItem(selected) && <span className="cloud-item__badge">{getBadgeForItem(selected)}</span>}
+              </p>
             </div>
             <div>
               <div className="cloud-detail__label">Tipo</div>

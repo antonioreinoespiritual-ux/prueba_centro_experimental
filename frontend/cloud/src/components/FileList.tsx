@@ -14,9 +14,26 @@ function formatBytes(bytes?: number | null) {
 }
 
 export function FileList() {
-  const { selectedIds, toggleSelection, items, loading, error, openFolder } = useCloudStore();
-  const folders = items.filter((item) => item.item_type === 'folder');
-  const files = items.filter((item) => item.item_type === 'file');
+  const {
+    selectedIds,
+    toggleSelection,
+    items,
+    loading,
+    error,
+    openFolder,
+    searchQuery,
+    getDisplayNameForItem,
+    getBadgeForItem,
+  } = useCloudStore();
+  const normalizedQuery = searchQuery.trim().toLowerCase();
+  const visibleItems = normalizedQuery
+    ? items.filter((item) => {
+        const displayName = getDisplayNameForItem(item).toLowerCase();
+        return item.name.toLowerCase().includes(normalizedQuery) || displayName.includes(normalizedQuery);
+      })
+    : items;
+  const folders = visibleItems.filter((item) => item.item_type === 'folder');
+  const files = visibleItems.filter((item) => item.item_type === 'file');
 
   return (
     <div className="cloud-table">
@@ -37,7 +54,10 @@ export function FileList() {
             onClick={() => toggleSelection(folder.id)}
             onDoubleClick={() => openFolder(folder)}
           >
-            <span>📁 {folder.name}</span>
+            <span className="cloud-item__name">
+              <span>📁 {getDisplayNameForItem(folder)}</span>
+              {getBadgeForItem(folder) && <span className="cloud-item__badge">{getBadgeForItem(folder)}</span>}
+            </span>
             <span>{folder.owner_id ?? '—'}</span>
             <span>—</span>
             <span>—</span>
@@ -49,7 +69,10 @@ export function FileList() {
             className={`cloud-table__row ${selectedIds.includes(file.id) ? 'is-selected' : ''}`}
             onClick={() => toggleSelection(file.id)}
           >
-            <span>{file.name}</span>
+            <span className="cloud-item__name">
+              <span>{getDisplayNameForItem(file)}</span>
+              {getBadgeForItem(file) && <span className="cloud-item__badge">{getBadgeForItem(file)}</span>}
+            </span>
             <span>{file.owner_id ?? '—'}</span>
             <span>{formatBytes(file.size)}</span>
             <span>—</span>

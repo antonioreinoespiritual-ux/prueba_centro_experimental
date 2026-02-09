@@ -7,9 +7,20 @@ interface TopbarProps {
 }
 
 export function Topbar({ onCreateFolder, onUploadFile }: TopbarProps) {
-  const { selectedIds, viewMode, setViewMode, renameSelected, moveSelected, deleteSelected, downloadSelected } =
-    useCloudStore();
+  const {
+    selectedIds,
+    viewMode,
+    setViewMode,
+    renameSelected,
+    moveSelected,
+    deleteSelected,
+    downloadSelected,
+    searchQuery,
+    setSearchQuery,
+    getRenameDisabledReason,
+  } = useCloudStore();
   const hasSelection = selectedIds.length > 0;
+  const renameDisabledReason = getRenameDisabledReason();
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
 
   return (
@@ -21,7 +32,12 @@ export function Topbar({ onCreateFolder, onUploadFile }: TopbarProps) {
         </div>
         <div className="cloud-search">
           <span>🔍</span>
-          <input placeholder="Buscar en Cloud Drive" aria-label="Buscar" />
+          <input
+            placeholder="Buscar en Cloud Drive"
+            aria-label="Buscar"
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+          />
         </div>
       </div>
       <div className="cloud-topbar__actions">
@@ -42,7 +58,12 @@ export function Topbar({ onCreateFolder, onUploadFile }: TopbarProps) {
               event.currentTarget.value = '';
             }}
           />
-          <button className="cloud-btn" disabled={!hasSelection} onClick={renameSelected}>
+          <button
+            className="cloud-btn"
+            disabled={!hasSelection || Boolean(renameDisabledReason)}
+            title={renameDisabledReason ?? undefined}
+            onClick={renameSelected}
+          >
             Renombrar
           </button>
           <button className="cloud-btn" disabled={!hasSelection} onClick={moveSelected}>

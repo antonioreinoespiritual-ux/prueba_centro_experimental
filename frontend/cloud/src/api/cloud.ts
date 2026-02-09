@@ -28,6 +28,12 @@ export interface CloudItem {
   owner_id?: string | null;
 }
 
+export interface CloudDisplayEntry {
+  item_id: number;
+  display_name: string;
+  badge?: string | null;
+}
+
 export async function fetchLibraries(): Promise<CloudLibrary[]> {
   return fetchJson('/api/cloud/libraries');
 }
@@ -47,6 +53,19 @@ export async function fetchItems(params: { library_id: number; parent_id?: numbe
     query.set('parent_id', String(params.parent_id));
   }
   return fetchJson(`/api/cloud/items?${query.toString()}`);
+}
+
+export async function fetchDisplayMap(params: {
+  library_id: number;
+  parent_id?: number | null;
+}): Promise<CloudDisplayEntry[]> {
+  const query = new URLSearchParams();
+  query.set('library_id', String(params.library_id));
+  if (params.parent_id !== undefined && params.parent_id !== null) {
+    query.set('parent_id', String(params.parent_id));
+  }
+  const response = await fetchJson<{ items: CloudDisplayEntry[] }>(`/api/cloud/display-map?${query.toString()}`);
+  return response.items ?? [];
 }
 
 export async function createFolder(payload: {

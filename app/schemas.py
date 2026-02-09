@@ -600,3 +600,13 @@ class CloudShareOut(BaseModel):
 
 class CloudSearchResponse(BaseModel):
     results: list[CloudItemOut] = []
+
+
+class CloudDisplayEntry(BaseModel):
+    item_id: int
+    display_name: str
+    badge: Optional[str] = None
+
+
+class CloudDisplayMap(BaseModel):
+    items: list[CloudDisplayEntry] = []

@@ -6,6 +6,7 @@ import {
   createLibrary,
   deleteItem,
   downloadFile,
+  fetchDisplayMap,
   fetchItems,
   fetchLibraries,
   moveItem,
@@ -26,11 +27,13 @@ interface CloudState {
   selectedIds: number[];
   libraries: CloudLibrary[];
   items: CloudItem[];
+  displayMap: Record<number, { display_name: string; badge?: string | null }>;
   currentLibraryId: number | null;
   currentParentId: number | null;
   loading: boolean;
   error: string | null;
   toast: string | null;
+  searchQuery: string;
   setViewMode: (mode: ViewMode) => void;
   setCurrentPath: (path: BreadcrumbEntry[]) => void;
   toggleSelection: (id: number) => void;
@@ -48,6 +51,10 @@ interface CloudState {
   moveSelected: () => Promise<void>;
   deleteSelected: () => Promise<void>;
   downloadSelected: () => void;
+  getDisplayNameForItem: (item: CloudItem) => string;
+  getBadgeForItem: (item: CloudItem) => string | null;
+  getRenameDisabledReason: () => string | null;
+  setSearchQuery: (query: string) => void;
   clearToast: () => void;
 }
 
@@ -57,11 +64,13 @@ export const useCloudStore = create<CloudState>((set, get) => ({
   selectedIds: [],
   libraries: [],
   items: [],
+  displayMap: {},
   currentLibraryId: null,
   currentParentId: null,
   loading: false,
   error: null,
   toast: null,
+  searchQuery: '',
   setViewMode: (mode) => set({ viewMode: mode }),
   setCurrentPath: (path) => set({ currentPath: path }),
   toggleSelection: (id) =>
@@ -102,13 +111,28 @@ export const useCloudStore = create<CloudState>((set, get) => ({
     try {
       const items = await fetchItems({ library_id: currentLibraryId, parent_id: currentParentId });
       set({ items, loading: false });
+      try {
+        const displayEntries = await fetchDisplayMap({ library_id: currentLibraryId, parent_id: currentParentId });
+        const displayMap = displayEntries.reduce<Record<number, { display_name: string; badge?: string | null }>>(
+          (acc, entry) => {
+            acc[entry.item_id] = { display_name: entry.display_name, badge: entry.badge };
+            return acc;
+          },
+          {},
+        );
+        set({ displayMap });
+      } catch (displayError) {
+        console.warn('Display map error', displayError);
+        set({ displayMap: {} });
+      }
     } catch (error) {
       set({ loading: false, error: error instanceof Error ? error.message : 'Error' });
     }
   },
   openFolder: async (folder) => {
     const { currentPath } = get();
-    set({ currentParentId: folder.id, currentPath: [...currentPath, { id: folder.id, name: folder.name }] });
+    const displayName = get().getDisplayNameForItem(folder);
+    set({ currentParentId: folder.id, currentPath: [...currentPath, { id: folder.id, name: displayName }] });
     await get().loadItems();
   },
   goToBreadcrumb: async (index) => {
@@ -181,6 +205,11 @@ export const useCloudStore = create<CloudState>((set, get) => ({
   renameSelected: async () => {
     const { selectedIds } = get();
     if (!selectedIds.length) return;
+    const reason = get().getRenameDisabledReason();
+    if (reason) {
+      set({ toast: reason });
+      return;
+    }
     const name = window.prompt('Nuevo nombre');
     if (!name) return;
     await renameItem(selectedIds[0], name);
@@ -210,5 +239,25 @@ export const useCloudStore = create<CloudState>((set, get) => ({
     if (!selectedIds.length) return;
     downloadFile(selectedIds[0]);
   },
+  getDisplayNameForItem: (item) => {
+    const mapped = get().displayMap[item.id];
+    if (mapped?.display_name) return mapped.display_name;
+    if (item.name === '_System') return 'Sistema';
+    if (item.name === '_Archived') return 'Archivados';
+    return item.name;
+  },
+  getBadgeForItem: (item) => get().displayMap[item.id]?.badge ?? null,
+  getRenameDisabledReason: () => {
+    const { selectedIds, items } = get();
+    if (!selectedIds.length) return null;
+    const selected = items.find((item) => item.id === selectedIds[0]);
+    if (!selected || selected.item_type !== 'folder') return null;
+    const badge = get().getBadgeForItem(selected);
+    if (badge && (badge.startsWith('H') || badge.startsWith('R'))) {
+      return 'Se renombra desde el nombre del experimento/record.';
+    }
+    return null;
+  },
+  setSearchQuery: (query) => set({ searchQuery: query }),
   clearToast: () => set({ toast: null }),
 }));

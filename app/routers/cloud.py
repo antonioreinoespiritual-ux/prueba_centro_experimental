@@ -198,3 +198,13 @@ def list_item_shares(item_id: int, db: Session = Depends(get_db)):
 def search_items(q: str, db: Session = Depends(get_db)):
     results = cloud_service.search_items(db, q)
     return schemas.CloudSearchResponse(results=results)
+
+
+@router.get("/api/cloud/display-map", response_model=schemas.CloudDisplayMap)
+def display_map(
+    library_id: int,
+    parent_id: int | None = None,
+    db: Session = Depends(get_db),
+):
+    items = cloud_service.build_display_map(db, library_id=library_id, parent_id=parent_id)
+    return schemas.CloudDisplayMap(items=items)
