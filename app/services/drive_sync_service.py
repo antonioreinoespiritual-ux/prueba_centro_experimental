@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import logging
 from pathlib import Path
 import os
 import re
@@ -13,6 +14,7 @@ from .. import models
 
 
 CLOUD_ROOT = Path(os.getenv("CLOUD_ROOT", "/Users/m2/CloudDriveData")).expanduser()
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -80,14 +82,13 @@ def _rename_if_needed(old_rel: str | None, new_rel: str) -> str:
 
 
 def _pick_hypothesis_title(experiment: models.Experiment) -> str:
-    metric_x = (experiment.metric_x or "").strip()
-    if metric_x:
-        return metric_x
     independent_variable = (experiment.independent_variable or "").strip()
     if independent_variable:
         return independent_variable
-    hypothesis = (experiment.hypothesis or "").strip()
-    return hypothesis or f"hypothesis-{experiment.id}"
+    metric_x = (experiment.metric_x or "").strip()
+    if metric_x:
+        return metric_x
+    return "sin-variable"
 
 
 def ensure_hypothesis_folder(db: Session, experiment: models.Experiment) -> models.Experiment:
@@ -152,6 +153,14 @@ def backfill_all(db: Session) -> dict[str, int]:
 
     for exp in db.scalars(select(models.Experiment)).all():
         before = exp.drive_folder_path
+        if os.getenv("DRIVE_SYNC_DEBUG") == "1":
+            logger.info(
+                "drive-sync experiment=%s independent_variable=%s metric_x=%s hypothesis=%s",
+                exp.id,
+                exp.independent_variable,
+                exp.metric_x,
+                exp.hypothesis,
+            )
         try:
             exp = ensure_hypothesis_folder(db, exp)
             if before is None and exp.drive_folder_path:
