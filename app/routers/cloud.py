@@ -200,6 +200,11 @@ def search_items(q: str, db: Session = Depends(get_db)):
     return schemas.CloudSearchResponse(results=results)
 
 
+@router.get("/api/cloud/hypotheses/{hypothesis_id}/records", response_model=list[schemas.CloudItemOut])
+def list_hypothesis_records(hypothesis_id: int, db: Session = Depends(get_db)):
+    return cloud_service.list_hypothesis_records(db, hypothesis_id)
+
+
 @router.get("/api/cloud/display-map", response_model=schemas.CloudDisplayMap)
 def display_map(
     library_id: int,

@@ -11,7 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from .. import models
-from .drive_sync_service import CLOUD_PROJECTS_DIR, _normalize_project_key, get_or_create_project
+from .drive_sync_service import CLOUD_PROJECTS_DIR, _normalize_project_key, ensure_records_folder, get_or_create_project
 from ..storage import sanitize_filename
 
 CLOUD_ROOT = Path(os.getenv("CLOUD_ROOT", "/Users/m2/CloudDriveData")).expanduser()
@@ -50,6 +50,47 @@ def _resolve_path(library: models.CloudLibrary, rel_path: str | None = None) -> 
     except ValueError as exc:
         raise ValueError("Invalid path traversal detected") from exc
     return candidate
+
+
+def _ensure_cloud_item_for_rel_path(
+    db: Session,
+    library: models.CloudLibrary,
+    rel_path: str,
+    create_if_missing: bool = True,
+) -> models.CloudItem | None:
+    normalized = rel_path.replace("\\", "/").strip("/")
+    if not normalized:
+        return None
+    parts = Path(normalized).parts
+    parent: models.CloudItem | None = None
+    current_rel = ""
+    for segment in parts:
+        current_rel = f"{current_rel}/{segment}" if current_rel else segment
+        item = db.scalars(
+            select(models.CloudItem).where(
+                models.CloudItem.library_id == library.id,
+                models.CloudItem.rel_path == current_rel,
+            )
+        ).first()
+        if not item:
+            path = _resolve_path(library, current_rel)
+            if not path.exists():
+                if not create_if_missing:
+                    return None
+                path.mkdir(parents=True, exist_ok=True)
+            item = models.CloudItem(
+                name=segment,
+                library_id=library.id,
+                parent_id=parent.id if parent else None,
+                item_type="folder",
+                rel_path=current_rel,
+                path=current_rel,
+            )
+            db.add(item)
+            db.commit()
+            db.refresh(item)
+        parent = item
+    return parent
 
 
 def _get_descendants(db: Session, library_id: int, base_rel: str) -> Iterable[models.CloudItem]:
@@ -201,6 +242,24 @@ def list_items(db: Session, parent_id: int | None, library_id: int | None) -> li
         items.append(item)
 
     return items
+
+
+def list_hypothesis_records(db: Session, hypothesis_id: int) -> list[models.CloudItem]:
+    experiment = db.get(models.Experiment, hypothesis_id)
+    if not experiment or not experiment.drive_folder_path:
+        return []
+    library = ensure_system_library(db)
+    library = ensure_library_root(db, library)
+    hypothesis_item = _ensure_cloud_item_for_rel_path(db, library, experiment.drive_folder_path, create_if_missing=False)
+    if not hypothesis_item:
+        return []
+    project = get_or_create_project(db, experiment.project_name)
+    ensure_records_folder(project, experiment)
+    records_rel = f"{experiment.drive_folder_path.rstrip('/')}/Records"
+    records_item = _ensure_cloud_item_for_rel_path(db, library, records_rel, create_if_missing=True)
+    if not records_item:
+        return []
+    return list_items(db, parent_id=records_item.id, library_id=library.id)
 
 
 def create_folder(
