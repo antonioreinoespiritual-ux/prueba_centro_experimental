@@ -1,0 +1,391 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Carpetas — Centro Experimental</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/design-system.css">
+</head>
+<body>
+  <div class="app-container" role="main">
+    <div class="top-bar">
+      <div>
+        <h1 class="top-bar__title">Carpetas</h1>
+        <p class="top-bar__subtitle" id="pageSubtitle">Organiza documentos como en Google Drive.</p>
+      </div>
+      <div class="top-bar__actions">
+        <a class="btn-link" href="/static/hypotheses.html" aria-label="Lista de hipotesis">Hipótesis</a>
+        <a class="btn-link" href="/static/records.html" aria-label="Lista de records">Records</a>
+      </div>
+    </div>
+
+    <div class="card mt-lg">
+      <div class="file-drive">
+        <aside class="file-drive__sidebar">
+          <div class="section-header">
+            <h3>Carpetas</h3>
+            <span class="tag" id="folderCount">0</span>
+          </div>
+          <div id="folderTree" class="file-tree"></div>
+        </aside>
+
+        <section class="file-drive__content">
+          <div class="file-drive__toolbar">
+            <div class="file-breadcrumb" id="breadcrumb"></div>
+            <div class="file-actions">
+              <div class="field-group">
+                <label for="folderInput">Nueva carpeta</label>
+                <input id="folderInput" type="text" placeholder="ej: creatives/tiktok" />
+              </div>
+              <div class="field-group">
+                <label for="fileSearch">Buscar</label>
+                <input id="fileSearch" type="text" placeholder="nombre de archivo" />
+              </div>
+              <div class="field-group">
+                <label for="fileUpload">Subir archivos</label>
+                <input id="fileUpload" type="file" multiple />
+              </div>
+              <div class="field-group" style="display:flex; align-items:end;">
+                <button id="btnUpload" class="btn-success">Cargar</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="file-drive__summary text-sm text-muted" id="folderHint">Selecciona una carpeta.</div>
+
+          <div id="folderGrid" class="folder-grid"></div>
+
+          <div class="file-list mt-md" id="fileList"></div>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast-container" id="toastContainer"></div>
+
+<script>
+  const API_BASE = "";
+  const $ = (id) => document.getElementById(id);
+  const params = new URLSearchParams(window.location.search);
+  const entityType = params.get("type") || "experiment";
+  const entityId = Number(params.get("id"));
+  const entityName = params.get("name") || "";
+  let filesCache = [];
+  let currentFolder = "";
+  let virtualFolders = new Set();
+
+  function showToast(message, type = "success") {
+    const container = $("toastContainer");
+    const toast = document.createElement("div");
+    toast.className = `toast toast--${type}`;
+    toast.textContent = message;
+    container.appendChild(toast);
+    setTimeout(() => toast.remove(), 3000);
+  }
+
+  function formatBytes(bytes) {
+    if (!bytes && bytes !== 0) return "—";
+    const units = ["B", "KB", "MB", "GB", "TB"];
+    let value = bytes;
+    let index = 0;
+    while (value >= 1024 && index < units.length - 1) {
+      value /= 1024;
+      index += 1;
+    }
+    return `${value.toFixed(value >= 10 || index === 0 ? 0 : 1)} ${units[index]}`;
+  }
+
+  async function apiGet(path) {
+    const response = await fetch(API_BASE + path);
+    if (!response.ok) throw new Error(await response.text());
+    return response.json();
+  }
+
+  async function apiPatch(path, body) {
+    const response = await fetch(API_BASE + path, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!response.ok) throw new Error(await response.text());
+    return response.json();
+  }
+
+  async function apiDelete(path) {
+    const response = await fetch(API_BASE + path, { method: "DELETE" });
+    if (!response.ok) throw new Error(await response.text());
+    return response.json();
+  }
+
+  function buildFolderSet() {
+    const folders = new Set();
+    filesCache.forEach((file) => {
+      if (!file.folder) return;
+      const parts = file.folder.split("/");
+      let path = "";
+      parts.forEach((part) => {
+        path = path ? `${path}/${part}` : part;
+        folders.add(path);
+      });
+    });
+    virtualFolders.forEach((folder) => folders.add(folder));
+    return folders;
+  }
+
+  function getChildFolders(parent) {
+    const folders = buildFolderSet();
+    const children = new Set();
+    const prefix = parent ? `${parent}/` : "";
+    folders.forEach((folder) => {
+      if (!parent) {
+        if (!folder.includes("/")) {
+          children.add(folder);
+        } else {
+          children.add(folder.split("/")[0]);
+        }
+        return;
+      }
+      if (folder === parent) return;
+      if (!folder.startsWith(prefix)) return;
+      const remainder = folder.slice(prefix.length);
+      const next = remainder.split("/")[0];
+      if (next) {
+        children.add(`${parent}/${next}`);
+      }
+    });
+    return [...children].sort((a, b) => a.localeCompare(b, "es"));
+  }
+
+  function renderFolderTree() {
+    const container = $("folderTree");
+    container.innerHTML = "";
+    const folders = buildFolderSet();
+    $("folderCount").textContent = `${folders.size}`;
+
+    const root = document.createElement("button");
+    root.className = `file-tree__item ${currentFolder === "" ? "active" : ""}`;
+    root.textContent = "Raíz";
+    root.addEventListener("click", () => {
+      currentFolder = "";
+      renderAll();
+    });
+    container.appendChild(root);
+
+    const list = document.createElement("div");
+    list.className = "file-tree__list";
+    renderTreeLevel(list, "");
+    container.appendChild(list);
+  }
+
+  function renderTreeLevel(container, parent) {
+    const children = getChildFolders(parent);
+    children.forEach((folder) => {
+      const item = document.createElement("div");
+      item.className = "file-tree__node";
+      const button = document.createElement("button");
+      button.className = `file-tree__item ${currentFolder === folder ? "active" : ""}`;
+      button.textContent = folder.split("/").slice(-1)[0];
+      button.addEventListener("click", () => {
+        currentFolder = folder;
+        renderAll();
+      });
+      item.appendChild(button);
+      const nested = document.createElement("div");
+      nested.className = "file-tree__children";
+      renderTreeLevel(nested, folder);
+      if (nested.childElementCount) {
+        item.appendChild(nested);
+      }
+      container.appendChild(item);
+    });
+  }
+
+  function renderBreadcrumb() {
+    const container = $("breadcrumb");
+    container.innerHTML = "";
+    const parts = currentFolder ? currentFolder.split("/") : [];
+    const root = document.createElement("button");
+    root.className = "file-breadcrumb__item";
+    root.textContent = "Raíz";
+    root.addEventListener("click", () => {
+      currentFolder = "";
+      renderAll();
+    });
+    container.appendChild(root);
+    let path = "";
+    parts.forEach((part) => {
+      path = path ? `${path}/${part}` : part;
+      const item = document.createElement("button");
+      item.className = "file-breadcrumb__item";
+      item.textContent = part;
+      item.addEventListener("click", () => {
+        currentFolder = path;
+        renderAll();
+      });
+      container.appendChild(item);
+    });
+  }
+
+  function renderFolderGrid() {
+    const grid = $("folderGrid");
+    grid.innerHTML = "";
+    const children = getChildFolders(currentFolder);
+    if (!children.length) {
+      grid.innerHTML = '<div class="file-empty">No hay carpetas en esta ubicación.</div>';
+      return;
+    }
+    children.forEach((folder) => {
+      const card = document.createElement("button");
+      card.type = "button";
+      card.className = "folder-card";
+      card.innerHTML = `
+        <div class="folder-card__icon">📁</div>
+        <div class="folder-card__name">${folder.split("/").slice(-1)[0]}</div>
+      `;
+      card.addEventListener("click", () => {
+        currentFolder = folder;
+        renderAll();
+      });
+      grid.appendChild(card);
+    });
+  }
+
+  function renderFiles() {
+    const list = $("fileList");
+    list.innerHTML = "";
+    const search = $("fileSearch").value.trim().toLowerCase();
+    let filtered = filesCache.filter((file) => (file.folder || "") === currentFolder);
+    if (search) {
+      filtered = filtered.filter((file) => file.display_name.toLowerCase().includes(search));
+    }
+    if (!filtered.length) {
+      list.innerHTML = '<div class="file-empty">No hay archivos en esta carpeta.</div>';
+      return;
+    }
+    filtered.forEach((file) => {
+      const item = document.createElement("div");
+      item.className = "file-item";
+      const uploadedAt = file.updated_at || file.created_at || "—";
+      item.innerHTML = `
+        <div class="file-item__meta">
+          <div class="file-item__name">${file.display_name}</div>
+          <div class="file-item__details">Tamaño: ${formatBytes(file.size_bytes)} · Tipo: ${file.content_type || "—"}</div>
+          <div class="file-item__details">Actualizado: ${uploadedAt}</div>
+        </div>
+        <div class="file-item__details">ID #${file.id}</div>
+        <div class="file-item__actions">
+          <button class="btn-secondary" data-action="download">Descargar</button>
+          <button class="btn-ghost" data-action="rename">Renombrar</button>
+          <button class="btn-ghost" data-action="move">Mover</button>
+          <button class="btn-warning" data-action="delete">Eliminar</button>
+        </div>
+      `;
+      item.querySelector('[data-action="download"]').addEventListener("click", () => {
+        window.open(`/files/${file.id}/download`, "_blank");
+      });
+      item.querySelector('[data-action="rename"]').addEventListener("click", async () => {
+        const name = prompt("Nuevo nombre para el archivo:", file.display_name);
+        if (!name) return;
+        try {
+          await apiPatch(`/files/${file.id}`, { display_name: name });
+          await loadFiles();
+          showToast("Archivo renombrado", "success");
+        } catch (error) {
+          showToast(String(error), "error");
+        }
+      });
+      item.querySelector('[data-action="move"]').addEventListener("click", async () => {
+        const folderName = prompt("Nueva carpeta (vacío para raíz):", file.folder || "");
+        if (folderName === null) return;
+        try {
+          await apiPatch(`/files/${file.id}`, { folder: folderName });
+          await loadFiles();
+          showToast("Archivo movido", "success");
+        } catch (error) {
+          showToast(String(error), "error");
+        }
+      });
+      item.querySelector('[data-action="delete"]').addEventListener("click", async () => {
+        if (!confirm("¿Eliminar este archivo?")) return;
+        try {
+          await apiDelete(`/files/${file.id}`);
+          await loadFiles();
+          showToast("Archivo eliminado", "success");
+        } catch (error) {
+          showToast(String(error), "error");
+        }
+      });
+      list.appendChild(item);
+    });
+  }
+
+  function renderSummary() {
+    const hint = $("folderHint");
+    const count = filesCache.filter((file) => (file.folder || "") === currentFolder).length;
+    hint.textContent = currentFolder
+      ? `Carpeta: ${currentFolder} · ${count} archivos`
+      : `Raíz · ${count} archivos`;
+  }
+
+  function renderAll() {
+    renderFolderTree();
+    renderBreadcrumb();
+    renderFolderGrid();
+    renderFiles();
+    renderSummary();
+  }
+
+  async function loadFiles() {
+    if (!entityId || !entityType) {
+      showToast("Falta el ID de la entidad.", "error");
+      return;
+    }
+    try {
+      filesCache = await apiGet(`/files/${entityType}/${entityId}`);
+      renderAll();
+    } catch (error) {
+      showToast(String(error), "error");
+    }
+  }
+
+  async function uploadFiles() {
+    const files = $("fileUpload").files;
+    if (!files.length) {
+      showToast("Selecciona al menos un archivo.", "error");
+      return;
+    }
+    const folderInput = $("folderInput").value.trim();
+    if (folderInput) {
+      virtualFolders.add(folderInput);
+      currentFolder = folderInput;
+    }
+    const formData = new FormData();
+    [...files].forEach((file) => formData.append("files", file));
+    if (currentFolder) formData.append("folder", currentFolder);
+    try {
+      const response = await fetch(`/files/${entityType}/${entityId}`, {
+        method: "POST",
+        body: formData,
+      });
+      if (!response.ok) throw new Error(await response.text());
+      $("fileUpload").value = "";
+      $("folderInput").value = "";
+      await loadFiles();
+      showToast("Archivos cargados", "success");
+    } catch (error) {
+      showToast(String(error), "error");
+    }
+  }
+
+  $("btnUpload").addEventListener("click", uploadFiles);
+  $("fileSearch").addEventListener("input", renderFiles);
+
+  if (entityName) {
+    $("pageSubtitle").textContent = `Carpetas de ${entityName}`;
+  }
+
+  loadFiles();
+</script>
+</body>
+</html>

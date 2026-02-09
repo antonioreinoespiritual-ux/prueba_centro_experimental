@@ -88,7 +88,10 @@
           <div class="modal__title" id="recordsModalTitle">Récords</div>
           <div class="text-sm text-muted" id="recordsModalSubtitle"></div>
         </div>
-        <button class="btn-secondary" id="btnCloseRecordsModal" aria-label="Cerrar modal">Cerrar</button>
+        <div class="flex gap-sm items-center">
+          <button class="btn-doc" id="btnProjectFolders">CARPETAS</button>
+          <button class="btn-secondary" id="btnCloseRecordsModal" aria-label="Cerrar modal">Cerrar</button>
+        </div>
       </div>
       <div class="section-header">
         <h3>Récords del experimento</h3>
@@ -346,6 +349,9 @@
     activeRecordId = null;
     $("recordsModalTitle").textContent = `Récords — ${experiment.independent_variable || "Métrica X"}`;
     $("recordsModalSubtitle").textContent = experiment.hypothesis || "—";
+    $("btnProjectFolders").onclick = () => {
+      window.open(`/static/files.html?type=experiment&id=${experiment.id}&name=${encodeURIComponent(experiment.project_name)}`, "_blank");
+    };
 
     $("recordsModal").classList.remove("hidden");
     $("recordsModal").setAttribute("aria-hidden", "false");

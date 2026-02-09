@@ -127,7 +127,10 @@
             <h3 id="recordsTitle">Records</h3>
             <span class="tag" id="recordsCount">0 records</span>
           </div>
-          <button class="btn-ghost" onclick="closeRecordsModal()">Cerrar</button>
+          <div class="flex gap-sm items-center">
+            <button class="btn-doc" id="btnHypFolders">CARPETAS</button>
+            <button class="btn-ghost" onclick="closeRecordsModal()">Cerrar</button>
+          </div>
         </div>
         <div class="card records-panel">
           <div class="table-wrapper mt-md">
@@ -167,6 +170,7 @@
           <button class="btn-doc" id="btnRecordDoc">Documentacion</button>
           <button class="btn-ai" id="btnRecordAi">Analisis IA</button>
           <button class="btn-ai" id="btnRecordAiFull">Analisis IA Completo</button>
+          <button class="btn-doc" id="btnRecordFolders">CARPETAS</button>
           <button class="btn-secondary" id="btnCloseRecordModal">Cerrar</button>
         </div>
       </div>
@@ -562,6 +566,9 @@
     $("recordsModal").style.display = "flex";
     $("recordsTitle").textContent = `Records — ${exp.project_name}`;
     $("recordsCount").textContent = `${records.length} records`;
+    $("btnHypFolders").onclick = () => {
+      window.open(`/static/files.html?type=experiment&id=${exp.id}&name=${encodeURIComponent(exp.project_name)}`, "_blank");
+    };
 
     const tbody = $("tblRecords");
     tbody.innerHTML = "";
@@ -626,6 +633,10 @@
     $("btnRecordAiFull").onclick = (event) => {
       event.stopPropagation();
       openAiCombined("record", record.id, recordTitle);
+    };
+    $("btnRecordFolders").onclick = (event) => {
+      event.stopPropagation();
+      window.open(`/static/files.html?type=record&id=${record.id}&name=${encodeURIComponent(recordTitle)}`, "_blank");
     };
     $("modalProject").textContent = exp?.project_name || "—";
     $("modalExperiment").textContent = exp ? `Experimento #${exp.id}` : "—";
