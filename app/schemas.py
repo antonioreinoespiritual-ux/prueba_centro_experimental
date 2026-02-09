@@ -610,3 +610,40 @@ class CloudDisplayEntry(BaseModel):
 
 class CloudDisplayMap(BaseModel):
     items: list[CloudDisplayEntry] = []
+
+
+class CloudRecordNode(BaseModel):
+    name: str
+    rel_path: str
+
+
+class CloudHypothesisNode(BaseModel):
+    name: str
+    rel_path: str
+    records: list[CloudRecordNode] = []
+
+
+class CloudProjectNode(BaseModel):
+    name: str
+    rel_path: str
+    hypotheses: list[CloudHypothesisNode] = []
+
+
+class CloudProjectsTree(BaseModel):
+    projects: list[CloudProjectNode] = []
+
+
+class CloudProjectOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    project_name: str
+    project_key: str
+    folder_path: str
+
+
+class CloudProjectHypothesisOut(BaseModel):
+    id: int
+    experiment_id: int
+    display_name: str
+    drive_folder_path: Optional[str] = None

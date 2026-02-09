@@ -2,7 +2,7 @@ import React from 'react';
 import { useCloudStore } from '../store/useCloudStore';
 
 export function Sidebar() {
-  const { libraries, currentLibraryId, setCurrentLibrary, openSystemFolder } = useCloudStore();
+  const { libraries, currentLibraryId, setCurrentLibrary, openProjectsRoot, openSystemFolder } = useCloudStore();
   const systemLibrary = libraries.find((library) => library.is_system || library.name === '_System');
   const personalLibrary = libraries.find((library) => !library.is_system && library.name !== '_System');
   return (
@@ -15,11 +15,8 @@ export function Sidebar() {
         >
           Mi unidad
         </button>
-        <button className="cloud-nav__item" onClick={() => openSystemFolder('Hypotheses')}>
-          Hipótesis
-        </button>
-        <button className="cloud-nav__item" onClick={() => openSystemFolder('Records')}>
-          Records
+        <button className="cloud-nav__item" onClick={() => openProjectsRoot()}>
+          Proyectos
         </button>
         <button
           className="cloud-nav__item"

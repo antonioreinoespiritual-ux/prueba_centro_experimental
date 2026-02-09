@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import {
   CloudItem,
   CloudLibrary,
+  CloudProject,
   createFolder,
   createLibrary,
   deleteItem,
@@ -9,12 +10,15 @@ import {
   fetchDisplayMap,
   fetchItems,
   fetchLibraries,
+  fetchProjectHypotheses,
+  fetchProjects,
   moveItem,
   renameItem,
   uploadFile,
 } from '../api/cloud';
 
 type ViewMode = 'list' | 'grid';
+type NavigationMode = 'library' | 'projects' | 'project_hypotheses';
 
 interface BreadcrumbEntry {
   id: number | null;
@@ -23,13 +27,17 @@ interface BreadcrumbEntry {
 
 interface CloudState {
   viewMode: ViewMode;
+  navigationMode: NavigationMode;
   currentPath: BreadcrumbEntry[];
   selectedIds: number[];
   libraries: CloudLibrary[];
+  projects: CloudProject[];
   items: CloudItem[];
   displayMap: Record<number, { display_name: string; badge?: string | null }>;
   currentLibraryId: number | null;
   currentParentId: number | null;
+  currentProject: CloudProject | null;
+  hypothesisPaths: Record<number, string>;
   loading: boolean;
   error: string | null;
   toast: string | null;
@@ -45,6 +53,7 @@ interface CloudState {
   goToBreadcrumb: (index: number) => Promise<void>;
   openSystemFolder: (name: string) => Promise<void>;
   openSystemRelPath: (relPath: string) => Promise<void>;
+  openProjectsRoot: () => Promise<void>;
   createFolder: (name: string) => Promise<void>;
   uploadFile: (file: File) => Promise<void>;
   renameSelected: () => Promise<void>;
@@ -60,13 +69,17 @@ interface CloudState {
 
 export const useCloudStore = create<CloudState>((set, get) => ({
   viewMode: 'list',
+  navigationMode: 'library',
   currentPath: [{ id: null, name: 'Mi unidad' }],
   selectedIds: [],
   libraries: [],
+  projects: [],
   items: [],
   displayMap: {},
   currentLibraryId: null,
   currentParentId: null,
+  currentProject: null,
+  hypothesisPaths: {},
   loading: false,
   error: null,
   toast: null,
@@ -93,6 +106,9 @@ export const useCloudStore = create<CloudState>((set, get) => ({
         const systemLibrary = libraries.find((library) => library.is_system || library.name === '_System');
         const defaultLibrary = systemLibrary ?? libraries[0];
         await get().setCurrentLibrary(defaultLibrary.id, defaultLibrary.name);
+        if (systemLibrary) {
+          await get().openProjectsRoot();
+        }
       }
     } catch (error) {
       set({ loading: false, error: error instanceof Error ? error.message : 'Error' });
@@ -101,14 +117,62 @@ export const useCloudStore = create<CloudState>((set, get) => ({
   setCurrentLibrary: async (id, name) => {
     const resolvedName = name ?? get().libraries.find((library) => library.id === id)?.name ?? 'Mi unidad';
     const displayName = resolvedName === '_System' ? 'Sistema' : resolvedName;
-    set({ currentLibraryId: id, currentParentId: null, currentPath: [{ id: null, name: displayName }] });
+    set({
+      currentLibraryId: id,
+      currentParentId: null,
+      currentPath: [{ id: null, name: displayName }],
+      navigationMode: 'library',
+      currentProject: null,
+    });
     await get().loadItems();
   },
   loadItems: async () => {
-    const { currentLibraryId, currentParentId } = get();
+    const { currentLibraryId, currentParentId, navigationMode, currentProject } = get();
     if (!currentLibraryId) return;
     set({ loading: true, error: null });
     try {
+      if (navigationMode === 'projects') {
+        const projects = await fetchProjects();
+        const items = projects.map(
+          (project): CloudItem => ({
+            id: project.id,
+            name: project.project_name,
+            library_id: currentLibraryId,
+            item_type: 'folder',
+            parent_id: null,
+          }),
+        );
+        const displayMap = projects.reduce<Record<number, { display_name: string }>>((acc, project) => {
+          acc[project.id] = { display_name: project.project_name };
+          return acc;
+        }, {});
+        set({ items, projects, displayMap, loading: false });
+        return;
+      }
+      if (navigationMode === 'project_hypotheses' && currentProject) {
+        const hypotheses = await fetchProjectHypotheses(currentProject.id);
+        const items = hypotheses.map(
+          (hypothesis): CloudItem => ({
+            id: hypothesis.experiment_id,
+            name: hypothesis.display_name,
+            library_id: currentLibraryId,
+            item_type: 'folder',
+            parent_id: null,
+          }),
+        );
+        const displayMap = hypotheses.reduce<Record<number, { display_name: string }>>((acc, hypothesis) => {
+          acc[hypothesis.experiment_id] = { display_name: hypothesis.display_name };
+          return acc;
+        }, {});
+        const hypothesisPaths = hypotheses.reduce<Record<number, string>>((acc, hypothesis) => {
+          if (hypothesis.drive_folder_path) {
+            acc[hypothesis.experiment_id] = hypothesis.drive_folder_path;
+          }
+          return acc;
+        }, {});
+        set({ items, displayMap, hypothesisPaths, loading: false });
+        return;
+      }
       const items = await fetchItems({ library_id: currentLibraryId, parent_id: currentParentId });
       set({ items, loading: false });
       try {
@@ -130,12 +194,62 @@ export const useCloudStore = create<CloudState>((set, get) => ({
     }
   },
   openFolder: async (folder) => {
+    const { navigationMode } = get();
+    if (navigationMode === 'projects') {
+      const project = get().projects.find((entry) => entry.id === folder.id) ?? null;
+      if (!project) {
+        set({ toast: 'Proyecto no encontrado.' });
+        return;
+      }
+      set({
+        currentProject: project,
+        navigationMode: 'project_hypotheses',
+        currentParentId: null,
+        currentPath: [
+          { id: null, name: 'Projects' },
+          { id: project.id, name: project.project_name },
+          { id: null, name: 'Hypotheses' },
+        ],
+      });
+      await get().loadItems();
+      return;
+    }
+    if (navigationMode === 'project_hypotheses') {
+      const relPath = get().hypothesisPaths[folder.id];
+      if (!relPath) {
+        set({ toast: 'Ruta de hipótesis no encontrada.' });
+        return;
+      }
+      set({ navigationMode: 'library', currentParentId: null });
+      await get().openSystemRelPath(relPath);
+      return;
+    }
     const { currentPath } = get();
     const displayName = get().getDisplayNameForItem(folder);
     set({ currentParentId: folder.id, currentPath: [...currentPath, { id: folder.id, name: displayName }] });
     await get().loadItems();
   },
   goToBreadcrumb: async (index) => {
+    const { navigationMode, currentProject } = get();
+    if (navigationMode !== 'library') {
+      if (index === 0) {
+        await get().openProjectsRoot();
+        return;
+      }
+      if (index === 1 && currentProject) {
+        set({
+          navigationMode: 'project_hypotheses',
+          currentParentId: null,
+          currentPath: [
+            { id: null, name: 'Projects' },
+            { id: currentProject.id, name: currentProject.project_name },
+            { id: null, name: 'Hypotheses' },
+          ],
+        });
+        await get().loadItems();
+        return;
+      }
+    }
     const path = get().currentPath.slice(0, index + 1);
     const parentEntry = path[path.length - 1];
     set({ currentPath: path, currentParentId: parentEntry.id });
@@ -165,7 +279,7 @@ export const useCloudStore = create<CloudState>((set, get) => ({
   openSystemRelPath: async (relPath) => {
     const cleanPath = relPath.replace(/^\/+/, '').replace(/\/+$/, '');
     if (!cleanPath) return;
-    const segments = cleanPath.split('/').filter(Boolean);
+    let segments = cleanPath.split('/').filter(Boolean);
     const { libraries } = get();
     const systemLibrary = libraries.find((library) => library.is_system || library.name === '_System');
     if (!systemLibrary) {
@@ -177,6 +291,7 @@ export const useCloudStore = create<CloudState>((set, get) => ({
     } else {
       await get().loadItems();
     }
+    set({ navigationMode: 'library', currentProject: null });
     for (const segment of segments) {
       const target = get().items.find(
         (item) => item.item_type === 'folder' && item.name.toLowerCase() === segment.toLowerCase(),
@@ -187,6 +302,26 @@ export const useCloudStore = create<CloudState>((set, get) => ({
       }
       await get().openFolder(target);
     }
+  },
+  openProjectsRoot: async () => {
+    const { libraries } = get();
+    const systemLibrary = libraries.find((library) => library.is_system || library.name === '_System');
+    if (!systemLibrary) {
+      set({ toast: 'No se encontró la biblioteca del sistema.' });
+      return;
+    }
+    if (get().currentLibraryId !== systemLibrary.id) {
+      await get().setCurrentLibrary(systemLibrary.id, systemLibrary.name);
+    } else {
+      await get().loadItems();
+    }
+    set({
+      navigationMode: 'projects',
+      currentProject: null,
+      currentParentId: null,
+      currentPath: [{ id: null, name: 'Projects' }],
+    });
+    await get().loadItems();
   },
   createFolder: async (name) => {
     const { currentLibraryId, currentParentId } = get();

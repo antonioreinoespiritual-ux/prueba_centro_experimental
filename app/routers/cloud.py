@@ -208,3 +208,28 @@ def display_map(
 ):
     items = cloud_service.build_display_map(db, library_id=library_id, parent_id=parent_id)
     return schemas.CloudDisplayMap(items=items)
+
+
+@router.get("/api/cloud/tree/projects", response_model=schemas.CloudProjectsTree)
+def projects_tree(db: Session = Depends(get_db)):
+    projects = cloud_service.list_projects_tree(db)
+    return schemas.CloudProjectsTree(projects=projects)
+
+
+@router.get("/api/cloud/projects", response_model=list[schemas.CloudProjectOut])
+def list_projects(db: Session = Depends(get_db)):
+    return cloud_service.list_projects(db)
+
+
+@router.get("/api/cloud/projects/{project_id}/hypotheses", response_model=list[schemas.CloudProjectHypothesisOut])
+def list_project_hypotheses(project_id: int, db: Session = Depends(get_db)):
+    experiments = cloud_service.list_project_hypotheses(db, project_id)
+    return [
+        schemas.CloudProjectHypothesisOut(
+            id=experiment.id,
+            experiment_id=experiment.id,
+            display_name=cloud_service.hypothesis_display_name(experiment),
+            drive_folder_path=experiment.drive_folder_path,
+        )
+        for experiment in experiments
+    ]
