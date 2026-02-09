@@ -95,6 +95,7 @@ curl -X POST http://127.0.0.1:8000/api/drive-sync/bootstrap
 ```bash
 curl -X POST http://127.0.0.1:8000/api/drive-sync/backfill
 ```
+Respuesta incluye `project_consolidated` y `project_consolidated_items` cuando se fusionan carpetas legacy `P*`.
 
 ### Sincronizar una hipótesis específica
 ```bash

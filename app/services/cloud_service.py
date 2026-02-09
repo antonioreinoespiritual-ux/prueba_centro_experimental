@@ -387,7 +387,7 @@ def build_display_map(
                 if match:
                     project = db.scalars(
                         select(models.CloudProject).where(
-                            models.CloudProject.folder_path == f\"{CLOUD_PROJECTS_DIR}/{match.group(1)}\"
+                            models.CloudProject.folder_path == f"{CLOUD_PROJECTS_DIR}/{match.group(1)}"
                         )
                     ).first()
                     if project:
