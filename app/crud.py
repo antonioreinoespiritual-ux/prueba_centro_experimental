@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import select, desc, delete, update, func, or_
 
 from . import models, schemas
+from .storage import remove_entity_files
 
 
 # ------------------------------------------------------------------ #
@@ -91,6 +92,12 @@ def delete_experiment(db: Session, experiment_id: int):
                 models.AIAnalysis.entity_id.in_(record_ids),
             )
         )
+        db.execute(
+            delete(models.EntityFile).where(
+                models.EntityFile.entity_type == "record",
+                models.EntityFile.entity_id.in_(record_ids),
+            )
+        )
 
     db.execute(
         delete(models.Documentation).where(
@@ -104,8 +111,17 @@ def delete_experiment(db: Session, experiment_id: int):
             models.AIAnalysis.entity_id == experiment_id,
         )
     )
+    db.execute(
+        delete(models.EntityFile).where(
+            models.EntityFile.entity_type == "experiment",
+            models.EntityFile.entity_id == experiment_id,
+        )
+    )
     db.delete(exp)
     db.commit()
+    remove_entity_files("experiment", experiment_id)
+    for record_id in record_ids:
+        remove_entity_files("record", record_id)
     return exp
 
 
@@ -476,8 +492,15 @@ def delete_record(db: Session, record_id: int):
             models.AIAnalysis.entity_id == record_id,
         )
     )
+    db.execute(
+        delete(models.EntityFile).where(
+            models.EntityFile.entity_type == "record",
+            models.EntityFile.entity_id == record_id,
+        )
+    )
     db.delete(rec)
     db.commit()
+    remove_entity_files("record", record_id)
     return rec
 
 
@@ -776,6 +799,77 @@ def update_documentation_note(db: Session, note_id: int, body: str):
     db.commit()
     db.refresh(note)
     return note
+
+
+# ------------------------------------------------------------------ #
+#  FILES
+# ------------------------------------------------------------------ #
+
+def create_entity_file(
+    db: Session,
+    entity_type: str,
+    entity_id: int,
+    display_name: str,
+    stored_name: str,
+    folder: str | None,
+    content_type: str | None,
+    size_bytes: int,
+) -> models.EntityFile:
+    obj = models.EntityFile(
+        entity_type=entity_type,
+        entity_id=entity_id,
+        display_name=display_name,
+        stored_name=stored_name,
+        folder=folder,
+        content_type=content_type,
+        size_bytes=size_bytes,
+    )
+    db.add(obj)
+    db.commit()
+    db.refresh(obj)
+    return obj
+
+
+def get_entity_file(db: Session, file_id: int) -> models.EntityFile | None:
+    q = select(models.EntityFile).where(models.EntityFile.id == file_id)
+    return db.execute(q).scalar_one_or_none()
+
+
+def list_entity_files(db: Session, entity_type: str, entity_id: int) -> list[models.EntityFile]:
+    q = (
+        select(models.EntityFile)
+        .where(models.EntityFile.entity_type == entity_type, models.EntityFile.entity_id == entity_id)
+        .order_by(desc(models.EntityFile.created_at))
+    )
+    return list(db.execute(q).scalars().all())
+
+
+def update_entity_file(
+    db: Session,
+    file_id: int,
+    display_name: str | None = None,
+    folder: str | None = None,
+) -> models.EntityFile | None:
+    file_obj = get_entity_file(db, file_id)
+    if not file_obj:
+        return None
+    if display_name is not None:
+        file_obj.display_name = display_name
+    if folder is not None:
+        file_obj.folder = folder
+    file_obj.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(file_obj)
+    return file_obj
+
+
+def delete_entity_file(db: Session, file_id: int) -> models.EntityFile | None:
+    file_obj = get_entity_file(db, file_id)
+    if not file_obj:
+        return None
+    db.delete(file_obj)
+    db.commit()
+    return file_obj
 
 
 # ------------------------------------------------------------------ #

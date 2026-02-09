@@ -1193,6 +1193,72 @@ tbody tr:nth-child(even):hover {
   transform: translateY(-1px);
 }
 
+/* ---------- FILE MANAGER ---------- */
+.file-manager {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.file-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  align-items: end;
+}
+
+.file-list {
+  display: grid;
+  gap: var(--space-sm);
+}
+
+.file-item {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr auto;
+  gap: var(--space-md);
+  padding: var(--space-md);
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(124,108,255,0.15);
+  background: rgba(11,14,22,0.7);
+}
+
+.file-item__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.file-item__name {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.file-item__details {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.file-item__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  justify-content: flex-end;
+}
+
+.file-drop {
+  border: 1px dashed rgba(124,108,255,0.4);
+  border-radius: var(--radius-lg);
+  padding: var(--space-md);
+  background: rgba(124,108,255,0.08);
+}
+
+.file-empty {
+  text-align: center;
+  padding: var(--space-lg);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
 /* ---------- PRINT ---------- */
 @media print {
   body { background: #fff; color: #000; }
