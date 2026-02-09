@@ -41,3 +41,8 @@ def sync_record(record_id: int, db: Session = Depends(get_db)):
     if not record:
         raise HTTPException(status_code=404, detail="Record not found")
     return {"id": record.id, "drive_folder_path": record.drive_folder_path}
+
+
+@router.post("/api/drive-sync/consolidate")
+def consolidate_duplicates(db: Session = Depends(get_db)):
+    return drive_sync_service.consolidate_duplicates(db)
