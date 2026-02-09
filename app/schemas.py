@@ -225,6 +225,7 @@ class ExperimentOut(BaseModel):
     traffic_type: TrafficType
     created_at: datetime
     updated_at: Optional[datetime] = None
+    drive_folder_path: Optional[str] = None
 
     hypothesis_type: Optional[str] = None
     independent_variable: Optional[str] = None
@@ -470,6 +471,7 @@ class RecordOut(BaseModel):
     cta_type: Optional[str] = None
     creative_id: Optional[str] = None
     record_status: str = "collecting"
+    drive_folder_path: Optional[str] = None
 
     created_at: datetime
     updated_at: Optional[datetime] = None

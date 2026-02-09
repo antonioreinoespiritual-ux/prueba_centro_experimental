@@ -38,6 +38,7 @@ class Experiment(Base):
     min_volume: Mapped[int | None] = mapped_column(Integer, nullable=True)
     volume_min_value: Mapped[int | None] = mapped_column(Integer, nullable=True)
     volume_unit: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    drive_folder_path: Mapped[str | None] = mapped_column(String(500), nullable=True, index=True)
 
     records: Mapped[list["ExperimentRecord"]] = relationship(
         "ExperimentRecord",
@@ -120,6 +121,7 @@ class ExperimentRecord(Base):
     cta_type: Mapped[str | None] = mapped_column(String(30), nullable=True)
     creative_id: Mapped[str | None] = mapped_column(String(200), nullable=True)
     record_status: Mapped[str] = mapped_column(String(20), nullable=False, default="collecting")
+    drive_folder_path: Mapped[str | None] = mapped_column(String(500), nullable=True, index=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, onupdate=datetime.utcnow)

@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import select, desc, delete, update, func, or_
 
 from . import models, schemas
+from .services import drive_sync_service
 from .storage import remove_entity_files
 
 
@@ -42,7 +43,7 @@ def create_experiment(db: Session, data: schemas.ExperimentCreate):
     contexto = (getattr(data, "contexto", None) or "").strip()
     if contexto:
         create_documentation_note(db, "experiment", obj.id, contexto)
-
+    drive_sync_service.ensure_hypothesis_folder(db, obj)
     return obj
 
 
@@ -70,6 +71,7 @@ def update_experiment(db: Session, experiment_id: int, data: schemas.ExperimentU
 
     db.commit()
     db.refresh(exp)
+    drive_sync_service.ensure_hypothesis_folder(db, exp)
     return exp
 
 
@@ -77,7 +79,9 @@ def delete_experiment(db: Session, experiment_id: int):
     exp = get_experiment(db, experiment_id)
     if not exp:
         return None
-
+    drive_sync_service.archive_drive_path(exp.drive_folder_path)
+    for record in exp.records:
+        drive_sync_service.archive_drive_path(record.drive_folder_path)
     record_ids = [record.id for record in exp.records]
     if record_ids:
         db.execute(
@@ -133,6 +137,8 @@ def delete_project(db: Session, project_name: str):
     )
     if not exp_ids:
         return 0
+    for exp in db.scalars(select(models.Experiment).where(models.Experiment.id.in_(exp_ids))).all():
+        drive_sync_service.archive_drive_path(exp.drive_folder_path)
 
     record_ids = list(
         db.execute(
@@ -143,6 +149,8 @@ def delete_project(db: Session, project_name: str):
     )
 
     if record_ids:
+        for rec in db.scalars(select(models.ExperimentRecord).where(models.ExperimentRecord.id.in_(record_ids))).all():
+            drive_sync_service.archive_drive_path(rec.drive_folder_path)
         db.execute(
             delete(models.Documentation).where(
                 models.Documentation.entity_type == "record",
@@ -392,7 +400,7 @@ def create_record(db: Session, data: schemas.RecordCreate):
     contexto_record = (getattr(data, "contexto_record", None) or "").strip()
     if contexto_record:
         create_documentation_note(db, "record", obj.id, contexto_record)
-
+    drive_sync_service.ensure_record_folder(db, obj)
     return obj
 
 
@@ -443,6 +451,7 @@ def update_record(db: Session, record_id: int, data: schemas.RecordUpdate):
         exp.updated_at = datetime.utcnow()
     db.commit()
     db.refresh(rec)
+    drive_sync_service.ensure_record_folder(db, rec)
     return rec
 
 
@@ -480,6 +489,7 @@ def delete_record(db: Session, record_id: int):
     rec = get_record(db, record_id)
     if not rec:
         return None
+    drive_sync_service.archive_drive_path(rec.drive_folder_path)
     db.execute(
         delete(models.Documentation).where(
             models.Documentation.entity_type == "record",
