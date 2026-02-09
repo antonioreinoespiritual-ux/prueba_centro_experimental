@@ -24,10 +24,16 @@ export function DetailsPanel() {
           <p>{selectedIds.length} elemento(s)</p>
         </div>
         {selected && (
-          <div>
-            <div className="cloud-detail__label">Nombre</div>
-            <p>{selected.name}</p>
-          </div>
+          <>
+            <div>
+              <div className="cloud-detail__label">Nombre</div>
+              <p>{selected.name}</p>
+            </div>
+            <div>
+              <div className="cloud-detail__label">Tipo</div>
+              <p>{selected.item_type}</p>
+            </div>
+          </>
         )}
         <div>
           <div className="cloud-detail__label">Permisos</div>

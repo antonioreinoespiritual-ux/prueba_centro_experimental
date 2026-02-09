@@ -2,7 +2,7 @@ import React from 'react';
 import { useCloudStore } from '../store/useCloudStore';
 
 export function FileGrid() {
-  const { selectedIds, toggleSelection, items, loading, error } = useCloudStore();
+  const { selectedIds, toggleSelection, items, loading, error, openFolder } = useCloudStore();
   const folders = items.filter((item) => item.item_type === 'folder');
 
   return (
@@ -15,6 +15,7 @@ export function FileGrid() {
           key={folder.id}
           className={`cloud-card ${selectedIds.includes(folder.id) ? 'is-selected' : ''}`}
           onClick={() => toggleSelection(folder.id)}
+          onDoubleClick={() => openFolder(folder)}
         >
           <div className="cloud-card__icon">📁</div>
           <div className="cloud-card__name">{folder.name}</div>

@@ -2,17 +2,17 @@ import React from 'react';
 import { useCloudStore } from '../store/useCloudStore';
 
 export function Breadcrumbs() {
-  const { currentPath, setCurrentPath } = useCloudStore();
+  const { currentPath, goToBreadcrumb } = useCloudStore();
 
   return (
     <div className="cloud-breadcrumbs">
       {currentPath.map((segment, index) => (
         <button
-          key={segment}
+          key={`${segment.name}-${index}`}
           className="cloud-breadcrumbs__item"
-          onClick={() => setCurrentPath(currentPath.slice(0, index + 1))}
+          onClick={() => goToBreadcrumb(index)}
         >
-          {segment}
+          {segment.name}
         </button>
       ))}
     </div>

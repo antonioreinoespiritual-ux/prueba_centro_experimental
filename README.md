@@ -14,6 +14,11 @@ uvicorn app.main:app --reload
 
 ## Frontend Cloud Drive (Vite + React)
 
+### Configuración API
+```bash
+export VITE_API_URL=http://127.0.0.1:8000
+```
+
 ### Desarrollo
 ```bash
 cd frontend/cloud

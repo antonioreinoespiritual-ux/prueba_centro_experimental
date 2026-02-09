@@ -7,7 +7,8 @@ interface TopbarProps {
 }
 
 export function Topbar({ onCreateFolder, onUploadFile }: TopbarProps) {
-  const { selectedIds, viewMode, setViewMode } = useCloudStore();
+  const { selectedIds, viewMode, setViewMode, renameSelected, moveSelected, deleteSelected, downloadSelected } =
+    useCloudStore();
   const hasSelection = selectedIds.length > 0;
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
 
@@ -25,11 +26,10 @@ export function Topbar({ onCreateFolder, onUploadFile }: TopbarProps) {
       </div>
       <div className="cloud-topbar__actions">
         <div className="cloud-topbar__group">
-          <button className="cloud-btn cloud-btn--primary" onClick={onCreateFolder}>Nuevo</button>
-          <button
-            className="cloud-btn"
-            onClick={() => fileInputRef.current?.click()}
-          >
+          <button className="cloud-btn cloud-btn--primary" onClick={onCreateFolder}>
+            Nueva carpeta
+          </button>
+          <button className="cloud-btn" onClick={() => fileInputRef.current?.click()}>
             Subir archivo
           </button>
           <input
@@ -42,15 +42,18 @@ export function Topbar({ onCreateFolder, onUploadFile }: TopbarProps) {
               event.currentTarget.value = '';
             }}
           />
-          {hasSelection && (
-            <>
-              <button className="cloud-btn">Compartir</button>
-              <button className="cloud-btn">Mover</button>
-              <button className="cloud-btn">Renombrar</button>
-              <button className="cloud-btn cloud-btn--danger">Borrar</button>
-              <button className="cloud-btn">Descargar</button>
-            </>
-          )}
+          <button className="cloud-btn" disabled={!hasSelection} onClick={renameSelected}>
+            Renombrar
+          </button>
+          <button className="cloud-btn" disabled={!hasSelection} onClick={moveSelected}>
+            Mover
+          </button>
+          <button className="cloud-btn cloud-btn--danger" disabled={!hasSelection} onClick={deleteSelected}>
+            Borrar
+          </button>
+          <button className="cloud-btn" disabled={!hasSelection} onClick={downloadSelected}>
+            Descargar
+          </button>
         </div>
         <div className="cloud-view-toggle" role="tablist">
           <button

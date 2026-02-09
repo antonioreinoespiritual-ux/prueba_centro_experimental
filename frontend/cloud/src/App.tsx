@@ -9,11 +9,17 @@ import { useCloudStore } from './store/useCloudStore';
 import { useEffect } from 'react';
 
 export default function App() {
-  const { viewMode, loadLibraries, createFolder, uploadFile } = useCloudStore();
+  const { viewMode, loadLibraries, createFolder, uploadFile, toast, clearToast } = useCloudStore();
 
   useEffect(() => {
     loadLibraries();
   }, [loadLibraries]);
+
+  useEffect(() => {
+    if (!toast) return undefined;
+    const timeout = window.setTimeout(() => clearToast(), 3000);
+    return () => window.clearTimeout(timeout);
+  }, [toast, clearToast]);
 
   const handleCreateFolder = async () => {
     const name = window.prompt('Nombre de la carpeta');
@@ -37,15 +43,12 @@ export default function App() {
               <p>Bibliotecas por hipótesis y records.</p>
               <Breadcrumbs />
             </div>
-            <div className="cloud-main__actions">
-              <button className="cloud-btn">Compartir</button>
-              <button className="cloud-btn">Mover</button>
-            </div>
           </div>
           {viewMode === 'list' ? <FileList /> : <FileGrid />}
         </main>
         <DetailsPanel />
       </div>
+      {toast && <div className="cloud-toast">{toast}</div>}
     </div>
   );
 }

@@ -14,7 +14,8 @@ function formatBytes(bytes?: number | null) {
 }
 
 export function FileList() {
-  const { selectedIds, toggleSelection, items, loading, error } = useCloudStore();
+  const { selectedIds, toggleSelection, items, loading, error, openFolder } = useCloudStore();
+  const folders = items.filter((item) => item.item_type === 'folder');
   const files = items.filter((item) => item.item_type === 'file');
 
   return (
@@ -28,10 +29,23 @@ export function FileList() {
       <div className="cloud-table__body">
         {loading && <div className="cloud-table__row">Cargando archivos...</div>}
         {error && <div className="cloud-table__row">Error: {error}</div>}
-        {!loading && !files.length && <div className="cloud-table__row">Sin archivos aún.</div>}
+        {!loading && !items.length && <div className="cloud-table__row">Sin archivos aún.</div>}
+        {folders.map((folder) => (
+          <button
+            key={`folder-${folder.id}`}
+            className={`cloud-table__row ${selectedIds.includes(folder.id) ? 'is-selected' : ''}`}
+            onClick={() => toggleSelection(folder.id)}
+            onDoubleClick={() => openFolder(folder)}
+          >
+            <span>📁 {folder.name}</span>
+            <span>{folder.owner_id ?? '—'}</span>
+            <span>—</span>
+            <span>—</span>
+          </button>
+        ))}
         {files.map((file) => (
           <button
-            key={file.id}
+            key={`file-${file.id}`}
             className={`cloud-table__row ${selectedIds.includes(file.id) ? 'is-selected' : ''}`}
             onClick={() => toggleSelection(file.id)}
           >
