@@ -4,6 +4,7 @@ from __future__ import annotations
 from datetime import datetime
 
 from sqlalchemy import String, Integer, DateTime, ForeignKey, Float, Text, UniqueConstraint
+from typing import Optional
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .database import Base
@@ -251,7 +252,7 @@ class CloudItem(Base):
     updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, onupdate=datetime.utcnow)
 
     library: Mapped["CloudLibrary"] = relationship("CloudLibrary", back_populates="items")
-    parent: Mapped["CloudItem" | None] = relationship("CloudItem", remote_side="CloudItem.id")
+    parent: Mapped[Optional["CloudItem"]] = relationship("CloudItem", remote_side="CloudItem.id")
 
 
 class CloudShare(Base):
