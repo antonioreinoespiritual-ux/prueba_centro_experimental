@@ -80,18 +80,22 @@ def _rename_if_needed(old_rel: str | None, new_rel: str) -> str:
 
 
 def _pick_hypothesis_title(experiment: models.Experiment) -> str:
-    for value in (experiment.metric_x, experiment.independent_variable, experiment.hypothesis):
-        if value and value.strip():
-            return value
-    return f"hypothesis-{experiment.id}"
+    metric_x = (experiment.metric_x or "").strip()
+    if metric_x:
+        return metric_x
+    independent_variable = (experiment.independent_variable or "").strip()
+    if independent_variable:
+        return independent_variable
+    hypothesis = (experiment.hypothesis or "").strip()
+    return hypothesis or f"hypothesis-{experiment.id}"
 
 
 def ensure_hypothesis_folder(db: Session, experiment: models.Experiment) -> models.Experiment:
     ensure_base_folders()
     title_source = _pick_hypothesis_title(experiment)
-    folder_name = _build_folder_name("H", experiment.id, title_source)
-    desired_rel = _available_rel_path("Hypotheses", folder_name, experiment.drive_folder_path)
-    updated_rel = _rename_if_needed(experiment.drive_folder_path, desired_rel)
+    slug = _slugify(title_source)
+    target_rel = f"Hypotheses/H{experiment.id}_{slug}"
+    updated_rel = _rename_if_needed(experiment.drive_folder_path, target_rel)
     if experiment.drive_folder_path != updated_rel:
         experiment.drive_folder_path = updated_rel
         db.add(experiment)
@@ -143,24 +147,41 @@ def backfill_all(db: Session) -> dict[str, int]:
     ensure_base_folders()
     created = 0
     updated = 0
+    skipped = 0
+    errors: list[str] = []
 
     for exp in db.scalars(select(models.Experiment)).all():
         before = exp.drive_folder_path
-        exp = ensure_hypothesis_folder(db, exp)
-        if before is None and exp.drive_folder_path:
-            created += 1
-        elif before != exp.drive_folder_path:
-            updated += 1
+        try:
+            exp = ensure_hypothesis_folder(db, exp)
+            if before is None and exp.drive_folder_path:
+                created += 1
+            elif before != exp.drive_folder_path:
+                updated += 1
+            else:
+                skipped += 1
+        except Exception as exc:  # noqa: BLE001
+            errors.append(f"experiment:{exp.id}:{exc}")
 
     for record in db.scalars(select(models.ExperimentRecord)).all():
         before = record.drive_folder_path
-        record = ensure_record_folder(db, record)
-        if before is None and record.drive_folder_path:
-            created += 1
-        elif before != record.drive_folder_path:
-            updated += 1
+        try:
+            record = ensure_record_folder(db, record)
+            if before is None and record.drive_folder_path:
+                created += 1
+            elif before != record.drive_folder_path:
+                updated += 1
+            else:
+                skipped += 1
+        except Exception as exc:  # noqa: BLE001
+            errors.append(f"record:{record.id}:{exc}")
 
-    return {"created": created, "updated": updated}
+    return {
+        "created": created,
+        "updated": updated,
+        "skipped": skipped,
+        "errors": errors,
+    }
 
 
 def sync_hypothesis(db: Session, experiment_id: int) -> models.Experiment | None:
