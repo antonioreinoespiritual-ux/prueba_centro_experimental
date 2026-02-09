@@ -230,6 +230,43 @@
         </div>
       </div>
     </div>
+
+    <div class="card mt-lg hidden" id="filesPanel">
+      <div class="section-header">
+        <div>
+          <h2>Archivos de la hipótesis</h2>
+          <div class="text-sm text-muted mt-sm">Guarda briefs, creativos y evidencia en carpetas por experimento.</div>
+        </div>
+        <button id="btnFilesReload" class="btn-secondary">Recargar archivos</button>
+      </div>
+      <div class="file-manager">
+        <div class="file-toolbar">
+          <div class="field-group">
+            <label for="fileFolderFilter">Carpeta</label>
+            <select id="fileFolderFilter"></select>
+          </div>
+          <div class="field-group">
+            <label for="fileSearch">Buscar</label>
+            <input id="fileSearch" type="text" placeholder="nombre, tipo, etiqueta..." />
+          </div>
+          <div class="field-group">
+            <label for="fileFolderNew">Nueva carpeta</label>
+            <input id="fileFolderNew" type="text" placeholder="ej: briefs/abril" />
+          </div>
+          <div class="field-group">
+            <label for="fileUpload">Cargar archivos</label>
+            <input id="fileUpload" type="file" multiple />
+          </div>
+          <div class="field-group" style="display:flex; align-items:end;">
+            <button id="btnUpload" class="btn-success">Cargar</button>
+          </div>
+        </div>
+        <div class="file-drop text-sm text-muted">
+          Límite 3GB por archivo · Se guardan en filesystem local por hipótesis.
+        </div>
+        <div id="fileList" class="file-list"></div>
+      </div>
+    </div>
   </div>
 
   <div class="toast-container" id="toastContainer"></div>
@@ -239,6 +276,7 @@
   const $ = (id) => document.getElementById(id);
   let experiments = [];
   let currentExperiment = null;
+  let filesCache = [];
 
   function showToast(message, type = "success") {
     const container = $("toastContainer");
@@ -277,6 +315,12 @@
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
+    if (!response.ok) throw new Error(await response.text());
+    return response.json();
+  }
+
+  async function apiDelete(path) {
+    const response = await fetch(API_BASE + path, { method: "DELETE" });
     if (!response.ok) throw new Error(await response.text());
     return response.json();
   }
@@ -342,6 +386,158 @@
     $("sumStatusMeta").textContent = `Actualizado: ${exp.updated_at || exp.created_at || "—"}`;
   }
 
+  function formatBytes(bytes) {
+    if (!bytes && bytes !== 0) return "—";
+    const units = ["B", "KB", "MB", "GB", "TB"];
+    let value = bytes;
+    let index = 0;
+    while (value >= 1024 && index < units.length - 1) {
+      value /= 1024;
+      index += 1;
+    }
+    return `${value.toFixed(value >= 10 || index === 0 ? 0 : 1)} ${units[index]}`;
+  }
+
+  function getExperimentFileContext() {
+    if (!currentExperiment) return null;
+    return { entityType: "experiment", entityId: currentExperiment.id };
+  }
+
+  function updateFolderFilter() {
+    const select = $("fileFolderFilter");
+    const prev = select.value;
+    select.innerHTML = "";
+    const optAll = document.createElement("option");
+    optAll.value = "";
+    optAll.textContent = "Todas";
+    select.appendChild(optAll);
+    const folders = [...new Set(filesCache.map((file) => file.folder || ""))];
+    folders.sort((a, b) => a.localeCompare(b, "es"));
+    folders.forEach((folder) => {
+      const opt = document.createElement("option");
+      opt.value = folder;
+      opt.textContent = folder || "Sin carpeta";
+      select.appendChild(opt);
+    });
+    if (prev && [...select.options].some((o) => o.value === prev)) {
+      select.value = prev;
+    }
+  }
+
+  function renderFiles() {
+    const list = $("fileList");
+    list.innerHTML = "";
+    const search = $("fileSearch").value.trim().toLowerCase();
+    const folder = $("fileFolderFilter").value;
+    let filtered = filesCache;
+    if (folder) {
+      filtered = filtered.filter((file) => (file.folder || "") === folder);
+    }
+    if (search) {
+      filtered = filtered.filter((file) => file.display_name.toLowerCase().includes(search));
+    }
+    if (!filtered.length) {
+      list.innerHTML = '<div class="file-empty">No hay archivos para este filtro.</div>';
+      return;
+    }
+    filtered.forEach((file) => {
+      const item = document.createElement("div");
+      item.className = "file-item";
+      const folderLabel = file.folder || "Sin carpeta";
+      const uploadedAt = file.updated_at || file.created_at || "—";
+      item.innerHTML = `
+        <div class="file-item__meta">
+          <div class="file-item__name">${file.display_name}</div>
+          <div class="file-item__details">Carpeta: ${folderLabel}</div>
+          <div class="file-item__details">Tamaño: ${formatBytes(file.size_bytes)} · Tipo: ${file.content_type || "—"}</div>
+          <div class="file-item__details">Actualizado: ${uploadedAt}</div>
+        </div>
+        <div class="file-item__details">ID #${file.id}</div>
+        <div class="file-item__actions">
+          <button class="btn-secondary" data-action="download">Descargar</button>
+          <button class="btn-ghost" data-action="rename">Renombrar</button>
+          <button class="btn-ghost" data-action="move">Mover</button>
+          <button class="btn-warning" data-action="delete">Eliminar</button>
+        </div>
+      `;
+      item.querySelector('[data-action="download"]').addEventListener("click", () => {
+        window.open(`/files/${file.id}/download`, "_blank");
+      });
+      item.querySelector('[data-action="rename"]').addEventListener("click", async () => {
+        const name = prompt("Nuevo nombre para el archivo:", file.display_name);
+        if (!name) return;
+        try {
+          await apiPatch(`/files/${file.id}`, { display_name: name });
+          await loadFiles();
+          showToast("Archivo renombrado", "success");
+        } catch (error) {
+          showToast(String(error), "error");
+        }
+      });
+      item.querySelector('[data-action="move"]').addEventListener("click", async () => {
+        const folderName = prompt("Nueva carpeta (vacío para raíz):", file.folder || "");
+        if (folderName === null) return;
+        try {
+          await apiPatch(`/files/${file.id}`, { folder: folderName });
+          await loadFiles();
+          showToast("Archivo movido", "success");
+        } catch (error) {
+          showToast(String(error), "error");
+        }
+      });
+      item.querySelector('[data-action="delete"]').addEventListener("click", async () => {
+        if (!confirm("¿Eliminar este archivo?")) return;
+        try {
+          await apiDelete(`/files/${file.id}`);
+          await loadFiles();
+          showToast("Archivo eliminado", "success");
+        } catch (error) {
+          showToast(String(error), "error");
+        }
+      });
+      list.appendChild(item);
+    });
+  }
+
+  async function loadFiles() {
+    const ctx = getExperimentFileContext();
+    if (!ctx) return;
+    try {
+      filesCache = await apiGet(`/files/${ctx.entityType}/${ctx.entityId}`);
+      updateFolderFilter();
+      renderFiles();
+    } catch (error) {
+      showToast(String(error), "error");
+    }
+  }
+
+  async function uploadFiles() {
+    const ctx = getExperimentFileContext();
+    if (!ctx) return;
+    const files = $("fileUpload").files;
+    if (!files.length) {
+      showToast("Selecciona al menos un archivo.", "error");
+      return;
+    }
+    const folder = $("fileFolderNew").value.trim() || $("fileFolderFilter").value;
+    const formData = new FormData();
+    [...files].forEach((file) => formData.append("files", file));
+    if (folder) formData.append("folder", folder);
+    try {
+      const response = await fetch(`/files/${ctx.entityType}/${ctx.entityId}`, {
+        method: "POST",
+        body: formData,
+      });
+      if (!response.ok) throw new Error(await response.text());
+      $("fileUpload").value = "";
+      $("fileFolderNew").value = "";
+      await loadFiles();
+      showToast("Archivos cargados", "success");
+    } catch (error) {
+      showToast(String(error), "error");
+    }
+  }
+
   async function loadExperiment() {
     const exp = findExperiment();
     if (!exp) {
@@ -351,8 +547,10 @@
     currentExperiment = exp;
     $("projectSummary").classList.remove("hidden");
     $("projectForm").classList.remove("hidden");
+    $("filesPanel").classList.remove("hidden");
     updateSummary(exp);
     fillForm(exp);
+    loadFiles();
   }
 
   async function saveExperiment() {
@@ -401,6 +599,10 @@
   $("btnSave").addEventListener("click", saveExperiment);
   $("btnReset").addEventListener("click", resetForm);
   $("btnReload").addEventListener("click", loadAll);
+  $("btnFilesReload").addEventListener("click", loadFiles);
+  $("btnUpload").addEventListener("click", uploadFiles);
+  $("fileFolderFilter").addEventListener("change", renderFiles);
+  $("fileSearch").addEventListener("input", renderFiles);
 
   loadAll();
 </script>

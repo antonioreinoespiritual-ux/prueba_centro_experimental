@@ -1,0 +1,412 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Carpetas — Centro Experimental</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/design-system.css">
+</head>
+<body class="drive-body">
+  <div class="drive-app" role="main">
+    <header class="drive-header">
+      <div class="drive-header__brand">
+        <div class="drive-logo">
+          <span class="drive-logo__mark"></span>
+          <span class="drive-logo__text">Drive</span>
+        </div>
+        <div class="drive-search">
+          <span class="drive-search__icon">🔍</span>
+          <input id="globalSearch" type="text" placeholder="Buscar en Drive" />
+        </div>
+      </div>
+      <div class="drive-header__actions">
+        <button class="drive-icon-btn" title="Filtros">⚙️</button>
+        <button class="drive-icon-btn" title="Ayuda">❔</button>
+        <button class="drive-icon-btn" title="Configuración">⚙</button>
+        <div class="drive-avatar">L</div>
+      </div>
+    </header>
+
+    <div class="drive-layout">
+      <aside class="drive-sidebar">
+        <button class="drive-btn-primary" id="btnNewFolder">+ Nuevo</button>
+        <nav class="drive-nav">
+          <button class="drive-nav__item active">Mi unidad</button>
+          <button class="drive-nav__item">Recientes</button>
+          <button class="drive-nav__item">Destacados</button>
+          <button class="drive-nav__item">Papelera</button>
+        </nav>
+        <div class="drive-storage">
+          <div class="drive-storage__label">Almacenamiento</div>
+          <div class="drive-storage__bar"><span></span></div>
+          <div class="drive-storage__meta">27.55 GB de 300 GB</div>
+        </div>
+      </aside>
+
+      <main class="drive-content">
+        <div class="drive-topline">
+          <div>
+            <div class="drive-title" id="pageTitle">Mi unidad</div>
+            <div class="drive-subtitle" id="pageSubtitle">Carpetas de la hipótesis</div>
+          </div>
+          <div class="drive-topline__actions">
+            <button class="drive-pill" id="viewList">Lista</button>
+            <button class="drive-pill" id="viewGrid">Cuadrícula</button>
+          </div>
+        </div>
+
+        <div class="drive-section">
+          <div class="drive-section__header">
+            <h3>Carpetas sugeridas</h3>
+            <span class="tag" id="folderCount">0</span>
+          </div>
+          <div id="folderGrid" class="drive-folder-row"></div>
+        </div>
+
+        <div class="drive-section">
+          <div class="drive-section__header">
+            <h3>Archivos</h3>
+            <div class="drive-section__filters">
+              <input id="fileSearch" type="text" placeholder="Buscar archivos" />
+              <div class="drive-breadcrumb" id="breadcrumb"></div>
+              <input id="folderInput" type="text" placeholder="Nueva carpeta (ej: creatives/tiktok)" />
+              <input id="fileUpload" type="file" multiple />
+              <button id="btnUpload" class="drive-btn-primary">Cargar</button>
+            </div>
+          </div>
+          <div class="drive-table">
+            <div class="drive-table__header">
+              <span>Nombre</span>
+              <span>Propietario</span>
+              <span>Fecha</span>
+            </div>
+            <div id="fileList" class="drive-table__body"></div>
+          </div>
+        </div>
+      </main>
+
+      <aside class="drive-detail">
+        <div class="drive-detail__header">
+          <div class="drive-detail__title">Detalles</div>
+        </div>
+        <div class="drive-detail__body" id="detailPanel">
+          <div class="drive-detail__placeholder">
+            Selecciona un elemento para ver los detalles.
+          </div>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <div class="toast-container" id="toastContainer"></div>
+
+<script>
+  const API_BASE = "";
+  const $ = (id) => document.getElementById(id);
+  const params = new URLSearchParams(window.location.search);
+  const storedType = localStorage.getItem("drive_entity_type") || "experiment";
+  const storedId = Number(localStorage.getItem("drive_entity_id") || "0");
+  const storedName = localStorage.getItem("drive_entity_name") || "";
+  const entityType = params.get("type") || storedType;
+  const entityId = Number(params.get("id")) || storedId;
+  const entityName = params.get("name") || storedName;
+  let filesCache = [];
+  let currentFolder = "";
+  let virtualFolders = new Set();
+
+  function showToast(message, type = "success") {
+    const container = $("toastContainer");
+    const toast = document.createElement("div");
+    toast.className = `toast toast--${type}`;
+    toast.textContent = message;
+    container.appendChild(toast);
+    setTimeout(() => toast.remove(), 3000);
+  }
+
+  function formatBytes(bytes) {
+    if (!bytes && bytes !== 0) return "—";
+    const units = ["B", "KB", "MB", "GB", "TB"];
+    let value = bytes;
+    let index = 0;
+    while (value >= 1024 && index < units.length - 1) {
+      value /= 1024;
+      index += 1;
+    }
+    return `${value.toFixed(value >= 10 || index === 0 ? 0 : 1)} ${units[index]}`;
+  }
+
+  async function apiGet(path) {
+    const response = await fetch(API_BASE + path);
+    if (!response.ok) throw new Error(await response.text());
+    return response.json();
+  }
+
+  async function apiPatch(path, body) {
+    const response = await fetch(API_BASE + path, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!response.ok) throw new Error(await response.text());
+    return response.json();
+  }
+
+  async function apiDelete(path) {
+    const response = await fetch(API_BASE + path, { method: "DELETE" });
+    if (!response.ok) throw new Error(await response.text());
+    return response.json();
+  }
+
+  function buildFolderSet() {
+    const folders = new Set();
+    filesCache.forEach((file) => {
+      if (!file.folder) return;
+      const parts = file.folder.split("/");
+      let path = "";
+      parts.forEach((part) => {
+        path = path ? `${path}/${part}` : part;
+        folders.add(path);
+      });
+    });
+    virtualFolders.forEach((folder) => folders.add(folder));
+    return folders;
+  }
+
+  function getChildFolders(parent) {
+    const folders = buildFolderSet();
+    const children = new Set();
+    const prefix = parent ? `${parent}/` : "";
+    folders.forEach((folder) => {
+      if (!parent) {
+        if (!folder.includes("/")) {
+          children.add(folder);
+        } else {
+          children.add(folder.split("/")[0]);
+        }
+        return;
+      }
+      if (folder === parent) return;
+      if (!folder.startsWith(prefix)) return;
+      const remainder = folder.slice(prefix.length);
+      const next = remainder.split("/")[0];
+      if (next) {
+        children.add(`${parent}/${next}`);
+      }
+    });
+    return [...children].sort((a, b) => a.localeCompare(b, "es"));
+  }
+
+  function renderBreadcrumb() {
+    const container = $("breadcrumb");
+    container.innerHTML = "";
+    const parts = currentFolder ? currentFolder.split("/") : [];
+    const root = document.createElement("button");
+    root.className = "drive-breadcrumb__item";
+    root.textContent = "Mi unidad";
+    root.addEventListener("click", () => {
+      currentFolder = "";
+      renderAll();
+    });
+    container.appendChild(root);
+    let path = "";
+    parts.forEach((part) => {
+      path = path ? `${path}/${part}` : part;
+      const item = document.createElement("button");
+      item.className = "drive-breadcrumb__item";
+      item.textContent = part;
+      item.addEventListener("click", () => {
+        currentFolder = path;
+        renderAll();
+      });
+      container.appendChild(item);
+    });
+  }
+
+  function renderFolderGrid() {
+    const grid = $("folderGrid");
+    grid.innerHTML = "";
+    const children = getChildFolders(currentFolder);
+    $("folderCount").textContent = `${children.length}`;
+    if (!children.length) {
+      grid.innerHTML = '<div class="file-empty">No hay carpetas en esta ubicación.</div>';
+      return;
+    }
+    children.forEach((folder) => {
+      const card = document.createElement("button");
+      card.type = "button";
+      card.className = "drive-folder-card";
+      card.innerHTML = `
+        <div class="drive-folder-card__icon">📁</div>
+        <div class="drive-folder-card__name">${folder.split("/").slice(-1)[0]}</div>
+      `;
+      card.addEventListener("click", () => {
+        currentFolder = folder;
+        renderAll();
+      });
+      grid.appendChild(card);
+    });
+  }
+
+  function renderFiles() {
+    const list = $("fileList");
+    list.innerHTML = "";
+    const search = $("fileSearch").value.trim().toLowerCase();
+    let filtered = filesCache.filter((file) => (file.folder || "") === currentFolder);
+    if (search) {
+      filtered = filtered.filter((file) => file.display_name.toLowerCase().includes(search));
+    }
+    if (!filtered.length) {
+      list.innerHTML = '<div class="file-empty">No hay archivos en esta carpeta.</div>';
+      return;
+    }
+    filtered.forEach((file) => {
+      const row = document.createElement("div");
+      row.className = "drive-row";
+      const uploadedAt = file.updated_at || file.created_at || "—";
+      row.innerHTML = `
+        <div class="drive-row__name">
+          <span class="drive-row__icon">📄</span>
+          <span>${file.display_name}</span>
+        </div>
+        <div class="drive-row__owner">yo</div>
+        <div class="drive-row__date">${uploadedAt}</div>
+        <div class="drive-row__actions">
+          <button data-action="download">⬇️</button>
+          <button data-action="rename">✏️</button>
+          <button data-action="move">📁</button>
+          <button data-action="delete">🗑️</button>
+        </div>
+      `;
+      row.addEventListener("click", () => {
+        $("detailPanel").innerHTML = `
+          <div class="drive-detail__item">
+            <strong>${file.display_name}</strong>
+            <div class="text-sm text-muted">Tamaño: ${formatBytes(file.size_bytes)}</div>
+            <div class="text-sm text-muted">Tipo: ${file.content_type || "—"}</div>
+            <div class="text-sm text-muted">Carpeta: ${file.folder || "Raíz"}</div>
+          </div>
+        `;
+      });
+      row.querySelector('[data-action="download"]').addEventListener("click", (event) => {
+        event.stopPropagation();
+        window.open(`/files/${file.id}/download`, "_blank");
+      });
+      row.querySelector('[data-action="rename"]').addEventListener("click", async (event) => {
+        event.stopPropagation();
+        const name = prompt("Nuevo nombre para el archivo:", file.display_name);
+        if (!name) return;
+        try {
+          await apiPatch(`/files/${file.id}`, { display_name: name });
+          await loadFiles();
+          showToast("Archivo renombrado", "success");
+        } catch (error) {
+          showToast(String(error), "error");
+        }
+      });
+      row.querySelector('[data-action="move"]').addEventListener("click", async (event) => {
+        event.stopPropagation();
+        const folderName = prompt("Nueva carpeta (vacío para raíz):", file.folder || "");
+        if (folderName === null) return;
+        try {
+          await apiPatch(`/files/${file.id}`, { folder: folderName });
+          await loadFiles();
+          showToast("Archivo movido", "success");
+        } catch (error) {
+          showToast(String(error), "error");
+        }
+      });
+      row.querySelector('[data-action="delete"]').addEventListener("click", async (event) => {
+        event.stopPropagation();
+        if (!confirm("¿Eliminar este archivo?")) return;
+        try {
+          await apiDelete(`/files/${file.id}`);
+          await loadFiles();
+          showToast("Archivo eliminado", "success");
+        } catch (error) {
+          showToast(String(error), "error");
+        }
+      });
+      list.appendChild(row);
+    });
+  }
+
+  function renderAll() {
+    renderBreadcrumb();
+    renderFolderGrid();
+    renderFiles();
+  }
+
+  async function loadFiles() {
+    if (!entityId || !entityType) {
+      showToast("Falta el ID de la entidad.", "error");
+      return;
+    }
+    try {
+      filesCache = await apiGet(`/files/${entityType}/${entityId}`);
+      renderAll();
+    } catch (error) {
+      showToast(String(error), "error");
+    }
+  }
+
+  async function uploadFiles() {
+    const files = $("fileUpload").files;
+    if (!files.length) {
+      showToast("Selecciona al menos un archivo.", "error");
+      return;
+    }
+    const folderInput = $("folderInput").value.trim();
+    if (folderInput) {
+      virtualFolders.add(folderInput);
+      currentFolder = folderInput;
+    }
+    const formData = new FormData();
+    [...files].forEach((file) => formData.append("files", file));
+    if (currentFolder) formData.append("folder", currentFolder);
+    try {
+      const response = await fetch(`/files/${entityType}/${entityId}`, {
+        method: "POST",
+        body: formData,
+      });
+      if (!response.ok) throw new Error(await response.text());
+      $("fileUpload").value = "";
+      $("folderInput").value = "";
+      await loadFiles();
+      showToast("Archivos cargados", "success");
+    } catch (error) {
+      showToast(String(error), "error");
+    }
+  }
+
+  $("btnUpload").addEventListener("click", uploadFiles);
+  $("fileSearch").addEventListener("input", renderFiles);
+  $("globalSearch").addEventListener("input", () => {
+    $("fileSearch").value = $("globalSearch").value;
+    renderFiles();
+  });
+  $("btnNewFolder").addEventListener("click", () => {
+    const name = prompt("Nombre de la carpeta:");
+    if (!name) return;
+    virtualFolders.add(name);
+    currentFolder = name;
+    renderAll();
+  });
+
+  if (entityName) {
+    $("pageSubtitle").textContent = `Carpetas de ${entityName}`;
+    $("pageTitle").textContent = entityName;
+  }
+
+  $("viewList").addEventListener("click", () => {
+    $("folderGrid").classList.remove("drive-folder-row--compact");
+  });
+
+  $("viewGrid").addEventListener("click", () => {
+    $("folderGrid").classList.add("drive-folder-row--compact");
+  });
+
+  loadFiles();
+</script>
+</body>
+</html>

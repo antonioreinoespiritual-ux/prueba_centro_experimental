@@ -190,6 +190,32 @@ def ensure_schema() -> None:
             ON record_update_audits (record_id)
         """)
 
+    # --- Entity files ---
+    cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='entity_files'")
+    if not cur.fetchone():
+        cur.execute("""
+            CREATE TABLE entity_files (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                entity_type VARCHAR(20) NOT NULL,
+                entity_id INTEGER NOT NULL,
+                display_name VARCHAR(255) NOT NULL,
+                stored_name VARCHAR(255) NOT NULL,
+                folder VARCHAR(255),
+                content_type VARCHAR(100),
+                size_bytes INTEGER NOT NULL,
+                created_at DATETIME NOT NULL DEFAULT (datetime('now')),
+                updated_at DATETIME
+            )
+        """)
+        cur.execute("""
+            CREATE INDEX IF NOT EXISTS ix_entity_files_entity
+            ON entity_files (entity_type, entity_id)
+        """)
+        cur.execute("""
+            CREATE INDEX IF NOT EXISTS ix_entity_files_folder
+            ON entity_files (folder)
+        """)
+
     # --- Chat memory ---
     cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='chat_memory'")
     if not cur.fetchone():

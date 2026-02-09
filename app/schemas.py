@@ -131,6 +131,27 @@ class DocumentationOut(BaseModel):
     notes: list[DocumentationNoteOut] = []
 
 
+# ---------- Files ----------
+class EntityFileRename(BaseModel):
+    display_name: Optional[str] = Field(default=None, max_length=255)
+    folder: Optional[str] = Field(default=None, max_length=255)
+
+
+class EntityFileOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    entity_type: str
+    entity_id: int
+    display_name: str
+    stored_name: str
+    folder: Optional[str] = None
+    content_type: Optional[str] = None
+    size_bytes: int
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+
 # ---------- AI Analysis ----------
 class AIAnalysisOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)

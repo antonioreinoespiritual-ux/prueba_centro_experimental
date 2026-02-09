@@ -154,6 +154,7 @@
           <button class="btn-doc" id="btnRecordDoc">Documentacion</button>
           <button class="btn-ai" id="btnRecordAi">Analisis IA</button>
           <button class="btn-ai" id="btnRecordAiFull">Analisis IA Completo</button>
+          <button class="btn-doc" id="btnRecordFolders">CARPETAS</button>
           <button class="btn-secondary" id="btnCloseRecordModal">Cerrar</button>
         </div>
       </div>
@@ -517,6 +518,13 @@
       $("btnRecordAiFull").onclick = (event) => {
         event.stopPropagation();
         openAiCombined("record", record.id, recordTitle);
+      };
+      $("btnRecordFolders").onclick = (event) => {
+        event.stopPropagation();
+        localStorage.setItem("drive_entity_type", "record");
+        localStorage.setItem("drive_entity_id", String(record.id));
+        localStorage.setItem("drive_entity_name", recordTitle || "");
+        window.open(`/static/files.html?type=record&id=${record.id}&name=${encodeURIComponent(recordTitle)}`, "_blank");
       };
       $("modalProject").textContent = exp?.project_name || "—";
       $("modalExperiment").textContent = exp ? `Experimento #${exp.id}` : "—";
