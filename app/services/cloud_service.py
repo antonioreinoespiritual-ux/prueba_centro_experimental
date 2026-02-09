@@ -250,16 +250,33 @@ def list_hypothesis_records(db: Session, hypothesis_id: int) -> list[models.Clou
         return []
     library = ensure_system_library(db)
     library = ensure_library_root(db, library)
-    hypothesis_item = _ensure_cloud_item_for_rel_path(db, library, experiment.drive_folder_path, create_if_missing=False)
-    if not hypothesis_item:
-        return []
     project = get_or_create_project(db, experiment.project_name)
     ensure_records_folder(project, experiment)
     records_rel = f"{experiment.drive_folder_path.rstrip('/')}/Records"
     records_item = _ensure_cloud_item_for_rel_path(db, library, records_rel, create_if_missing=True)
     if not records_item:
         return []
-    return list_items(db, parent_id=records_item.id, library_id=library.id)
+
+    records = db.scalars(
+        select(models.ExperimentRecord)
+        .where(models.ExperimentRecord.experiment_id == hypothesis_id)
+        .order_by(models.ExperimentRecord.id.asc())
+    ).all()
+
+    cloud_items: list[models.CloudItem] = []
+    for record in records:
+        if not record.drive_folder_path:
+            continue
+        record_item = _ensure_cloud_item_for_rel_path(db, library, record.drive_folder_path, create_if_missing=True)
+        if not record_item:
+            continue
+        if record_item.parent_id != records_item.id:
+            record_item.parent_id = records_item.id
+            db.add(record_item)
+            db.commit()
+            db.refresh(record_item)
+        cloud_items.append(record_item)
+    return cloud_items
 
 
 def create_folder(
