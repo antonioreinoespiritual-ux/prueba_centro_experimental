@@ -303,5 +303,16 @@ def ensure_schema() -> None:
             ON assistant_drafts (assistant_type)
         """)
 
+    # --- Cloud Drive ---
+    cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='cloud_libraries'")
+    if cur.fetchone():
+        if not _column_exists(cur, "cloud_libraries", "root_path"):
+            cur.execute("ALTER TABLE cloud_libraries ADD COLUMN root_path VARCHAR(500)")
+
+    cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='cloud_items'")
+    if cur.fetchone():
+        if not _column_exists(cur, "cloud_items", "rel_path"):
+            cur.execute("ALTER TABLE cloud_items ADD COLUMN rel_path VARCHAR(500)")
+
     conn.commit()
     conn.close()

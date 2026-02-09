@@ -7,6 +7,12 @@
 pip install -r requirements.txt
 ```
 
+### Configuración de almacenamiento local
+```bash
+export CLOUD_ROOT=/Users/m2/CloudDriveData
+mkdir -p /Users/m2/CloudDriveData
+```
+
 ### Desarrollo
 ```bash
 uvicorn app.main:app --reload
@@ -77,3 +83,10 @@ curl -X POST http://127.0.0.1:8000/api/cloud/files/complete-upload \
 ```bash
 curl -L "http://127.0.0.1:8000/api/cloud/files/1/download" -o archivo.pdf
 ```
+
+## Smoke test (filesystem real)
+1. Crea una biblioteca y confirma que existe en `/Users/m2/CloudDriveData`.
+2. Desde la UI crea una carpeta “Docs” y verifica en Finder/terminal.
+3. Sube `test.txt` y confirma que el archivo aparece físicamente.
+4. Renombra, mueve y borra desde la UI; verifica en disco.
+5. Descarga el archivo desde la UI y valida el contenido.

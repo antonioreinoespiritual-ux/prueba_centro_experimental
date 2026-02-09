@@ -53,13 +53,24 @@ def list_items(
 
 @router.post("/api/cloud/folders", response_model=schemas.CloudItemOut)
 def create_folder(payload: schemas.CloudItemCreate, db: Session = Depends(get_db)):
-    return cloud_service.create_folder(
-        db,
-        name=payload.name.strip(),
-        library_id=payload.library_id,
-        parent_id=payload.parent_id,
-        owner_id=payload.owner_id,
-    )
+    if payload.parent_id:
+        parent = db.get(models.CloudItem, payload.parent_id)
+        if not parent:
+            raise HTTPException(status_code=404, detail="Parent folder not found")
+        if parent.item_type != "folder":
+            raise HTTPException(status_code=400, detail="Parent must be a folder")
+        if parent.library_id != payload.library_id:
+            raise HTTPException(status_code=400, detail="Parent belongs to a different library")
+    try:
+        return cloud_service.create_folder(
+            db,
+            name=payload.name.strip(),
+            library_id=payload.library_id,
+            parent_id=payload.parent_id,
+            owner_id=payload.owner_id,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.patch("/api/cloud/items/{item_id}", response_model=schemas.CloudItemOut)
@@ -67,11 +78,22 @@ def update_item(item_id: int, payload: schemas.CloudItemUpdate, db: Session = De
     item = db.get(models.CloudItem, item_id)
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
-    if payload.name:
-        item = cloud_service.rename_item(db, item, payload.name.strip())
-    if payload.parent_id is not None:
-        parent = db.get(models.CloudItem, payload.parent_id)
-        item = cloud_service.move_item(db, item, parent)
+    library = db.get(models.CloudLibrary, item.library_id)
+    if not library:
+        raise HTTPException(status_code=404, detail="Library not found")
+    library = cloud_service.ensure_library_root(db, library)
+    try:
+        if payload.name:
+            item = cloud_service.rename_item(db, item, payload.name.strip(), library)
+        if payload.parent_id is not None:
+            parent = db.get(models.CloudItem, payload.parent_id) if payload.parent_id else None
+            if parent and parent.item_type != "folder":
+                raise HTTPException(status_code=400, detail="Parent must be a folder")
+            if parent and parent.library_id != item.library_id:
+                raise HTTPException(status_code=400, detail="Parent belongs to a different library")
+            item = cloud_service.move_item(db, item, parent, library)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     return item
 
 
@@ -80,7 +102,11 @@ def delete_item(item_id: int, db: Session = Depends(get_db)):
     item = db.get(models.CloudItem, item_id)
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
-    cloud_service.delete_item(db, item)
+    library = db.get(models.CloudLibrary, item.library_id)
+    if not library:
+        raise HTTPException(status_code=404, detail="Library not found")
+    library = cloud_service.ensure_library_root(db, library)
+    cloud_service.delete_item(db, item, library)
     return {"deleted": True, "item_id": item_id}
 
 
@@ -103,6 +129,14 @@ async def complete_upload(
     db: Session = Depends(get_db),
 ):
     safe_name = sanitize_filename(filename)
+    library = db.get(models.CloudLibrary, library_id)
+    if not library:
+        raise HTTPException(status_code=404, detail="Library not found")
+    library = cloud_service.ensure_library_root(db, library)
+    if parent_id:
+        parent = db.get(models.CloudItem, parent_id)
+        if not parent or parent.item_type != "folder":
+            raise HTTPException(status_code=400, detail="Parent must be a folder")
     item = cloud_service.create_file_item(
         db,
         name=safe_name,
@@ -111,14 +145,18 @@ async def complete_upload(
         owner_id=owner_id,
         size=None,
     )
-    library_dir = cloud_service.ensure_cloud_dir(library_id)
-    item_dir = library_dir / str(item.id)
-    item_dir.mkdir(parents=True, exist_ok=True)
-    stored_path = item_dir / safe_name
+    parent = db.get(models.CloudItem, parent_id) if parent_id else None
+    try:
+        target_dir = cloud_service.resolve_parent_path(library, parent)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    target_dir.mkdir(parents=True, exist_ok=True)
+    stored_path = target_dir / safe_name
     contents = await file.read()
     stored_path.write_bytes(contents)
     item.size = len(contents)
-    item.path = str(stored_path.relative_to(cloud_service.CLOUD_STORAGE_ROOT))
+    item.rel_path = str(stored_path.relative_to(Path(library.root_path)))
+    item.path = item.rel_path
     db.add(item)
     db.commit()
     db.refresh(item)
@@ -128,9 +166,16 @@ async def complete_upload(
 @router.get("/api/cloud/files/{file_id}/download")
 def download_file(file_id: int, db: Session = Depends(get_db)):
     item = db.get(models.CloudItem, file_id)
-    if not item or item.item_type != "file" or not item.path:
+    if not item or item.item_type != "file":
         raise HTTPException(status_code=404, detail="File not found")
-    file_path = cloud_service.CLOUD_STORAGE_ROOT / item.path
+    library = db.get(models.CloudLibrary, item.library_id)
+    if not library:
+        raise HTTPException(status_code=404, detail="Library not found")
+    library = cloud_service.ensure_library_root(db, library)
+    try:
+        file_path = cloud_service.resolve_item_path(library, item)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     if not file_path.exists():
         raise HTTPException(status_code=404, detail="File missing on disk")
     return FileResponse(str(file_path), filename=item.name)

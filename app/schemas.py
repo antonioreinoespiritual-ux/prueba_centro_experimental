@@ -531,6 +531,7 @@ class CloudLibraryOut(BaseModel):
 
     id: int
     name: str
+    root_path: str
     owner_id: Optional[str] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
@@ -558,6 +559,7 @@ class CloudItemOut(BaseModel):
     item_type: str
     size: Optional[int] = None
     path: Optional[str] = None
+    rel_path: Optional[str] = None
     owner_id: Optional[str] = None
     created_at: datetime
     updated_at: Optional[datetime] = None

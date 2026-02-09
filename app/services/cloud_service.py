@@ -1,28 +1,60 @@
 from __future__ import annotations
 
 from datetime import datetime
+import os
 from pathlib import Path
+import re
+import shutil
 from typing import Iterable
 
-from sqlalchemy.orm import Session
 from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 from .. import models
-from ..storage import ensure_upload_dir
+from ..storage import sanitize_filename
 
-CLOUD_STORAGE_ROOT = Path(__file__).resolve().parent.parent.parent / "data" / "cloud"
+CLOUD_ROOT = Path(os.getenv("CLOUD_ROOT", "/Users/m2/CloudDriveData")).expanduser()
 
 
-def _build_path(parent: models.CloudItem | None, name: str) -> str:
-    if parent and parent.path:
-        return f"{parent.path}/{name}"
-    if parent and parent.name:
-        return f"{parent.name}/{name}"
+def _ensure_cloud_root() -> Path:
+    CLOUD_ROOT.mkdir(parents=True, exist_ok=True)
+    return CLOUD_ROOT
+
+
+def _sanitize_segment(segment: str) -> str:
+    cleaned = re.sub(r"[^A-Za-z0-9 _.-]", "_", segment).strip()
+    return cleaned[:100] if cleaned else "untitled"
+
+
+def _sanitize_name(name: str) -> str:
+    cleaned = _sanitize_segment(name)
+    return cleaned or "untitled"
+
+
+def _build_rel_path(parent: models.CloudItem | None, name: str) -> str:
+    if parent and parent.rel_path:
+        return f"{parent.rel_path}/{name}"
     return name
 
 
-def _get_descendants(db: Session, base_path: str) -> Iterable[models.CloudItem]:
-    stmt = select(models.CloudItem).where(models.CloudItem.path.like(f"{base_path}/%"))
+def _resolve_path(library: models.CloudLibrary, rel_path: str | None = None) -> Path:
+    base = Path(library.root_path)
+    if rel_path:
+        candidate = (base / rel_path).resolve()
+    else:
+        candidate = base.resolve()
+    try:
+        candidate.relative_to(base.resolve())
+    except ValueError as exc:
+        raise ValueError("Invalid path traversal detected") from exc
+    return candidate
+
+
+def _get_descendants(db: Session, library_id: int, base_rel: str) -> Iterable[models.CloudItem]:
+    stmt = select(models.CloudItem).where(
+        models.CloudItem.library_id == library_id,
+        models.CloudItem.rel_path.like(f"{base_rel}/%"),
+    )
     return db.scalars(stmt).all()
 
 
@@ -31,7 +63,29 @@ def list_libraries(db: Session) -> list[models.CloudLibrary]:
 
 
 def create_library(db: Session, name: str, owner_id: str | None) -> models.CloudLibrary:
-    library = models.CloudLibrary(name=name, owner_id=owner_id)
+    _ensure_cloud_root()
+    safe_name = _sanitize_segment(name)
+    library = models.CloudLibrary(name=name, owner_id=owner_id, root_path="")
+    db.add(library)
+    db.commit()
+    db.refresh(library)
+    library_folder = f"{library.id}_{safe_name}"
+    root_path = (_ensure_cloud_root() / library_folder).resolve()
+    root_path.mkdir(parents=True, exist_ok=True)
+    library.root_path = str(root_path)
+    db.add(library)
+    db.commit()
+    db.refresh(library)
+    return library
+
+
+def ensure_library_root(db: Session, library: models.CloudLibrary) -> models.CloudLibrary:
+    if library.root_path:
+        return library
+    safe_name = _sanitize_segment(library.name)
+    root_path = (_ensure_cloud_root() / f"{library.id}_{safe_name}").resolve()
+    root_path.mkdir(parents=True, exist_ok=True)
+    library.root_path = str(root_path)
     db.add(library)
     db.commit()
     db.refresh(library)
@@ -39,15 +93,68 @@ def create_library(db: Session, name: str, owner_id: str | None) -> models.Cloud
 
 
 def list_items(db: Session, parent_id: int | None, library_id: int | None) -> list[models.CloudItem]:
-    stmt = select(models.CloudItem)
-    if parent_id is None:
-        stmt = stmt.where(models.CloudItem.parent_id.is_(None))
-    else:
-        stmt = stmt.where(models.CloudItem.parent_id == parent_id)
-    if library_id is not None:
-        stmt = stmt.where(models.CloudItem.library_id == library_id)
-    stmt = stmt.order_by(models.CloudItem.item_type.desc(), models.CloudItem.name.asc())
-    return db.scalars(stmt).all()
+    if library_id is None:
+        return []
+    library = db.get(models.CloudLibrary, library_id)
+    if not library:
+        return []
+    library = ensure_library_root(db, library)
+
+    parent = db.get(models.CloudItem, parent_id) if parent_id else None
+    target_rel = parent.rel_path or parent.path if parent else None
+    target_dir = _resolve_path(library, target_rel)
+
+    if not target_dir.exists():
+        target_dir.mkdir(parents=True, exist_ok=True)
+
+    existing = {}
+    for item in db.scalars(
+        select(models.CloudItem).where(
+            models.CloudItem.library_id == library_id,
+            models.CloudItem.parent_id == (parent_id if parent else None),
+        )
+    ).all():
+        key = item.rel_path or item.path
+        if key:
+            existing[key] = item
+
+    items: list[models.CloudItem] = []
+    for entry in sorted(target_dir.iterdir(), key=lambda p: (p.is_file(), p.name.lower())):
+        rel_path = str(entry.relative_to(Path(library.root_path)))
+        item = existing.get(rel_path)
+        if not item:
+            item = models.CloudItem(
+                name=entry.name,
+                library_id=library_id,
+                parent_id=parent_id,
+                item_type="folder" if entry.is_dir() else "file",
+                size=entry.stat().st_size if entry.is_file() else None,
+                rel_path=rel_path,
+                path=rel_path,
+            )
+            db.add(item)
+            db.commit()
+            db.refresh(item)
+        else:
+            updated = False
+            item.name = entry.name
+            item.item_type = "folder" if entry.is_dir() else "file"
+            if entry.is_file():
+                size = entry.stat().st_size
+                if item.size != size:
+                    item.size = size
+                    updated = True
+            if item.rel_path != rel_path:
+                item.rel_path = rel_path
+                item.path = rel_path
+                updated = True
+            if updated:
+                db.add(item)
+                db.commit()
+                db.refresh(item)
+        items.append(item)
+
+    return items
 
 
 def create_folder(
@@ -57,14 +164,25 @@ def create_folder(
     parent_id: int | None,
     owner_id: str | None,
 ) -> models.CloudItem:
+    library = db.get(models.CloudLibrary, library_id)
+    if not library:
+        raise ValueError("Library not found")
+    library = ensure_library_root(db, library)
+
     parent = db.get(models.CloudItem, parent_id) if parent_id else None
-    path = _build_path(parent, name)
+    safe_name = _sanitize_name(name)
+    rel_path = _build_rel_path(parent, safe_name)
+    folder_path = _resolve_path(library, rel_path)
+    if folder_path.exists():
+        raise ValueError("Folder already exists")
+    folder_path.mkdir(parents=True, exist_ok=True)
     folder = models.CloudItem(
-        name=name,
+        name=safe_name,
         library_id=library_id,
         parent_id=parent_id,
         item_type="folder",
-        path=path,
+        rel_path=rel_path,
+        path=rel_path,
         owner_id=owner_id,
     )
     db.add(folder)
@@ -81,15 +199,21 @@ def create_file_item(
     owner_id: str | None,
     size: int | None,
 ) -> models.CloudItem:
+    library = db.get(models.CloudLibrary, library_id)
+    if not library:
+        raise ValueError("Library not found")
+    ensure_library_root(db, library)
     parent = db.get(models.CloudItem, parent_id) if parent_id else None
-    path = _build_path(parent, name)
+    safe_name = sanitize_filename(name)
+    rel_path = _build_rel_path(parent, safe_name)
     item = models.CloudItem(
-        name=name,
+        name=safe_name,
         library_id=library_id,
         parent_id=parent_id,
         item_type="file",
         size=size,
-        path=path,
+        rel_path=rel_path,
+        path=rel_path,
         owner_id=owner_id,
     )
     db.add(item)
@@ -98,40 +222,74 @@ def create_file_item(
     return item
 
 
-def rename_item(db: Session, item: models.CloudItem, new_name: str) -> models.CloudItem:
-    old_path = item.path or item.name
-    item.name = new_name
-    item.path = _build_path(item.parent, new_name)
+def rename_item(db: Session, item: models.CloudItem, new_name: str, library: models.CloudLibrary) -> models.CloudItem:
+    safe_name = _sanitize_name(new_name)
+    old_rel = item.rel_path or item.name
+    parent = item.parent
+    new_rel = _build_rel_path(parent, safe_name)
+
+    old_path = _resolve_path(library, old_rel)
+    new_path = _resolve_path(library, new_rel)
+    old_path.rename(new_path)
+
+    item.name = safe_name
+    item.rel_path = new_rel
+    item.path = new_rel
     db.add(item)
-    if item.item_type == "folder" and old_path:
-        for child in _get_descendants(db, old_path):
-            if child.path:
-                child.path = child.path.replace(old_path, item.path or item.name, 1)
-            db.add(child)
+
+    if item.item_type == "folder":
+        for child in _get_descendants(db, item.library_id, old_rel):
+            if child.rel_path:
+                child.rel_path = child.rel_path.replace(old_rel, new_rel, 1)
+                child.path = child.rel_path
+                db.add(child)
     db.commit()
     db.refresh(item)
     return item
 
 
-def move_item(db: Session, item: models.CloudItem, new_parent: models.CloudItem | None) -> models.CloudItem:
-    old_path = item.path or item.name
+def move_item(
+    db: Session,
+    item: models.CloudItem,
+    new_parent: models.CloudItem | None,
+    library: models.CloudLibrary,
+) -> models.CloudItem:
+    old_rel = item.rel_path or item.name
+    new_rel = _build_rel_path(new_parent, item.name)
+
+    old_path = _resolve_path(library, old_rel)
+    new_path = _resolve_path(library, new_rel)
+    new_path.parent.mkdir(parents=True, exist_ok=True)
+    old_path.rename(new_path)
+
     item.parent_id = new_parent.id if new_parent else None
-    item.path = _build_path(new_parent, item.name)
+    item.rel_path = new_rel
+    item.path = new_rel
     db.add(item)
-    if item.item_type == "folder" and old_path:
-        for child in _get_descendants(db, old_path):
-            if child.path:
-                child.path = child.path.replace(old_path, item.path or item.name, 1)
-            db.add(child)
+
+    if item.item_type == "folder":
+        for child in _get_descendants(db, item.library_id, old_rel):
+            if child.rel_path:
+                child.rel_path = child.rel_path.replace(old_rel, new_rel, 1)
+                child.path = child.rel_path
+                db.add(child)
     db.commit()
     db.refresh(item)
     return item
 
 
-def delete_item(db: Session, item: models.CloudItem) -> None:
-    base_path = item.path or item.name
-    if item.item_type == "folder" and base_path:
-        for child in _get_descendants(db, base_path):
+def delete_item(db: Session, item: models.CloudItem, library: models.CloudLibrary) -> None:
+    rel_path = item.rel_path or item.name
+    target = _resolve_path(library, rel_path)
+    if item.item_type == "folder":
+        if target.exists():
+            shutil.rmtree(target)
+    else:
+        if target.exists():
+            target.unlink()
+
+    if item.item_type == "folder" and rel_path:
+        for child in _get_descendants(db, item.library_id, rel_path):
             db.delete(child)
     db.delete(item)
     db.commit()
@@ -160,7 +318,11 @@ def search_items(db: Session, query: str) -> list[models.CloudItem]:
     return db.scalars(stmt).all()
 
 
-def ensure_cloud_dir(library_id: int) -> Path:
-    path = CLOUD_STORAGE_ROOT / str(library_id)
-    ensure_upload_dir(path)
-    return path
+def resolve_item_path(library: models.CloudLibrary, item: models.CloudItem) -> Path:
+    rel_path = item.rel_path or item.path or item.name
+    return _resolve_path(library, rel_path)
+
+
+def resolve_parent_path(library: models.CloudLibrary, parent: models.CloudItem | None) -> Path:
+    rel_path = parent.rel_path or parent.path if parent else None
+    return _resolve_path(library, rel_path)
