@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Topbar } from './components/Topbar';
 import { Sidebar } from './components/Sidebar';
 import { Breadcrumbs } from './components/Breadcrumbs';
@@ -6,14 +6,42 @@ import { FileList } from './components/FileList';
 import { FileGrid } from './components/FileGrid';
 import { DetailsPanel } from './components/DetailsPanel';
 import { useCloudStore } from './store/useCloudStore';
-import { useEffect } from 'react';
+import { fetchExperimentDrivePath, fetchRecordDrivePath } from './api/cloud';
 
 export default function App() {
-  const { viewMode, loadLibraries, createFolder, uploadFile, toast, clearToast } = useCloudStore();
+  const { viewMode, loadLibraries, createFolder, uploadFile, toast, clearToast, libraries, openSystemRelPath } =
+    useCloudStore();
+  const deepLinkHandled = useRef(false);
 
   useEffect(() => {
     loadLibraries();
   }, [loadLibraries]);
+
+  useEffect(() => {
+    if (deepLinkHandled.current || libraries.length === 0) return;
+    const params = new URLSearchParams(window.location.search);
+    const type = params.get('type');
+    const idParam = params.get('id');
+    if (!type || !idParam) return;
+    const id = Number(idParam);
+    if (!Number.isFinite(id)) return;
+    deepLinkHandled.current = true;
+    (async () => {
+      try {
+        const relPath =
+          type === 'experiment'
+            ? await fetchExperimentDrivePath(id)
+            : type === 'record'
+              ? await fetchRecordDrivePath(id)
+              : null;
+        if (relPath) {
+          await openSystemRelPath(relPath);
+        }
+      } catch (error) {
+        console.error('Error resolving drive path', error);
+      }
+    })();
+  }, [libraries, openSystemRelPath]);
 
   useEffect(() => {
     if (!toast) return undefined;

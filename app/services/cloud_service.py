@@ -14,6 +14,7 @@ from .. import models
 from ..storage import sanitize_filename
 
 CLOUD_ROOT = Path(os.getenv("CLOUD_ROOT", "/Users/m2/CloudDriveData")).expanduser()
+SYSTEM_LIBRARY_NAME = "_System"
 
 
 def _ensure_cloud_root() -> Path:
@@ -58,12 +59,48 @@ def _get_descendants(db: Session, library_id: int, base_rel: str) -> Iterable[mo
     return db.scalars(stmt).all()
 
 
+def ensure_system_library(db: Session) -> models.CloudLibrary:
+    library = db.scalars(
+        select(models.CloudLibrary).where(
+            (models.CloudLibrary.is_system.is_(True))
+            | (models.CloudLibrary.name == SYSTEM_LIBRARY_NAME)
+        )
+    ).first()
+    if library:
+        if not library.is_system:
+            library.is_system = True
+        if not library.root_path or library.root_path != str(_ensure_cloud_root().resolve()):
+            library.root_path = str(_ensure_cloud_root().resolve())
+        db.add(library)
+        db.commit()
+        db.refresh(library)
+        return library
+
+    library = models.CloudLibrary(
+        name=SYSTEM_LIBRARY_NAME,
+        owner_id="system",
+        root_path=str(_ensure_cloud_root().resolve()),
+        is_system=True,
+    )
+    db.add(library)
+    db.commit()
+    db.refresh(library)
+    return library
+
+
 def list_libraries(db: Session) -> list[models.CloudLibrary]:
-    return db.scalars(select(models.CloudLibrary).order_by(models.CloudLibrary.created_at.desc())).all()
+    ensure_system_library(db)
+    stmt = select(models.CloudLibrary).order_by(
+        models.CloudLibrary.is_system.desc(),
+        models.CloudLibrary.created_at.desc(),
+    )
+    return db.scalars(stmt).all()
 
 
 def create_library(db: Session, name: str, owner_id: str | None) -> models.CloudLibrary:
     _ensure_cloud_root()
+    if name == SYSTEM_LIBRARY_NAME:
+        return ensure_system_library(db)
     safe_name = _sanitize_segment(name)
     library = models.CloudLibrary(name=name, owner_id=owner_id, root_path="")
     db.add(library)
@@ -80,6 +117,14 @@ def create_library(db: Session, name: str, owner_id: str | None) -> models.Cloud
 
 
 def ensure_library_root(db: Session, library: models.CloudLibrary) -> models.CloudLibrary:
+    if library.is_system:
+        root_path = str(_ensure_cloud_root().resolve())
+        if library.root_path != root_path:
+            library.root_path = root_path
+            db.add(library)
+            db.commit()
+            db.refresh(library)
+        return library
     if library.root_path:
         return library
     safe_name = _sanitize_segment(library.name)

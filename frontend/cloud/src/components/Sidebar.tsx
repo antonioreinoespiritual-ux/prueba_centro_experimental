@@ -1,19 +1,29 @@
 import React from 'react';
 import { useCloudStore } from '../store/useCloudStore';
 
-const NAV_ITEMS = ['Mi unidad', 'Hipótesis', 'Records', 'Compartidos', 'Bibliotecas'];
-
 export function Sidebar() {
-  const { libraries, currentLibraryId, setCurrentLibrary } = useCloudStore();
+  const { libraries, currentLibraryId, setCurrentLibrary, openSystemFolder } = useCloudStore();
+  const systemLibrary = libraries.find((library) => library.is_system || library.name === '_System');
+  const personalLibrary = libraries.find((library) => !library.is_system && library.name !== '_System');
   return (
     <aside className="cloud-sidebar">
       <button className="cloud-btn cloud-btn--primary">+ Nuevo</button>
       <nav className="cloud-nav">
-        {NAV_ITEMS.map((item) => (
-          <button key={item} className="cloud-nav__item">
-            {item}
-          </button>
-        ))}
+        <button
+          className="cloud-nav__item"
+          onClick={() => personalLibrary && setCurrentLibrary(personalLibrary.id, personalLibrary.name)}
+        >
+          Mi unidad
+        </button>
+        <button className="cloud-nav__item" onClick={() => openSystemFolder('Hypotheses')}>
+          Hipótesis
+        </button>
+        <button className="cloud-nav__item" onClick={() => openSystemFolder('Records')}>
+          Records
+        </button>
+        <button className="cloud-nav__item" onClick={() => systemLibrary && setCurrentLibrary(systemLibrary.id, systemLibrary.name)}>
+          Sistema
+        </button>
       </nav>
       <div className="cloud-sidebar__libraries">
         <div className="cloud-sidebar__card-title">Bibliotecas</div>

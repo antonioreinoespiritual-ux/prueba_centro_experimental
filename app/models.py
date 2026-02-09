@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import String, Integer, DateTime, ForeignKey, Float, Text, UniqueConstraint
+from sqlalchemy import Boolean, String, Integer, DateTime, ForeignKey, Float, Text, UniqueConstraint
 from typing import Optional
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -229,6 +229,7 @@ class CloudLibrary(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     root_path: Mapped[str] = mapped_column(String(500), nullable=False)
+    is_system: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     owner_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, onupdate=datetime.utcnow)

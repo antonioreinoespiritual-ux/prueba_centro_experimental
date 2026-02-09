@@ -36,10 +36,12 @@ interface CloudState {
   toggleSelection: (id: number) => void;
   clearSelection: () => void;
   loadLibraries: () => Promise<void>;
-  setCurrentLibrary: (id: number) => Promise<void>;
+  setCurrentLibrary: (id: number, name?: string) => Promise<void>;
   loadItems: () => Promise<void>;
   openFolder: (folder: CloudItem) => Promise<void>;
   goToBreadcrumb: (index: number) => Promise<void>;
+  openSystemFolder: (name: string) => Promise<void>;
+  openSystemRelPath: (relPath: string) => Promise<void>;
   createFolder: (name: string) => Promise<void>;
   uploadFile: (file: File) => Promise<void>;
   renameSelected: () => Promise<void>;
@@ -79,14 +81,17 @@ export const useCloudStore = create<CloudState>((set, get) => ({
       }
       set({ libraries, loading: false });
       if (libraries.length) {
-        await get().setCurrentLibrary(libraries[0].id);
+        const systemLibrary = libraries.find((library) => library.is_system || library.name === '_System');
+        const defaultLibrary = systemLibrary ?? libraries[0];
+        await get().setCurrentLibrary(defaultLibrary.id, defaultLibrary.name);
       }
     } catch (error) {
       set({ loading: false, error: error instanceof Error ? error.message : 'Error' });
     }
   },
-  setCurrentLibrary: async (id) => {
-    set({ currentLibraryId: id, currentParentId: null, currentPath: [{ id: null, name: 'Mi unidad' }] });
+  setCurrentLibrary: async (id, name) => {
+    const libraryName = name ?? get().libraries.find((library) => library.id === id)?.name ?? 'Mi unidad';
+    set({ currentLibraryId: id, currentParentId: null, currentPath: [{ id: null, name: libraryName }] });
     await get().loadItems();
   },
   loadItems: async () => {
@@ -110,6 +115,53 @@ export const useCloudStore = create<CloudState>((set, get) => ({
     const parentEntry = path[path.length - 1];
     set({ currentPath: path, currentParentId: parentEntry.id });
     await get().loadItems();
+  },
+  openSystemFolder: async (name) => {
+    const { libraries } = get();
+    const systemLibrary = libraries.find((library) => library.is_system || library.name === '_System');
+    if (!systemLibrary) {
+      set({ toast: 'No se encontró la biblioteca del sistema.' });
+      return;
+    }
+    if (get().currentLibraryId !== systemLibrary.id) {
+      await get().setCurrentLibrary(systemLibrary.id, systemLibrary.name);
+    } else {
+      await get().loadItems();
+    }
+    const target = get().items.find(
+      (item) => item.item_type === 'folder' && item.name.toLowerCase() === name.toLowerCase(),
+    );
+    if (!target) {
+      set({ toast: `No se encontró la carpeta ${name}.` });
+      return;
+    }
+    await get().openFolder(target);
+  },
+  openSystemRelPath: async (relPath) => {
+    const cleanPath = relPath.replace(/^\/+/, '').replace(/\/+$/, '');
+    if (!cleanPath) return;
+    const segments = cleanPath.split('/').filter(Boolean);
+    const { libraries } = get();
+    const systemLibrary = libraries.find((library) => library.is_system || library.name === '_System');
+    if (!systemLibrary) {
+      set({ toast: 'No se encontró la biblioteca del sistema.' });
+      return;
+    }
+    if (get().currentLibraryId !== systemLibrary.id) {
+      await get().setCurrentLibrary(systemLibrary.id, systemLibrary.name);
+    } else {
+      await get().loadItems();
+    }
+    for (const segment of segments) {
+      const target = get().items.find(
+        (item) => item.item_type === 'folder' && item.name.toLowerCase() === segment.toLowerCase(),
+      );
+      if (!target) {
+        set({ toast: `No se encontró la ruta ${segment}.` });
+        return;
+      }
+      await get().openFolder(target);
+    }
   },
   createFolder: async (name) => {
     const { currentLibraryId, currentParentId } = get();

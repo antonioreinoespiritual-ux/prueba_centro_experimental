@@ -13,6 +13,7 @@ async function fetchJson<T>(input: string, init?: RequestInit): Promise<T> {
 export interface CloudLibrary {
   id: number;
   name: string;
+  is_system?: boolean;
   owner_id?: string | null;
 }
 
@@ -100,4 +101,14 @@ export async function deleteItem(itemId: number): Promise<{ deleted: boolean; it
 
 export function downloadFile(itemId: number) {
   window.open(`${API_BASE}/api/cloud/files/${itemId}/download`, '_blank');
+}
+
+export async function fetchExperimentDrivePath(experimentId: number): Promise<string | null> {
+  const response = await fetchJson<{ drive_folder_path?: string | null }>(`/experiments/${experimentId}`);
+  return response.drive_folder_path ?? null;
+}
+
+export async function fetchRecordDrivePath(recordId: number): Promise<string | null> {
+  const response = await fetchJson<{ drive_folder_path?: string | null }>(`/records/${recordId}`);
+  return response.drive_folder_path ?? null;
 }

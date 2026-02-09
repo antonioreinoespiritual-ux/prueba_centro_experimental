@@ -308,6 +308,8 @@ def ensure_schema() -> None:
     if cur.fetchone():
         if not _column_exists(cur, "cloud_libraries", "root_path"):
             cur.execute("ALTER TABLE cloud_libraries ADD COLUMN root_path VARCHAR(500)")
+        if not _column_exists(cur, "cloud_libraries", "is_system"):
+            cur.execute("ALTER TABLE cloud_libraries ADD COLUMN is_system BOOLEAN DEFAULT 0")
 
     cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='cloud_items'")
     if cur.fetchone():

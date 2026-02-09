@@ -534,6 +534,7 @@ class CloudLibraryOut(BaseModel):
     id: int
     name: str
     root_path: str
+    is_system: bool = False
     owner_id: Optional[str] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
