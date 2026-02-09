@@ -567,6 +567,9 @@
     $("recordsTitle").textContent = `Records — ${exp.project_name}`;
     $("recordsCount").textContent = `${records.length} records`;
     $("btnHypFolders").onclick = () => {
+      localStorage.setItem("drive_entity_type", "experiment");
+      localStorage.setItem("drive_entity_id", String(exp.id));
+      localStorage.setItem("drive_entity_name", exp.project_name || "");
       window.open(`/static/files.html?type=experiment&id=${exp.id}&name=${encodeURIComponent(exp.project_name)}`, "_blank");
     };
 
@@ -636,6 +639,9 @@
     };
     $("btnRecordFolders").onclick = (event) => {
       event.stopPropagation();
+      localStorage.setItem("drive_entity_type", "record");
+      localStorage.setItem("drive_entity_id", String(record.id));
+      localStorage.setItem("drive_entity_name", recordTitle || "");
       window.open(`/static/files.html?type=record&id=${record.id}&name=${encodeURIComponent(recordTitle)}`, "_blank");
     };
     $("modalProject").textContent = exp?.project_name || "—";

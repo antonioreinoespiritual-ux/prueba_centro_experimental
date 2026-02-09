@@ -1500,6 +1500,10 @@ tbody tr:nth-child(even):hover {
   gap: 12px;
 }
 
+.drive-folder-row--compact {
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+}
+
 .drive-folder-card {
   display: flex;
   align-items: center;
@@ -1545,6 +1549,7 @@ tbody tr:nth-child(even):hover {
 .drive-row {
   background: #15151b;
   border-top: 1px solid #2a2a33;
+  cursor: pointer;
 }
 
 .drive-row__name {

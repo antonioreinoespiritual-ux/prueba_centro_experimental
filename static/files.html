@@ -105,9 +105,12 @@
   const API_BASE = "";
   const $ = (id) => document.getElementById(id);
   const params = new URLSearchParams(window.location.search);
-  const entityType = params.get("type") || "experiment";
-  const entityId = Number(params.get("id"));
-  const entityName = params.get("name") || "";
+  const storedType = localStorage.getItem("drive_entity_type") || "experiment";
+  const storedId = Number(localStorage.getItem("drive_entity_id") || "0");
+  const storedName = localStorage.getItem("drive_entity_name") || "";
+  const entityType = params.get("type") || storedType;
+  const entityId = Number(params.get("id")) || storedId;
+  const entityName = params.get("name") || storedName;
   let filesCache = [];
   let currentFolder = "";
   let virtualFolders = new Set();
@@ -224,6 +227,7 @@
     const grid = $("folderGrid");
     grid.innerHTML = "";
     const children = getChildFolders(currentFolder);
+    $("folderCount").textContent = `${children.length}`;
     if (!children.length) {
       grid.innerHTML = '<div class="file-empty">No hay carpetas en esta ubicación.</div>';
       return;
@@ -393,6 +397,14 @@
     $("pageSubtitle").textContent = `Carpetas de ${entityName}`;
     $("pageTitle").textContent = entityName;
   }
+
+  $("viewList").addEventListener("click", () => {
+    $("folderGrid").classList.remove("drive-folder-row--compact");
+  });
+
+  $("viewGrid").addEventListener("click", () => {
+    $("folderGrid").classList.add("drive-folder-row--compact");
+  });
 
   loadFiles();
 </script>
