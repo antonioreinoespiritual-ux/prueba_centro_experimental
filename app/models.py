@@ -3,7 +3,8 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import String, Integer, DateTime, ForeignKey, Float, Text, UniqueConstraint
+from sqlalchemy import Boolean, String, Integer, DateTime, ForeignKey, Float, Text, UniqueConstraint
+from typing import Optional
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .database import Base
@@ -37,6 +38,7 @@ class Experiment(Base):
     min_volume: Mapped[int | None] = mapped_column(Integer, nullable=True)
     volume_min_value: Mapped[int | None] = mapped_column(Integer, nullable=True)
     volume_unit: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    drive_folder_path: Mapped[str | None] = mapped_column(String(500), nullable=True, index=True)
 
     records: Mapped[list["ExperimentRecord"]] = relationship(
         "ExperimentRecord",
@@ -119,6 +121,7 @@ class ExperimentRecord(Base):
     cta_type: Mapped[str | None] = mapped_column(String(30), nullable=True)
     creative_id: Mapped[str | None] = mapped_column(String(200), nullable=True)
     record_status: Mapped[str] = mapped_column(String(20), nullable=False, default="collecting")
+    drive_folder_path: Mapped[str | None] = mapped_column(String(500), nullable=True, index=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, onupdate=datetime.utcnow)
@@ -218,6 +221,63 @@ class ChatMessage(Base):
     role: Mapped[str] = mapped_column(String(20), nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
     references_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class CloudLibrary(Base):
+    __tablename__ = "cloud_libraries"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    root_path: Mapped[str] = mapped_column(String(500), nullable=False)
+    is_system: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    owner_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, onupdate=datetime.utcnow)
+
+    items: Mapped[list["CloudItem"]] = relationship(
+        "CloudItem",
+        back_populates="library",
+        cascade="all, delete-orphan",
+    )
+
+
+class CloudItem(Base):
+    __tablename__ = "cloud_items"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    parent_id: Mapped[int | None] = mapped_column(ForeignKey("cloud_items.id"), nullable=True, index=True)
+    library_id: Mapped[int] = mapped_column(ForeignKey("cloud_libraries.id"), nullable=False, index=True)
+    item_type: Mapped[str] = mapped_column(String(20), nullable=False)  # folder | file
+    size: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    path: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    rel_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    owner_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, onupdate=datetime.utcnow)
+
+    library: Mapped["CloudLibrary"] = relationship("CloudLibrary", back_populates="items")
+    parent: Mapped[Optional["CloudItem"]] = relationship("CloudItem", remote_side="CloudItem.id")
+
+
+class CloudShare(Base):
+    __tablename__ = "cloud_shares"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    item_id: Mapped[int] = mapped_column(ForeignKey("cloud_items.id"), nullable=False, index=True)
+    shared_with: Mapped[str] = mapped_column(String(200), nullable=False)
+    permission: Mapped[str] = mapped_column(String(20), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class CloudAudit(Base):
+    __tablename__ = "cloud_audits"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    item_id: Mapped[int | None] = mapped_column(ForeignKey("cloud_items.id"), nullable=True, index=True)
+    action: Mapped[str] = mapped_column(String(50), nullable=False)
+    user_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    timestamp: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
 
 

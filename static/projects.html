@@ -353,7 +353,7 @@
       localStorage.setItem("drive_entity_type", "experiment");
       localStorage.setItem("drive_entity_id", String(experiment.id));
       localStorage.setItem("drive_entity_name", experiment.project_name || "");
-      window.open(`/static/files.html?type=experiment&id=${experiment.id}&name=${encodeURIComponent(experiment.project_name)}`, "_blank");
+      window.open(`/cloud?type=experiment&id=${experiment.id}&name=${encodeURIComponent(experiment.project_name)}`, "_blank");
     };
 
     $("recordsModal").classList.remove("hidden");

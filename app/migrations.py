@@ -303,5 +303,37 @@ def ensure_schema() -> None:
             ON assistant_drafts (assistant_type)
         """)
 
+    # --- Cloud Drive ---
+    cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='cloud_libraries'")
+    if cur.fetchone():
+        if not _column_exists(cur, "cloud_libraries", "root_path"):
+            cur.execute("ALTER TABLE cloud_libraries ADD COLUMN root_path VARCHAR(500)")
+        if not _column_exists(cur, "cloud_libraries", "is_system"):
+            cur.execute("ALTER TABLE cloud_libraries ADD COLUMN is_system BOOLEAN DEFAULT 0")
+
+    cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='cloud_items'")
+    if cur.fetchone():
+        if not _column_exists(cur, "cloud_items", "rel_path"):
+            cur.execute("ALTER TABLE cloud_items ADD COLUMN rel_path VARCHAR(500)")
+
+    # --- Drive sync paths ---
+    cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='experiments'")
+    if cur.fetchone():
+        if not _column_exists(cur, "experiments", "drive_folder_path"):
+            cur.execute("ALTER TABLE experiments ADD COLUMN drive_folder_path VARCHAR(500)")
+            cur.execute("""
+                CREATE INDEX IF NOT EXISTS ix_experiments_drive_folder_path
+                ON experiments (drive_folder_path)
+            """)
+
+    cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='experiment_records'")
+    if cur.fetchone():
+        if not _column_exists(cur, "experiment_records", "drive_folder_path"):
+            cur.execute("ALTER TABLE experiment_records ADD COLUMN drive_folder_path VARCHAR(500)")
+            cur.execute("""
+                CREATE INDEX IF NOT EXISTS ix_experiment_records_drive_folder_path
+                ON experiment_records (drive_folder_path)
+            """)
+
     conn.commit()
     conn.close()

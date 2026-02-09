@@ -1,5 +1,6 @@
 # app/main.py
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pathlib import Path
@@ -10,11 +11,19 @@ load_env()
 
 from .database import Base, engine
 from .migrations import ensure_schema
-from .routers import experiments, records, documentation, ai_analysis, publics, assistant, files
+from .routers import experiments, records, documentation, ai_analysis, publics, assistant, files, cloud, drive_sync
 ensure_schema()
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Centro Experimental")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:8000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 STATIC_DIR = BASE_DIR / "static"
@@ -32,3 +41,5 @@ app.include_router(ai_analysis.router, prefix="/ai", tags=["ai-analysis"])
 app.include_router(publics.router, prefix="/publics", tags=["publics"])
 app.include_router(assistant.router, tags=["assistant"])
 app.include_router(files.router, prefix="/files", tags=["files"])
+app.include_router(cloud.router, tags=["cloud"])
+app.include_router(drive_sync.router, tags=["drive-sync"])

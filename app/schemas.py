@@ -225,6 +225,7 @@ class ExperimentOut(BaseModel):
     traffic_type: TrafficType
     created_at: datetime
     updated_at: Optional[datetime] = None
+    drive_folder_path: Optional[str] = None
 
     hypothesis_type: Optional[str] = None
     independent_variable: Optional[str] = None
@@ -470,6 +471,7 @@ class RecordOut(BaseModel):
     cta_type: Optional[str] = None
     creative_id: Optional[str] = None
     record_status: str = "collecting"
+    drive_folder_path: Optional[str] = None
 
     created_at: datetime
     updated_at: Optional[datetime] = None
@@ -518,5 +520,93 @@ class OpenClawChatResponse(BaseModel):
     mode: Literal["idle", "drafting", "draft", "preview", "needs_input", "ready_to_confirm", "created"]
     draft: dict[str, Any] | None = None
     questions: list[str] = []
-    next_actions: list[str] = []
-    message: str
+
+
+# ---------- Cloud Drive ----------
+class CloudLibraryCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    owner_id: Optional[str] = None
+
+
+class CloudLibraryOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    root_path: str
+    is_system: bool = False
+    owner_id: Optional[str] = None
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+
+class CloudItemCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=255)
+    library_id: int
+    parent_id: Optional[int] = None
+    owner_id: Optional[str] = None
+
+
+class CloudItemUpdate(BaseModel):
+    name: Optional[str] = Field(default=None, max_length=255)
+    parent_id: Optional[int] = None
+
+
+class CloudItemOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    parent_id: Optional[int] = None
+    library_id: int
+    item_type: str
+    size: Optional[int] = None
+    path: Optional[str] = None
+    rel_path: Optional[str] = None
+    owner_id: Optional[str] = None
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+
+class CloudUploadInit(BaseModel):
+    filename: str
+    library_id: int
+    parent_id: Optional[int] = None
+    size: Optional[int] = None
+
+
+class CloudUploadComplete(BaseModel):
+    filename: str
+    library_id: int
+    parent_id: Optional[int] = None
+    size: Optional[int] = None
+    owner_id: Optional[str] = None
+
+
+class CloudShareCreate(BaseModel):
+    shared_with: str = Field(min_length=1, max_length=200)
+    permission: Literal["view", "edit", "upload", "delete"]
+
+
+class CloudShareOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    item_id: int
+    shared_with: str
+    permission: str
+    created_at: datetime
+
+
+class CloudSearchResponse(BaseModel):
+    results: list[CloudItemOut] = []
+
+
+class CloudDisplayEntry(BaseModel):
+    item_id: int
+    display_name: str
+    badge: Optional[str] = None
+
+
+class CloudDisplayMap(BaseModel):
+    items: list[CloudDisplayEntry] = []

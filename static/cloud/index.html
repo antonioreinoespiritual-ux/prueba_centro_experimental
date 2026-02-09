@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Cloud Drive — Centro Experimental</title>
+  <link rel="stylesheet" href="/static/css/design-system.css">
+</head>
+<body>
+  <div id="cloud-root" class="cloud-root">
+    <div class="cloud-root__loading">
+      <h1>Cloud Drive</h1>
+      <p>Inicializando aplicación...</p>
+    </div>
+  </div>
+  <script>
+    (function () {
+      var script = document.createElement('script');
+      script.type = 'module';
+      script.src = '/static/cloud/assets/index.js';
+      script.onerror = function () {
+        document.getElementById('cloud-root').innerHTML =
+          '<div class="cloud-root__loading">' +
+          '<h1>Cloud Drive</h1>' +
+          '<p>Ejecuta el frontend con Vite para cargar la UI.</p>' +
+          '</div>';
+      };
+      document.body.appendChild(script);
+    })();
+  </script>
+</body>
+</html>

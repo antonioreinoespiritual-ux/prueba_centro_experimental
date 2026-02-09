@@ -534,12 +534,13 @@
         </div>
         <div class="flex gap-sm mt-sm">
           <span class="tag">Hipotesis #${exp.id}</span>
-          ${exp.independent_variable ? `<span class="tag">X: ${escapeHtml(exp.independent_variable)}</span>` : '<span class="tag">X: —</span>'}
+          ${exp.metric_x ? `<span class="tag">Metric X: ${escapeHtml(exp.metric_x)}</span>` : '<span class="tag">Metric X: —</span>'}
         </div>
         <div class="hyp-text">${escapeHtml(exp.hypothesis || "Sin hipotesis definida")}</div>
         <div class="hyp-meta">
           ${exp.hypothesis_type ? `<span class="tag">${exp.hypothesis_type}</span>` : ''}
           ${exp.primary_metric ? `<span class="tag">Y: ${exp.primary_metric}</span>` : ''}
+          ${exp.independent_variable ? `<span class="tag">Variable: ${escapeHtml(exp.independent_variable)}</span>` : '<span class="tag">Variable: —</span>'}
           ${exp.threshold_operator && exp.threshold_value !== null ? `<span class="tag">Umbral: ${exp.threshold_operator} ${exp.threshold_value}${exp.threshold_type === 'percentage' ? '%' : ''}</span>` : ''}
           <span class="tag">Creado: ${escapeHtml(exp.created_at || "—")}</span>
           <span class="tag">Actualizado: ${escapeHtml(exp.updated_at || exp.created_at || "—")}</span>
@@ -570,7 +571,7 @@
       localStorage.setItem("drive_entity_type", "experiment");
       localStorage.setItem("drive_entity_id", String(exp.id));
       localStorage.setItem("drive_entity_name", exp.project_name || "");
-      window.open(`/static/files.html?type=experiment&id=${exp.id}&name=${encodeURIComponent(exp.project_name)}`, "_blank");
+      window.open(`/cloud?type=experiment&id=${exp.id}&name=${encodeURIComponent(exp.project_name)}`, "_blank");
     };
 
     const tbody = $("tblRecords");
@@ -642,7 +643,7 @@
       localStorage.setItem("drive_entity_type", "record");
       localStorage.setItem("drive_entity_id", String(record.id));
       localStorage.setItem("drive_entity_name", recordTitle || "");
-      window.open(`/static/files.html?type=record&id=${record.id}&name=${encodeURIComponent(recordTitle)}`, "_blank");
+      window.open(`/cloud?type=record&id=${record.id}&name=${encodeURIComponent(recordTitle)}`, "_blank");
     };
     $("modalProject").textContent = exp?.project_name || "—";
     $("modalExperiment").textContent = exp ? `Experimento #${exp.id}` : "—";
