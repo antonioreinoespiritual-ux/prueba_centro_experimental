@@ -6,13 +6,28 @@ import { FileList } from './components/FileList';
 import { FileGrid } from './components/FileGrid';
 import { DetailsPanel } from './components/DetailsPanel';
 import { useCloudStore } from './store/useCloudStore';
+import { useEffect } from 'react';
 
 export default function App() {
-  const { viewMode } = useCloudStore();
+  const { viewMode, loadLibraries, createFolder, uploadFile } = useCloudStore();
+
+  useEffect(() => {
+    loadLibraries();
+  }, [loadLibraries]);
+
+  const handleCreateFolder = async () => {
+    const name = window.prompt('Nombre de la carpeta');
+    if (!name) return;
+    await createFolder(name);
+  };
+
+  const handleUploadFile = async (file: File) => {
+    await uploadFile(file);
+  };
 
   return (
     <div className="cloud-app">
-      <Topbar />
+      <Topbar onCreateFolder={handleCreateFolder} onUploadFile={handleUploadFile} />
       <div className="cloud-layout">
         <Sidebar />
         <main className="cloud-main">

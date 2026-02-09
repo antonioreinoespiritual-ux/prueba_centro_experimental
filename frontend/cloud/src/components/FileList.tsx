@@ -1,13 +1,21 @@
 import React from 'react';
 import { useCloudStore } from '../store/useCloudStore';
 
-const MOCK_FILES = [
-  { id: '1', name: 'Hipotesis_A.pdf', owner: 'Luna', size: '1.2 MB', date: '2024-02-09' },
-  { id: '2', name: 'Record_23.csv', owner: 'Luna', size: '480 KB', date: '2024-02-08' },
-];
+function formatBytes(bytes?: number | null) {
+  if (!bytes) return '—';
+  const units = ['B', 'KB', 'MB', 'GB'];
+  let value = bytes;
+  let index = 0;
+  while (value >= 1024 && index < units.length - 1) {
+    value /= 1024;
+    index += 1;
+  }
+  return `${value.toFixed(value >= 10 || index === 0 ? 0 : 1)} ${units[index]}`;
+}
 
 export function FileList() {
-  const { selectedIds, toggleSelection } = useCloudStore();
+  const { selectedIds, toggleSelection, items, loading, error } = useCloudStore();
+  const files = items.filter((item) => item.item_type === 'file');
 
   return (
     <div className="cloud-table">
@@ -18,16 +26,19 @@ export function FileList() {
         <span>Fecha</span>
       </div>
       <div className="cloud-table__body">
-        {MOCK_FILES.map((file) => (
+        {loading && <div className="cloud-table__row">Cargando archivos...</div>}
+        {error && <div className="cloud-table__row">Error: {error}</div>}
+        {!loading && !files.length && <div className="cloud-table__row">Sin archivos aún.</div>}
+        {files.map((file) => (
           <button
             key={file.id}
             className={`cloud-table__row ${selectedIds.includes(file.id) ? 'is-selected' : ''}`}
             onClick={() => toggleSelection(file.id)}
           >
             <span>{file.name}</span>
-            <span>{file.owner}</span>
-            <span>{file.size}</span>
-            <span>{file.date}</span>
+            <span>{file.owner_id ?? '—'}</span>
+            <span>{formatBytes(file.size)}</span>
+            <span>—</span>
           </button>
         ))}
       </div>

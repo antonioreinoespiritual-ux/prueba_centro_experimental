@@ -1,9 +1,15 @@
 import React from 'react';
 import { useCloudStore } from '../store/useCloudStore';
 
-export function Topbar() {
+interface TopbarProps {
+  onCreateFolder: () => void;
+  onUploadFile: (file: File) => void;
+}
+
+export function Topbar({ onCreateFolder, onUploadFile }: TopbarProps) {
   const { selectedIds, viewMode, setViewMode } = useCloudStore();
   const hasSelection = selectedIds.length > 0;
+  const fileInputRef = React.useRef<HTMLInputElement | null>(null);
 
   return (
     <header className="cloud-topbar">
@@ -19,7 +25,23 @@ export function Topbar() {
       </div>
       <div className="cloud-topbar__actions">
         <div className="cloud-topbar__group">
-          <button className="cloud-btn cloud-btn--primary">Nuevo</button>
+          <button className="cloud-btn cloud-btn--primary" onClick={onCreateFolder}>Nuevo</button>
+          <button
+            className="cloud-btn"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            Subir archivo
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            hidden
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (file) onUploadFile(file);
+              event.currentTarget.value = '';
+            }}
+          />
           {hasSelection && (
             <>
               <button className="cloud-btn">Compartir</button>

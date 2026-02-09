@@ -2,7 +2,7 @@ import React from 'react';
 import { useCloudStore } from '../store/useCloudStore';
 
 export function DetailsPanel() {
-  const { selectedIds } = useCloudStore();
+  const { selectedIds, items } = useCloudStore();
 
   if (!selectedIds.length) {
     return (
@@ -13,6 +13,8 @@ export function DetailsPanel() {
     );
   }
 
+  const selected = items.find((item) => item.id === selectedIds[0]);
+
   return (
     <aside className="cloud-detail">
       <div className="cloud-detail__header">Detalles</div>
@@ -21,6 +23,12 @@ export function DetailsPanel() {
           <div className="cloud-detail__label">Seleccionados</div>
           <p>{selectedIds.length} elemento(s)</p>
         </div>
+        {selected && (
+          <div>
+            <div className="cloud-detail__label">Nombre</div>
+            <p>{selected.name}</p>
+          </div>
+        )}
         <div>
           <div className="cloud-detail__label">Permisos</div>
           <p>Privado · Solo lectura</p>

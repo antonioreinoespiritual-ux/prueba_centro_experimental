@@ -160,6 +160,17 @@ body {
   color: var(--cloud-text-muted);
 }
 
+.cloud-sidebar__card-title {
+  color: var(--cloud-text);
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.cloud-sidebar__libraries {
+  display: grid;
+  gap: 6px;
+}
+
 .cloud-main {
   padding: 20px;
   display: flex;
