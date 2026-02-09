@@ -316,6 +316,33 @@ def ensure_schema() -> None:
         if not _column_exists(cur, "cloud_items", "rel_path"):
             cur.execute("ALTER TABLE cloud_items ADD COLUMN rel_path VARCHAR(500)")
 
+    cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='cloud_projects'")
+    if not cur.fetchone():
+        cur.execute(
+            """
+            CREATE TABLE cloud_projects (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                project_name VARCHAR(200) NOT NULL,
+                project_key VARCHAR(200) NOT NULL,
+                folder_path VARCHAR(500) NOT NULL,
+                created_at DATETIME NOT NULL DEFAULT (datetime('now')),
+                updated_at DATETIME
+            )
+            """
+        )
+        cur.execute(
+            """
+            CREATE UNIQUE INDEX IF NOT EXISTS uq_cloud_projects_project_key
+            ON cloud_projects (project_key)
+            """
+        )
+        cur.execute(
+            """
+            CREATE INDEX IF NOT EXISTS ix_cloud_projects_project_key
+            ON cloud_projects (project_key)
+            """
+        )
+
     # --- Drive sync paths ---
     cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='experiments'")
     if cur.fetchone():

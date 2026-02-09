@@ -631,3 +631,19 @@ class CloudProjectNode(BaseModel):
 
 class CloudProjectsTree(BaseModel):
     projects: list[CloudProjectNode] = []
+
+
+class CloudProjectOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    project_name: str
+    project_key: str
+    folder_path: str
+
+
+class CloudProjectHypothesisOut(BaseModel):
+    id: int
+    experiment_id: int
+    display_name: str
+    drive_folder_path: Optional[str] = None

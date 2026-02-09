@@ -6,6 +6,7 @@ from pathlib import Path
 import os
 import re
 import shutil
+import unicodedata
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -60,6 +61,14 @@ def _slugify(value: str, max_len: int = 60) -> str:
     if not cleaned:
         cleaned = "item"
     return cleaned[:max_len]
+
+
+def _normalize_project_key(value: str) -> str:
+    normalized = unicodedata.normalize("NFKD", value.strip().lower())
+    normalized = "".join(ch for ch in normalized if not unicodedata.combining(ch))
+    normalized = re.sub(r"[^a-z0-9\\s-]", " ", normalized)
+    normalized = re.sub(r"\\s+", " ", normalized).strip()
+    return normalized or "proyecto"
 
 
 def _build_folder_name(prefix: str, item_id: int, name: str) -> str:
@@ -134,20 +143,98 @@ def _extract_folder_segment(rel_path: str | None, prefix: str) -> str | None:
     return match_segment
 
 
-def project_root(project_id: int, project_name: str) -> str:
-    folder_name = _build_folder_name("P", project_id, project_name)
-    return f"{CLOUD_PROJECTS_DIR}/{folder_name}"
+def _move_tree_merge(source: Path, dest: Path) -> int:
+    dest.mkdir(parents=True, exist_ok=True)
+    moved = 0
+    for entry in source.iterdir():
+        target = dest / entry.name
+        if target.exists():
+            suffix = 1
+            while True:
+                candidate = dest / f"{entry.name}_dup{suffix}"
+                if not candidate.exists():
+                    target = candidate
+                    break
+                suffix += 1
+        shutil.move(str(entry), str(target))
+        moved += 1
+    try:
+        source.rmdir()
+    except OSError:
+        pass
+    return moved
 
 
-def hypothesis_root(experiment: models.Experiment) -> str:
-    project_rel = project_root(experiment.id, experiment.project_name)
+def _consolidate_legacy_projects() -> dict[str, int]:
+    projects_root = safe_join(CLOUD_ROOT, CLOUD_PROJECTS_DIR)
+    consolidated = 0
+    moved_items = 0
+    if not projects_root.exists():
+        return {"consolidated": 0, "moved_items": 0}
+    for entry in projects_root.iterdir():
+        if not entry.is_dir():
+            continue
+        match = re.match(r"^P\d+_(.+)$", entry.name)
+        if not match:
+            continue
+        slug = match.group(1)
+        target = projects_root / slug
+        if target.exists():
+            moved_items += _move_tree_merge(entry, target)
+        else:
+            shutil.move(str(entry), str(target))
+        consolidated += 1
+    return {"consolidated": consolidated, "moved_items": moved_items}
+
+
+def get_or_create_project(db: Session, project_name: str) -> models.CloudProject:
+    project_key = _normalize_project_key(project_name)
+    existing = db.scalars(
+        select(models.CloudProject).where(models.CloudProject.project_key == project_key)
+    ).first()
+    if existing:
+        desired_folder = f"{CLOUD_PROJECTS_DIR}/{_slugify(project_key)}"
+        if existing.folder_path != desired_folder:
+            source = safe_join(CLOUD_ROOT, existing.folder_path)
+            target = safe_join(CLOUD_ROOT, desired_folder)
+            if source.exists():
+                if target.exists():
+                    _move_tree_merge(source, target)
+                else:
+                    shutil.move(str(source), str(target))
+            existing.folder_path = desired_folder
+        if existing.project_name != project_name:
+            existing.project_name = project_name
+        db.add(existing)
+        db.commit()
+        db.refresh(existing)
+        return existing
+    folder_name = _slugify(project_key)
+    folder_path = f"{CLOUD_PROJECTS_DIR}/{folder_name}"
+    project = models.CloudProject(
+        project_name=project_name.strip(),
+        project_key=project_key,
+        folder_path=folder_path,
+    )
+    db.add(project)
+    db.commit()
+    db.refresh(project)
+    return project
+
+
+def project_root(project: models.CloudProject) -> str:
+    return project.folder_path
+
+
+def hypothesis_root(project: models.CloudProject, experiment: models.Experiment) -> str:
+    project_rel = project_root(project)
     existing_name = _extract_folder_segment(experiment.drive_folder_path, "H")
     folder_name = existing_name or _build_folder_name("H", experiment.id, _pick_hypothesis_title(experiment))
     return f"{project_rel}/Hypotheses/{folder_name}"
 
 
-def record_root(record: models.ExperimentRecord, experiment: models.Experiment) -> str:
-    hypothesis_rel = hypothesis_root(experiment)
+def record_root(project: models.CloudProject, record: models.ExperimentRecord, experiment: models.Experiment) -> str:
+    hypothesis_rel = hypothesis_root(project, experiment)
     existing_name = _extract_folder_segment(record.drive_folder_path, "R")
     name = record.record_name or record.session_id or f"record-{record.id}"
     folder_name = existing_name or _build_folder_name("R", record.id, name)
@@ -157,7 +244,8 @@ def record_root(record: models.ExperimentRecord, experiment: models.Experiment) 
 
 def ensure_hypothesis_folder(db: Session, experiment: models.Experiment) -> models.Experiment:
     ensure_base_folders()
-    target_rel = hypothesis_root(experiment)
+    project = get_or_create_project(db, experiment.project_name)
+    target_rel = hypothesis_root(project, experiment)
     updated_rel = _rename_if_needed(experiment.drive_folder_path, target_rel)
     if experiment.drive_folder_path != updated_rel:
         experiment.drive_folder_path = updated_rel
@@ -173,7 +261,8 @@ def ensure_record_folder(db: Session, record: models.ExperimentRecord) -> models
     if not experiment:
         return record
     experiment = ensure_hypothesis_folder(db, experiment)
-    base_rel = f"{hypothesis_root(experiment)}/Records"
+    project = get_or_create_project(db, experiment.project_name)
+    base_rel = f"{hypothesis_root(project, experiment)}/Records"
     folder_name = _extract_folder_segment(record.drive_folder_path, "R") or _build_folder_name(
         "R",
         record.id,
@@ -215,6 +304,7 @@ def bootstrap_base() -> dict[str, str]:
 
 def backfill_all(db: Session) -> dict[str, int]:
     ensure_base_folders()
+    consolidation = _consolidate_legacy_projects()
     created = 0
     moved = 0
     updated = 0
@@ -261,6 +351,8 @@ def backfill_all(db: Session) -> dict[str, int]:
 
     return {
         "created": created,
+        "project_consolidated": consolidation["consolidated"],
+        "project_consolidated_items": consolidation["moved_items"],
         "moved": moved,
         "updated": updated,
         "skipped": skipped,

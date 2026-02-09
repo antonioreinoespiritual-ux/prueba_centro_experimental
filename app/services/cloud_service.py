@@ -11,7 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from .. import models
-from .drive_sync_service import CLOUD_PROJECTS_DIR
+from .drive_sync_service import CLOUD_PROJECTS_DIR, _normalize_project_key, get_or_create_project
 from ..storage import sanitize_filename
 
 CLOUD_ROOT = Path(os.getenv("CLOUD_ROOT", "/Users/m2/CloudDriveData")).expanduser()
@@ -381,6 +381,17 @@ def build_display_map(
                 display_name = "Sistema"
             elif item.name == "_Archived":
                 display_name = "Archivados"
+            rel_path = item.rel_path or item.path
+            if rel_path:
+                match = re.match(rf"^{re.escape(CLOUD_PROJECTS_DIR)}/([^/]+)$", rel_path)
+                if match:
+                    project = db.scalars(
+                        select(models.CloudProject).where(
+                            models.CloudProject.folder_path == f\"{CLOUD_PROJECTS_DIR}/{match.group(1)}\"
+                        )
+                    ).first()
+                    if project:
+                        display_name = project.project_name
             match = re.match(r"^H(\d+)_", item.name)
             if match:
                 exp_id = int(match.group(1))
@@ -404,22 +415,53 @@ def build_display_map(
     return entries
 
 
-def list_projects_tree() -> list[dict[str, object]]:
-    projects_root = (CLOUD_ROOT / CLOUD_PROJECTS_DIR).resolve()
-    if not projects_root.exists():
+def list_projects(db: Session) -> list[models.CloudProject]:
+    projects = db.scalars(select(models.CloudProject).order_by(models.CloudProject.project_name.asc())).all()
+    if projects:
+        return projects
+    experiments = db.scalars(select(models.Experiment)).all()
+    for experiment in experiments:
+        if experiment.project_name:
+            get_or_create_project(db, experiment.project_name)
+    return db.scalars(select(models.CloudProject).order_by(models.CloudProject.project_name.asc())).all()
+
+
+def list_project_hypotheses(db: Session, project_id: int) -> list[models.Experiment]:
+    project = db.get(models.CloudProject, project_id)
+    if not project:
         return []
+    stmt = select(models.Experiment).where(
+        models.Experiment.project_name.is_not(None)
+    )
+    experiments = db.scalars(stmt).all()
+    return [
+        experiment
+        for experiment in experiments
+        if _normalize_project_key(experiment.project_name) == project.project_key
+    ]
+
+
+def hypothesis_display_name(experiment: models.Experiment) -> str:
+    independent_variable = (experiment.independent_variable or "").strip()
+    if independent_variable:
+        return independent_variable
+    metric_x = (experiment.metric_x or "").strip()
+    if metric_x:
+        return metric_x
+    return f"Hipótesis {experiment.id}"
+
+
+def list_projects_tree(db: Session) -> list[dict[str, object]]:
     projects: list[dict[str, object]] = []
-    for project_dir in sorted(projects_root.iterdir(), key=lambda p: p.name.lower()):
-        if not project_dir.is_dir():
-            continue
-        project_rel = f"{CLOUD_PROJECTS_DIR}/{project_dir.name}"
-        hypotheses_dir = project_dir / "Hypotheses"
+    for project in list_projects(db):
+        project_root = (CLOUD_ROOT / project.folder_path).resolve()
         hypotheses: list[dict[str, object]] = []
+        hypotheses_dir = project_root / "Hypotheses"
         if hypotheses_dir.exists():
             for hypothesis_dir in sorted(hypotheses_dir.iterdir(), key=lambda p: p.name.lower()):
                 if not hypothesis_dir.is_dir():
                     continue
-                hypothesis_rel = f"{project_rel}/Hypotheses/{hypothesis_dir.name}"
+                hypothesis_rel = f"{project.folder_path}/Hypotheses/{hypothesis_dir.name}"
                 records_dir = hypothesis_dir / "Records"
                 records: list[dict[str, str]] = []
                 if records_dir.exists():
@@ -438,7 +480,13 @@ def list_projects_tree() -> list[dict[str, object]]:
                         "records": records,
                     }
                 )
-        projects.append({"name": project_dir.name, "rel_path": project_rel, "hypotheses": hypotheses})
+        projects.append(
+            {
+                "name": project.project_name,
+                "rel_path": project.folder_path,
+                "hypotheses": hypotheses,
+            }
+        )
     return projects
 
 

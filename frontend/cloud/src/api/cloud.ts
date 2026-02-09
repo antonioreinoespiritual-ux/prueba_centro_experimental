@@ -34,6 +34,20 @@ export interface CloudDisplayEntry {
   badge?: string | null;
 }
 
+export interface CloudProject {
+  id: number;
+  project_name: string;
+  project_key: string;
+  folder_path: string;
+}
+
+export interface CloudProjectHypothesis {
+  id: number;
+  experiment_id: number;
+  display_name: string;
+  drive_folder_path?: string | null;
+}
+
 export async function fetchLibraries(): Promise<CloudLibrary[]> {
   return fetchJson('/api/cloud/libraries');
 }
@@ -66,6 +80,14 @@ export async function fetchDisplayMap(params: {
   }
   const response = await fetchJson<{ items: CloudDisplayEntry[] }>(`/api/cloud/display-map?${query.toString()}`);
   return response.items ?? [];
+}
+
+export async function fetchProjects(): Promise<CloudProject[]> {
+  return fetchJson('/api/cloud/projects');
+}
+
+export async function fetchProjectHypotheses(projectId: number): Promise<CloudProjectHypothesis[]> {
+  return fetchJson(`/api/cloud/projects/${projectId}/hypotheses`);
 }
 
 export async function createFolder(payload: {

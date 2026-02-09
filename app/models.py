@@ -241,6 +241,18 @@ class CloudLibrary(Base):
     )
 
 
+class CloudProject(Base):
+    __tablename__ = "cloud_projects"
+    __table_args__ = (UniqueConstraint("project_key", name="uq_cloud_projects_project_key"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    project_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    project_key: Mapped[str] = mapped_column(String(200), nullable=False, index=True)
+    folder_path: Mapped[str] = mapped_column(String(500), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, onupdate=datetime.utcnow)
+
+
 class CloudItem(Base):
     __tablename__ = "cloud_items"
 

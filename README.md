@@ -106,10 +106,16 @@ curl -X POST http://127.0.0.1:8000/api/drive-sync/hypotheses/1
 curl -X POST http://127.0.0.1:8000/api/drive-sync/records/1
 ```
 
+### Listar proyectos y sus hipótesis
+```bash
+curl http://127.0.0.1:8000/api/cloud/projects
+curl http://127.0.0.1:8000/api/cloud/projects/1/hypotheses
+```
+
 ### Estructura esperada en disco
 ```
 <CLOUD_ROOT>/Projects/
-  P<project_id>_<slug_project_name>/
+  <project_slug>/
     Hypotheses/
       H<experiment_id>_<slug_independent_variable>/
         Records/
@@ -124,6 +130,6 @@ curl -X POST http://127.0.0.1:8000/api/drive-sync/records/1
 3. Sube `test.txt` y confirma que el archivo aparece físicamente.
 4. Renombra, mueve y borra desde la UI; verifica en disco.
 5. Descarga el archivo desde la UI y valida el contenido.
-6. Crea una hipótesis y verifica la carpeta en `Projects/P<ID>_<slug>/Hypotheses/H<ID>_<slug>`.
-7. Crea un record y verifica la carpeta en `Projects/P<ID>_<slug>/Hypotheses/H<ID>_<slug>/Records/R<ID>_<slug>`.
+6. Crea una hipótesis y verifica la carpeta en `Projects/<project_slug>/Hypotheses/H<ID>_<slug>`.
+7. Crea un record y verifica la carpeta en `Projects/<project_slug>/Hypotheses/H<ID>_<slug>/Records/R<ID>_<slug>`.
 8. Ejecuta el backfill para crear carpetas faltantes.
