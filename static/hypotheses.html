@@ -570,7 +570,7 @@
       localStorage.setItem("drive_entity_type", "experiment");
       localStorage.setItem("drive_entity_id", String(exp.id));
       localStorage.setItem("drive_entity_name", exp.project_name || "");
-      window.open(`/static/files.html?type=experiment&id=${exp.id}&name=${encodeURIComponent(exp.project_name)}`, "_blank");
+      window.open(`/static/cloud.html?type=experiment&id=${exp.id}&name=${encodeURIComponent(exp.project_name)}`, "_blank");
     };
 
     const tbody = $("tblRecords");
@@ -642,7 +642,7 @@
       localStorage.setItem("drive_entity_type", "record");
       localStorage.setItem("drive_entity_id", String(record.id));
       localStorage.setItem("drive_entity_name", recordTitle || "");
-      window.open(`/static/files.html?type=record&id=${record.id}&name=${encodeURIComponent(recordTitle)}`, "_blank");
+      window.open(`/static/cloud.html?type=record&id=${record.id}&name=${encodeURIComponent(recordTitle)}`, "_blank");
     };
     $("modalProject").textContent = exp?.project_name || "—";
     $("modalExperiment").textContent = exp ? `Experimento #${exp.id}` : "—";

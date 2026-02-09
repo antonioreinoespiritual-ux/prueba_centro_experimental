@@ -524,7 +524,7 @@
         localStorage.setItem("drive_entity_type", "record");
         localStorage.setItem("drive_entity_id", String(record.id));
         localStorage.setItem("drive_entity_name", recordTitle || "");
-        window.open(`/static/files.html?type=record&id=${record.id}&name=${encodeURIComponent(recordTitle)}`, "_blank");
+        window.open(`/static/cloud.html?type=record&id=${record.id}&name=${encodeURIComponent(recordTitle)}`, "_blank");
       };
       $("modalProject").textContent = exp?.project_name || "—";
       $("modalExperiment").textContent = exp ? `Experimento #${exp.id}` : "—";
