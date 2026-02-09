@@ -345,6 +345,15 @@ def record_root(project: models.CloudProject, record: models.ExperimentRecord, e
     return f"{hypothesis_rel}/Records/{folder_name}"
 
 
+def ensure_records_folder(project: models.CloudProject, experiment: models.Experiment) -> bool:
+    records_rel = f"{hypothesis_root(project, experiment)}/Records"
+    records_path = safe_join(CLOUD_ROOT, records_rel)
+    if records_path.exists():
+        return False
+    records_path.mkdir(parents=True, exist_ok=True)
+    return True
+
+
 
 def ensure_hypothesis_folder(db: Session, experiment: models.Experiment) -> models.Experiment:
     ensure_base_folders()
@@ -356,6 +365,7 @@ def ensure_hypothesis_folder(db: Session, experiment: models.Experiment) -> mode
         db.add(experiment)
         db.commit()
         db.refresh(experiment)
+    ensure_records_folder(project, experiment)
     return experiment
 
 
@@ -366,6 +376,7 @@ def ensure_record_folder(db: Session, record: models.ExperimentRecord) -> models
         return record
     experiment = ensure_hypothesis_folder(db, experiment)
     project = get_or_create_project(db, experiment.project_name)
+    ensure_records_folder(project, experiment)
     base_rel = f"{hypothesis_root(project, experiment)}/Records"
     folder_name = _extract_folder_segment(record.drive_folder_path, "R") or _build_folder_name(
         "R",
@@ -413,6 +424,9 @@ def backfill_all(db: Session) -> dict[str, int]:
     moved = 0
     updated = 0
     skipped = 0
+    created_records_folder = 0
+    moved_records = 0
+    fixed_parent_id = 0
     errors: list[str] = []
 
     for exp in db.scalars(select(models.Experiment)).all():
@@ -427,6 +441,9 @@ def backfill_all(db: Session) -> dict[str, int]:
             )
         try:
             exp = ensure_hypothesis_folder(db, exp)
+            project = get_or_create_project(db, exp.project_name)
+            if ensure_records_folder(project, exp):
+                created_records_folder += 1
             if before is None and exp.drive_folder_path:
                 created += 1
                 updated += 1
@@ -442,6 +459,14 @@ def backfill_all(db: Session) -> dict[str, int]:
         before = record.drive_folder_path
         try:
             record = ensure_record_folder(db, record)
+            experiment = db.get(models.Experiment, record.experiment_id)
+            if experiment:
+                project = get_or_create_project(db, experiment.project_name)
+                desired_prefix = f"{hypothesis_root(project, experiment)}/Records/"
+                if record.drive_folder_path and before and not before.startswith(desired_prefix):
+                    if record.drive_folder_path.startswith(desired_prefix):
+                        moved_records += 1
+                        fixed_parent_id += 1
             if before is None and record.drive_folder_path:
                 created += 1
                 updated += 1
@@ -457,6 +482,9 @@ def backfill_all(db: Session) -> dict[str, int]:
         "created": created,
         "project_consolidated": consolidation["consolidated"],
         "project_consolidated_items": consolidation["moved_items"],
+        "created_records_folder": created_records_folder,
+        "moved_records": moved_records,
+        "fixed_parent_id": fixed_parent_id,
         "moved": moved,
         "updated": updated,
         "skipped": skipped,
