@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Cloud — Centro Experimental</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/design-system.css">
+</head>
+<body class="drive-body">
+  <div class="drive-app" role="main">
+    <header class="drive-header">
+      <div class="drive-header__brand">
+        <div class="drive-logo">
+          <span class="drive-logo__mark"></span>
+          <span class="drive-logo__text">Cloud</span>
+        </div>
+        <div class="drive-search">
+          <span class="drive-search__icon">🔍</span>
+          <input id="globalSearch" type="text" placeholder="Buscar hipótesis o records" />
+        </div>
+      </div>
+      <div class="drive-header__actions">
+        <a class="drive-icon-btn" href="/static/index.html" aria-label="Volver al inicio">🏠</a>
+      </div>
+    </header>
+
+    <div class="drive-layout">
+      <aside class="drive-sidebar">
+        <div class="drive-nav">
+          <button class="drive-nav__item active">Hipótesis</button>
+          <button class="drive-nav__item">Records</button>
+        </div>
+        <div class="drive-storage">
+          <div class="drive-storage__label">Seafile</div>
+          <div class="drive-storage__meta">Vista Cloud para archivos por entidad.</div>
+        </div>
+      </aside>
+
+      <main class="drive-content">
+        <div class="drive-topline">
+          <div>
+            <div class="drive-title">Carpetas Cloud</div>
+            <div class="drive-subtitle">Abre una hipótesis o record para guardar archivos.</div>
+          </div>
+        </div>
+
+        <div class="drive-section">
+          <div class="drive-section__header">
+            <h3>Hipótesis</h3>
+            <span class="tag" id="experimentCount">0</span>
+          </div>
+          <div id="experimentGrid" class="drive-folder-row"></div>
+        </div>
+
+        <div class="drive-section">
+          <div class="drive-section__header">
+            <h3>Records</h3>
+            <span class="tag" id="recordCount">0</span>
+          </div>
+          <div id="recordGrid" class="drive-folder-row"></div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+<script>
+  const API_BASE = "";
+  const $ = (id) => document.getElementById(id);
+
+  function createFolderCard({ title, subtitle, href }) {
+    const card = document.createElement("a");
+    card.className = "drive-folder-card";
+    card.href = href;
+    card.target = "_blank";
+    const icon = document.createElement("div");
+    icon.className = "drive-folder-card__icon";
+    icon.textContent = "📁";
+    const name = document.createElement("div");
+    name.className = "drive-folder-card__name";
+    name.textContent = title;
+    const meta = document.createElement("div");
+    meta.className = "text-xs text-muted";
+    meta.textContent = subtitle;
+    card.append(icon, name, meta);
+    return card;
+  }
+
+  async function apiGet(path) {
+    const response = await fetch(API_BASE + path);
+    if (!response.ok) throw new Error(await response.text());
+    return response.json();
+  }
+
+  function normalize(value, fallback) {
+    const trimmed = (value || "").toString().trim();
+    return trimmed ? trimmed : fallback;
+  }
+
+  function renderExperiments(experiments) {
+    const grid = $("experimentGrid");
+    grid.innerHTML = "";
+    experiments.forEach((experiment) => {
+      const title = normalize(experiment.project_name, `Hipótesis ${experiment.id}`);
+      const subtitle = normalize(experiment.hypothesis, "Hipótesis");
+      const href = `/static/files.html?type=experiment&id=${experiment.id}&name=${encodeURIComponent(title)}`;
+      grid.appendChild(createFolderCard({ title, subtitle, href }));
+    });
+    $("experimentCount").textContent = experiments.length;
+    if (!experiments.length) {
+      const empty = document.createElement("div");
+      empty.className = "text-muted text-sm";
+      empty.textContent = "No hay hipótesis disponibles todavía.";
+      grid.appendChild(empty);
+    }
+  }
+
+  function renderRecords(records) {
+    const grid = $("recordGrid");
+    grid.innerHTML = "";
+    records.forEach((record) => {
+      const title = normalize(record.record_name, normalize(record.session_id, `Record ${record.id}`));
+      const subtitle = `Experiment ${record.experiment_id}`;
+      const href = `/static/files.html?type=record&id=${record.id}&name=${encodeURIComponent(title)}`;
+      grid.appendChild(createFolderCard({ title, subtitle, href }));
+    });
+    $("recordCount").textContent = records.length;
+    if (!records.length) {
+      const empty = document.createElement("div");
+      empty.className = "text-muted text-sm";
+      empty.textContent = "No hay records disponibles todavía.";
+      grid.appendChild(empty);
+    }
+  }
+
+  function applyFilter() {
+    const term = $("globalSearch").value.toLowerCase().trim();
+    const experimentCards = [...$("experimentGrid").querySelectorAll(".drive-folder-card")];
+    const recordCards = [...$("recordGrid").querySelectorAll(".drive-folder-card")];
+    [...experimentCards, ...recordCards].forEach((card) => {
+      const text = card.textContent.toLowerCase();
+      card.style.display = !term || text.includes(term) ? "" : "none";
+    });
+  }
+
+  async function loadCloud() {
+    try {
+      const [experiments, records] = await Promise.all([
+        apiGet("/experiments"),
+        apiGet("/records"),
+      ]);
+      renderExperiments(experiments);
+      renderRecords(records);
+    } catch (error) {
+      console.error(error);
+      const grid = $("experimentGrid");
+      grid.innerHTML = "";
+      const alert = document.createElement("div");
+      alert.className = "alert alert-warning";
+      alert.textContent = "No se pudieron cargar las carpetas Cloud.";
+      grid.appendChild(alert);
+    }
+  }
+
+  $("globalSearch").addEventListener("input", applyFilter);
+  loadCloud();
+</script>
+</body>
+</html>
