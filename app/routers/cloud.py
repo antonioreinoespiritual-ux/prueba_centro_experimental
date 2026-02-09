@@ -208,3 +208,9 @@ def display_map(
 ):
     items = cloud_service.build_display_map(db, library_id=library_id, parent_id=parent_id)
     return schemas.CloudDisplayMap(items=items)
+
+
+@router.get("/api/cloud/tree/projects", response_model=schemas.CloudProjectsTree)
+def projects_tree():
+    projects = cloud_service.list_projects_tree()
+    return schemas.CloudProjectsTree(projects=projects)

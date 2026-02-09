@@ -45,6 +45,7 @@ interface CloudState {
   goToBreadcrumb: (index: number) => Promise<void>;
   openSystemFolder: (name: string) => Promise<void>;
   openSystemRelPath: (relPath: string) => Promise<void>;
+  openProjectsRoot: () => Promise<void>;
   createFolder: (name: string) => Promise<void>;
   uploadFile: (file: File) => Promise<void>;
   renameSelected: () => Promise<void>;
@@ -93,6 +94,9 @@ export const useCloudStore = create<CloudState>((set, get) => ({
         const systemLibrary = libraries.find((library) => library.is_system || library.name === '_System');
         const defaultLibrary = systemLibrary ?? libraries[0];
         await get().setCurrentLibrary(defaultLibrary.id, defaultLibrary.name);
+        if (systemLibrary) {
+          await get().openProjectsRoot();
+        }
       }
     } catch (error) {
       set({ loading: false, error: error instanceof Error ? error.message : 'Error' });
@@ -165,7 +169,7 @@ export const useCloudStore = create<CloudState>((set, get) => ({
   openSystemRelPath: async (relPath) => {
     const cleanPath = relPath.replace(/^\/+/, '').replace(/\/+$/, '');
     if (!cleanPath) return;
-    const segments = cleanPath.split('/').filter(Boolean);
+    let segments = cleanPath.split('/').filter(Boolean);
     const { libraries } = get();
     const systemLibrary = libraries.find((library) => library.is_system || library.name === '_System');
     if (!systemLibrary) {
@@ -177,6 +181,10 @@ export const useCloudStore = create<CloudState>((set, get) => ({
     } else {
       await get().loadItems();
     }
+    if (segments[0]?.toLowerCase() === 'projects') {
+      await get().openProjectsRoot();
+      segments = segments.slice(1);
+    }
     for (const segment of segments) {
       const target = get().items.find(
         (item) => item.item_type === 'folder' && item.name.toLowerCase() === segment.toLowerCase(),
@@ -187,6 +195,26 @@ export const useCloudStore = create<CloudState>((set, get) => ({
       }
       await get().openFolder(target);
     }
+  },
+  openProjectsRoot: async () => {
+    const { libraries } = get();
+    const systemLibrary = libraries.find((library) => library.is_system || library.name === '_System');
+    if (!systemLibrary) {
+      set({ toast: 'No se encontró la biblioteca del sistema.' });
+      return;
+    }
+    if (get().currentLibraryId !== systemLibrary.id) {
+      await get().setCurrentLibrary(systemLibrary.id, systemLibrary.name);
+    } else {
+      await get().loadItems();
+    }
+    const target = get().items.find((item) => item.item_type === 'folder' && item.name === 'Projects');
+    if (!target) {
+      set({ toast: 'No se encontró la carpeta Projects.' });
+      return;
+    }
+    set({ currentParentId: target.id, currentPath: [{ id: target.id, name: 'Projects' }] });
+    await get().loadItems();
   },
   createFolder: async (name) => {
     const { currentLibraryId, currentParentId } = get();

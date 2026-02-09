@@ -11,6 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from .. import models
+from .drive_sync_service import CLOUD_PROJECTS_DIR
 from ..storage import sanitize_filename
 
 CLOUD_ROOT = Path(os.getenv("CLOUD_ROOT", "/Users/m2/CloudDriveData")).expanduser()
@@ -401,6 +402,44 @@ def build_display_map(
         if display_name:
             entries.append({"item_id": item.id, "display_name": display_name, "badge": badge})
     return entries
+
+
+def list_projects_tree() -> list[dict[str, object]]:
+    projects_root = (CLOUD_ROOT / CLOUD_PROJECTS_DIR).resolve()
+    if not projects_root.exists():
+        return []
+    projects: list[dict[str, object]] = []
+    for project_dir in sorted(projects_root.iterdir(), key=lambda p: p.name.lower()):
+        if not project_dir.is_dir():
+            continue
+        project_rel = f"{CLOUD_PROJECTS_DIR}/{project_dir.name}"
+        hypotheses_dir = project_dir / "Hypotheses"
+        hypotheses: list[dict[str, object]] = []
+        if hypotheses_dir.exists():
+            for hypothesis_dir in sorted(hypotheses_dir.iterdir(), key=lambda p: p.name.lower()):
+                if not hypothesis_dir.is_dir():
+                    continue
+                hypothesis_rel = f"{project_rel}/Hypotheses/{hypothesis_dir.name}"
+                records_dir = hypothesis_dir / "Records"
+                records: list[dict[str, str]] = []
+                if records_dir.exists():
+                    for record_dir in sorted(records_dir.iterdir(), key=lambda p: p.name.lower()):
+                        if record_dir.is_dir():
+                            records.append(
+                                {
+                                    "name": record_dir.name,
+                                    "rel_path": f"{hypothesis_rel}/Records/{record_dir.name}",
+                                }
+                            )
+                hypotheses.append(
+                    {
+                        "name": hypothesis_dir.name,
+                        "rel_path": hypothesis_rel,
+                        "records": records,
+                    }
+                )
+        projects.append({"name": project_dir.name, "rel_path": project_rel, "hypotheses": hypotheses})
+    return projects
 
 
 def resolve_item_path(library: models.CloudLibrary, item: models.CloudItem) -> Path:

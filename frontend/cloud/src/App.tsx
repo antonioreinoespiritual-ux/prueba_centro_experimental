@@ -68,7 +68,7 @@ export default function App() {
           <div className="cloud-main__header">
             <div>
               <h1>Cloud Drive</h1>
-              <p>Bibliotecas por hipótesis y records.</p>
+              <p>Bibliotecas organizadas por proyectos, hipótesis y records.</p>
               <Breadcrumbs />
             </div>
           </div>

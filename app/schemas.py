@@ -610,3 +610,24 @@ class CloudDisplayEntry(BaseModel):
 
 class CloudDisplayMap(BaseModel):
     items: list[CloudDisplayEntry] = []
+
+
+class CloudRecordNode(BaseModel):
+    name: str
+    rel_path: str
+
+
+class CloudHypothesisNode(BaseModel):
+    name: str
+    rel_path: str
+    records: list[CloudRecordNode] = []
+
+
+class CloudProjectNode(BaseModel):
+    name: str
+    rel_path: str
+    hypotheses: list[CloudHypothesisNode] = []
+
+
+class CloudProjectsTree(BaseModel):
+    projects: list[CloudProjectNode] = []

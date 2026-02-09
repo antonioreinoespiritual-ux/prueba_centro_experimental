@@ -84,7 +84,7 @@ curl -X POST http://127.0.0.1:8000/api/cloud/files/complete-upload \
 curl -L "http://127.0.0.1:8000/api/cloud/files/1/download" -o archivo.pdf
 ```
 
-## Drive Sync (Hypotheses/Records)
+## Drive Sync (Projects/Hypotheses/Records)
 
 ### Bootstrap de carpetas base
 ```bash
@@ -106,12 +106,24 @@ curl -X POST http://127.0.0.1:8000/api/drive-sync/hypotheses/1
 curl -X POST http://127.0.0.1:8000/api/drive-sync/records/1
 ```
 
+### Estructura esperada en disco
+```
+<CLOUD_ROOT>/Projects/
+  P<project_id>_<slug_project_name>/
+    Hypotheses/
+      H<experiment_id>_<slug_independent_variable>/
+        Records/
+          R<record_id>_<slug_record_name>/
+<CLOUD_ROOT>/_System
+<CLOUD_ROOT>/_Archived
+```
+
 ## Smoke test (filesystem real)
 1. Crea una biblioteca y confirma que existe en `/Users/m2/CloudDriveData`.
 2. Desde la UI crea una carpeta “Docs” y verifica en Finder/terminal.
 3. Sube `test.txt` y confirma que el archivo aparece físicamente.
 4. Renombra, mueve y borra desde la UI; verifica en disco.
 5. Descarga el archivo desde la UI y valida el contenido.
-6. Crea una hipótesis y verifica la carpeta en `Hypotheses/H<ID>_<slug>`.
-7. Crea un record y verifica la carpeta en `Records/R<ID>_<slug>`.
+6. Crea una hipótesis y verifica la carpeta en `Projects/P<ID>_<slug>/Hypotheses/H<ID>_<slug>`.
+7. Crea un record y verifica la carpeta en `Projects/P<ID>_<slug>/Hypotheses/H<ID>_<slug>/Records/R<ID>_<slug>`.
 8. Ejecuta el backfill para crear carpetas faltantes.
