@@ -11,7 +11,7 @@ load_env()
 
 from .database import Base, engine
 from .migrations import ensure_schema
-from .routers import experiments, records, documentation, ai_analysis, publics, assistant, files, cloud, drive_sync
+from .routers import experiments, records, documentation, ai_analysis, publics, assistant, files, cloud, drive_sync, hypotheses_ui
 ensure_schema()
 Base.metadata.create_all(bind=engine)
 
@@ -43,3 +43,4 @@ app.include_router(assistant.router, tags=["assistant"])
 app.include_router(files.router, prefix="/files", tags=["files"])
 app.include_router(cloud.router, tags=["cloud"])
 app.include_router(drive_sync.router, tags=["drive-sync"])
+app.include_router(hypotheses_ui.router, tags=["hypotheses-ui"])

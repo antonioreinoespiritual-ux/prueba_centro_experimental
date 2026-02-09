@@ -41,6 +41,29 @@ npm run build
 
 El build genera los assets en `static/cloud/` y el backend los sirve desde `/cloud`.
 
+## Frontend Hypotheses (Vite + React)
+
+### Configuración API
+```bash
+export VITE_API_URL=http://127.0.0.1:8000
+```
+
+### Desarrollo
+```bash
+cd frontend/hypotheses
+npm install
+npm run dev
+```
+
+### Build para producción (servido por FastAPI en /hypotheses)
+```bash
+cd frontend/hypotheses
+npm install
+npm run build
+```
+
+El build genera los assets en `static/hypotheses/` y el backend los sirve desde `/hypotheses`.
+
 ## Producción
 1. Compila el frontend (`npm run build`).
 2. Levanta el backend con `uvicorn app.main:app`.
