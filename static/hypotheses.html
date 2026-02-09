@@ -534,12 +534,13 @@
         </div>
         <div class="flex gap-sm mt-sm">
           <span class="tag">Hipotesis #${exp.id}</span>
-          ${exp.independent_variable ? `<span class="tag">X: ${escapeHtml(exp.independent_variable)}</span>` : '<span class="tag">X: —</span>'}
+          ${exp.metric_x ? `<span class="tag">Metric X: ${escapeHtml(exp.metric_x)}</span>` : '<span class="tag">Metric X: —</span>'}
         </div>
         <div class="hyp-text">${escapeHtml(exp.hypothesis || "Sin hipotesis definida")}</div>
         <div class="hyp-meta">
           ${exp.hypothesis_type ? `<span class="tag">${exp.hypothesis_type}</span>` : ''}
           ${exp.primary_metric ? `<span class="tag">Y: ${exp.primary_metric}</span>` : ''}
+          ${exp.independent_variable ? `<span class="tag">Variable: ${escapeHtml(exp.independent_variable)}</span>` : '<span class="tag">Variable: —</span>'}
           ${exp.threshold_operator && exp.threshold_value !== null ? `<span class="tag">Umbral: ${exp.threshold_operator} ${exp.threshold_value}${exp.threshold_type === 'percentage' ? '%' : ''}</span>` : ''}
           <span class="tag">Creado: ${escapeHtml(exp.created_at || "—")}</span>
           <span class="tag">Actualizado: ${escapeHtml(exp.updated_at || exp.created_at || "—")}</span>

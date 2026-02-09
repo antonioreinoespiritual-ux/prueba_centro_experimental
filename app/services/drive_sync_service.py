@@ -79,10 +79,17 @@ def _rename_if_needed(old_rel: str | None, new_rel: str) -> str:
     return new_rel
 
 
+def _pick_hypothesis_title(experiment: models.Experiment) -> str:
+    for value in (experiment.metric_x, experiment.independent_variable, experiment.hypothesis):
+        if value and value.strip():
+            return value
+    return f"hypothesis-{experiment.id}"
+
+
 def ensure_hypothesis_folder(db: Session, experiment: models.Experiment) -> models.Experiment:
     ensure_base_folders()
-    name = experiment.hypothesis or experiment.project_name or f"hypothesis-{experiment.id}"
-    folder_name = _build_folder_name("H", experiment.id, name)
+    title_source = _pick_hypothesis_title(experiment)
+    folder_name = _build_folder_name("H", experiment.id, title_source)
     desired_rel = _available_rel_path("Hypotheses", folder_name, experiment.drive_folder_path)
     updated_rel = _rename_if_needed(experiment.drive_folder_path, desired_rel)
     if experiment.drive_folder_path != updated_rel:

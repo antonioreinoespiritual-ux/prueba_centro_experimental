@@ -21,7 +21,10 @@ export function Sidebar() {
         <button className="cloud-nav__item" onClick={() => openSystemFolder('Records')}>
           Records
         </button>
-        <button className="cloud-nav__item" onClick={() => systemLibrary && setCurrentLibrary(systemLibrary.id, systemLibrary.name)}>
+        <button
+          className="cloud-nav__item"
+          onClick={() => systemLibrary && setCurrentLibrary(systemLibrary.id, systemLibrary.name)}
+        >
           Sistema
         </button>
       </nav>
@@ -33,7 +36,7 @@ export function Sidebar() {
             className={`cloud-nav__item ${currentLibraryId === library.id ? 'active' : ''}`}
             onClick={() => setCurrentLibrary(library.id)}
           >
-            {library.name}
+            {library.name === '_System' ? 'Sistema' : library.name}
           </button>
         ))}
       </div>

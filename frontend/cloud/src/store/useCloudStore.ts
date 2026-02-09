@@ -90,8 +90,9 @@ export const useCloudStore = create<CloudState>((set, get) => ({
     }
   },
   setCurrentLibrary: async (id, name) => {
-    const libraryName = name ?? get().libraries.find((library) => library.id === id)?.name ?? 'Mi unidad';
-    set({ currentLibraryId: id, currentParentId: null, currentPath: [{ id: null, name: libraryName }] });
+    const resolvedName = name ?? get().libraries.find((library) => library.id === id)?.name ?? 'Mi unidad';
+    const displayName = resolvedName === '_System' ? 'Sistema' : resolvedName;
+    set({ currentLibraryId: id, currentParentId: null, currentPath: [{ id: null, name: displayName }] });
     await get().loadItems();
   },
   loadItems: async () => {
