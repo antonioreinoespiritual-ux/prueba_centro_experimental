@@ -17,6 +17,11 @@
     .chat-input { display: grid; grid-template-columns: 1fr auto; gap: var(--space-sm); align-items: end; }
     .chat-input textarea { min-height: 64px; resize: vertical; }
     .chat-status { font-size: 0.8rem; color: var(--text-muted); }
+    .chat-warning { border: 1px solid rgba(248,113,113,0.5); background: rgba(248,113,113,0.1); color: #fecaca; padding: var(--space-sm) var(--space-md); border-radius: 12px; font-size: 0.85rem; }
+    .chat-error { border: 1px solid rgba(248,113,113,0.5); background: rgba(248,113,113,0.1); color: #fecaca; padding: var(--space-sm) var(--space-md); border-radius: 12px; font-size: 0.85rem; }
+    .chat-status--error { color: var(--danger); }
+    details.chat-refs { margin-top: var(--space-xs); }
+    details.chat-refs summary { cursor: pointer; color: var(--accent); font-size: 0.8rem; }
   </style>
 </head>
 <body>
@@ -61,13 +66,17 @@
   </div>
 
   <script>
-    const API_BASE = "";
+    const FALLBACK_API = "http://127.0.0.1:8000";
+    const API_BASE = localStorage.getItem("ce_api_base")
+      || (window.location.origin && window.location.origin !== "null" ? window.location.origin : "")
+      || FALLBACK_API;
     const STORAGE_KEY = "ce_chat_consult_messages";
     const STORAGE_CONVO_KEY = "ce_chat_consult_conversation_id";
     const STORAGE_MODEL_KEY = "ce_chat_consult_model";
     const MODEL_CHAT_1 = "";
     const MODEL_CHAT_2 = "meta-llama/llama-4-scout-17b-16e-instruct";
     const $ = (id) => document.getElementById(id);
+    const isFileProtocol = window.location.protocol === "file:";
 
     function loadConversationId() {
       let convo = localStorage.getItem(STORAGE_CONVO_KEY);
@@ -118,12 +127,17 @@
         bubble.className = `chat-message chat-message--${msg.role}`;
         bubble.textContent = msg.content;
         container.appendChild(bubble);
-        const citations = msg.refs?.citations || [];
-        if (citations.length) {
-          const meta = document.createElement("div");
-          meta.className = "chat-meta";
-          meta.textContent = `Referencias: ${citations.join(", ")}`;
-          container.appendChild(meta);
+        if (msg.refs) {
+          const details = document.createElement("details");
+          details.className = "chat-refs";
+          const summary = document.createElement("summary");
+          summary.textContent = "Referencias / Contexto";
+          const pre = document.createElement("pre");
+          pre.className = "chat-meta";
+          pre.textContent = JSON.stringify(msg.refs, null, 2);
+          details.appendChild(summary);
+          details.appendChild(pre);
+          container.appendChild(details);
         }
       });
       container.scrollTop = container.scrollHeight;
@@ -132,7 +146,7 @@
     function setStatus(text, tone = "default") {
       const status = $("chatStatus");
       status.textContent = text;
-      status.style.color = tone === "error" ? "var(--danger)" : "var(--text-muted)";
+      status.className = `chat-status mt-sm${tone === "error" ? " chat-status--error" : ""}`;
     }
 
     async function sendMessage() {
@@ -146,8 +160,9 @@
       saveMessages(messages);
       renderMessages(messages);
       textarea.value = "";
-      setStatus("Pensando…");
+      setStatus("Enviando…");
       $("btnSend").disabled = true;
+      $("btnSend").textContent = "Enviando…";
 
       try {
         const response = await fetch(`${API_BASE}/api/chat/consult`, {
@@ -160,15 +175,27 @@
           const errorText = await response.text();
           throw new Error(errorText || "Error desconocido");
         }
-        data = await response.json();
+        try {
+          data = await response.json();
+        } catch (jsonError) {
+          throw new Error("Respuesta inválida del servidor (JSON).");
+        }
+        if (!data || typeof data.answer !== "string") {
+          throw new Error("Respuesta sin contenido.");
+        }
         messages.push({ role: "assistant", content: data.answer, refs: data.refs || null });
         saveMessages(messages);
         renderMessages(messages);
         setStatus("Listo.");
       } catch (error) {
-        setStatus(`Error al enviar el mensaje: ${error.message}`, "error");
+        const errorMessage = `Error al enviar el mensaje: ${error.message}`;
+        messages.push({ role: "assistant", content: errorMessage, refs: null });
+        saveMessages(messages);
+        renderMessages(messages);
+        setStatus(errorMessage, "error");
       } finally {
         $("btnSend").disabled = false;
+        $("btnSend").textContent = "Enviar";
       }
     }
 
@@ -194,6 +221,14 @@
 
     renderMessages(loadMessages());
     updateModelUI(loadModel());
+    if (isFileProtocol) {
+      const container = $("chatMessages");
+      const warn = document.createElement("div");
+      warn.className = "chat-warning";
+      warn.textContent = "Este chat debe abrirse desde el servidor: http://127.0.0.1:8000/static/chat.html";
+      container.appendChild(warn);
+      setStatus("Advertencia: archivo abierto vía file://", "error");
+    }
   </script>
 </body>
 </html>
