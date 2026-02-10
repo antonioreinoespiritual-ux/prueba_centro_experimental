@@ -7,6 +7,14 @@ from pathlib import Path
 from .database import DATABASE_URL
 
 
+def _is_sqlite() -> bool:
+    return DATABASE_URL.startswith("sqlite")
+
+
+def _current_timestamp_sql() -> str:
+    return "datetime('now')" if _is_sqlite() else "CURRENT_TIMESTAMP"
+
+
 def _column_exists(cursor: sqlite3.Cursor, table: str, column: str) -> bool:
     cursor.execute(f"PRAGMA table_info({table})")
     return any(row[1] == column for row in cursor.fetchall())
@@ -273,6 +281,17 @@ def ensure_schema() -> None:
             CREATE INDEX IF NOT EXISTS ix_chat_messages_assistant_type
             ON chat_messages (assistant_type)
         """)
+    if _column_exists(cur, "chat_messages", "created_at") is False:
+        if _is_sqlite():
+            cur.execute("ALTER TABLE chat_messages ADD COLUMN created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP")
+        else:
+            cur.execute("ALTER TABLE chat_messages ADD COLUMN created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP")
+    cur.execute(f"UPDATE chat_messages SET created_at = {_current_timestamp_sql()} WHERE created_at IS NULL")
+    if _column_exists(cur, "chat_messages", "updated_at") is False:
+        if _is_sqlite():
+            cur.execute("ALTER TABLE chat_messages ADD COLUMN updated_at DATETIME NULL")
+        else:
+            cur.execute("ALTER TABLE chat_messages ADD COLUMN updated_at TIMESTAMP NULL")
 
     # --- Assistant drafts ---
     cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='assistant_drafts'")
