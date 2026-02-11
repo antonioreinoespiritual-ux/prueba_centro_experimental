@@ -24,6 +24,10 @@ export function FiltersBar({ filters, projects, metrics, onChange }: FiltersBarP
           Tipo de hipótesis
           <select value={filters.type} onChange={(event) => update({ type: event.target.value })}>
             <option value="">Todos</option>
+            <option value="PROBLEM">Problema</option>
+            <option value="CUSTOMER_SEGMENT">Cliente / Segmento</option>
+            <option value="SOLUTION">Solución</option>
+            <option value="VALUE">Valor</option>
             <option value="acquisition">Acquisition</option>
             <option value="activation">Activation</option>
             <option value="retention">Retention</option>

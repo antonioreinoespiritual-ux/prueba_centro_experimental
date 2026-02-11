@@ -4,12 +4,13 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Optional, Literal, Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 TrafficType = Literal["paid", "organic", "mixed", "live"]
 
 HypothesisType = Literal[
+    # legacy values (backward compatibility)
     "acquisition",
     "activation",
     "retention",
@@ -19,7 +20,47 @@ HypothesisType = Literal[
     "channel_fit",
     "pricing",
     "funnel_friction",
+    # canonical values
+    "ACQUISITION",
+    "ACTIVATION",
+    "RETENTION",
+    "MONETIZATION",
+    "TRUST",
+    "MESSAGE_MARKET_FIT",
+    "CHANNEL_FIT",
+    "PRICING",
+    "FUNNEL_FRICTION",
+    # new canonical values
+    "PROBLEM",
+    "CUSTOMER_SEGMENT",
+    "SOLUTION",
+    "VALUE",
 ]
+
+
+_HYPOTHESIS_TYPE_NORMALIZATION = {
+    "problema": "PROBLEM",
+    "problem": "PROBLEM",
+    "cliente_segmento": "CUSTOMER_SEGMENT",
+    "cliente-segmento": "CUSTOMER_SEGMENT",
+    "customer_segment": "CUSTOMER_SEGMENT",
+    "customer-segment": "CUSTOMER_SEGMENT",
+    "solucion": "SOLUTION",
+    "solución": "SOLUTION",
+    "solution": "SOLUTION",
+    "valor": "VALUE",
+    "value": "VALUE",
+}
+
+
+def _normalize_hypothesis_type(value: str | None) -> str | None:
+    if value is None:
+        return None
+    stripped = value.strip()
+    if not stripped:
+        return None
+    lowered = stripped.lower()
+    return _HYPOTHESIS_TYPE_NORMALIZATION.get(lowered, stripped)
 
 ExperimentStatus = Literal[
     "draft",
@@ -174,6 +215,11 @@ class AIAnalysisResponse(BaseModel):
 
 # ---------- Experiments ----------
 class ExperimentCreate(BaseModel):
+    @field_validator("hypothesis_type", mode="before")
+    @classmethod
+    def normalize_hypothesis_type(cls, value: str | None):
+        return _normalize_hypothesis_type(value)
+
     project_name: str = Field(min_length=1, max_length=200)
     hypothesis: str = Field(min_length=1, max_length=5000)
     traffic_type: TrafficType
@@ -197,6 +243,11 @@ class ExperimentCreate(BaseModel):
 
 
 class ExperimentUpdate(BaseModel):
+    @field_validator("hypothesis_type", mode="before")
+    @classmethod
+    def normalize_hypothesis_type(cls, value: str | None):
+        return _normalize_hypothesis_type(value)
+
     hypothesis: Optional[str] = Field(default=None, min_length=1, max_length=5000)
     hypothesis_type: Optional[HypothesisType] = None
     independent_variable: Optional[str] = Field(default=None, max_length=500)
