@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Eliminar Publicos — Centro Experimental</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/design-system.css">
+  <style>
+    .table-checkbox { width: 20px; height: 20px; accent-color: var(--danger); }
+    .delete-toolbar { display: flex; flex-wrap: wrap; gap: var(--space-sm); align-items: center; }
+    .confirm-backdrop { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); display: none; align-items: center; justify-content: center; z-index: 1000; }
+    .confirm-modal { background: var(--surface-2); border: 1px solid var(--glass-border); border-radius: var(--radius-lg); padding: var(--space-xl); width: min(520px, 95vw); box-shadow: var(--shadow-lg); }
+    .confirm-actions { display: flex; gap: var(--space-sm); justify-content: flex-end; margin-top: var(--space-lg); }
+  </style>
+</head>
+<body>
+  <div class="app-container" role="main">
+    <div class="top-bar">
+      <div>
+        <h1 class="top-bar__title">Eliminar Publicos</h1>
+        <p class="top-bar__subtitle">Selecciona públicos y elimina en bloque con confirmación.</p>
+      </div>
+      <div class="top-bar__actions">
+        <a class="btn-link" href="/" aria-label="Volver a formularios">Volver a formularios</a>
+        <a class="btn-link" href="/static/publics.html" aria-label="Públicos">Públicos</a>
+      </div>
+    </div>
+
+    <div class="card fade-in mt-lg">
+      <div class="grid grid-3">
+        <div class="field-group">
+          <label for="fSearch">Buscar</label>
+          <input id="fSearch" placeholder="nombre o descripción..." />
+        </div>
+      </div>
+      <div class="delete-toolbar mt-lg">
+        <button id="btnSelectAll" class="btn-secondary">Seleccionar visibles</button>
+        <button id="btnClearAll" class="btn-ghost">Limpiar seleccion</button>
+        <span class="tag" id="selectedCount">0 seleccionados</span>
+        <button id="btnDeleteSelected" class="btn-warning">Eliminar seleccionados</button>
+        <span class="text-sm text-muted">Esta acción desvincula records y elimina los públicos.</span>
+      </div>
+    </div>
+
+    <div class="card mt-lg">
+      <div class="section-header">
+        <h3>Publicos</h3>
+        <span class="tag" id="totalCount">0 públicos</span>
+      </div>
+      <div class="table-wrapper mt-md">
+        <table>
+          <thead>
+            <tr>
+              <th></th>
+              <th>ID</th>
+              <th>Nombre</th>
+              <th>Descripción</th>
+              <th>Records</th>
+              <th>Creado</th>
+              <th>Actualizado</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="tblPublics"></tbody>
+        </table>
+      </div>
+      <div id="emptyState" class="text-sm text-muted mt-md" style="display:none;">No hay públicos para estos filtros.</div>
+    </div>
+  </div>
+
+  <div class="confirm-backdrop" id="confirmBackdrop" role="dialog" aria-modal="true">
+    <div class="confirm-modal">
+      <h3>Confirmar eliminacion</h3>
+      <p class="text-sm">Vas a eliminar <strong id="confirmCount">0</strong> públicos. Esta acción es permanente.</p>
+      <div class="confirm-actions">
+        <button id="btnCancelDelete" class="btn-secondary">Cancelar</button>
+        <button id="btnConfirmDelete" class="btn-warning">Eliminar ahora</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast-container" id="toastContainer"></div>
+
+<script>
+  const API_BASE = "";
+  const $ = (id) => document.getElementById(id);
+
+  let publics = [];
+  const selectedIds = new Set();
+
+  function showToast(message, type = "success") {
+    const container = $("toastContainer");
+    const toast = document.createElement("div");
+    toast.className = `toast toast--${type}`;
+    toast.textContent = message;
+    container.appendChild(toast);
+    setTimeout(() => toast.remove(), 3000);
+  }
+
+  async function apiGet(path) {
+    const r = await fetch(API_BASE + path);
+    if (!r.ok) throw new Error(await r.text());
+    return r.json();
+  }
+
+  async function apiDelete(path) {
+    const r = await fetch(API_BASE + path, { method: "DELETE" });
+    if (!r.ok) throw new Error(await r.text());
+    return r.json();
+  }
+
+  function applyFilters() {
+    const search = $("fSearch").value.trim().toLowerCase();
+    return publics.filter(pub => {
+      if (!search) return true;
+      const hay = [pub.name, pub.description].filter(Boolean).join(" ").toLowerCase();
+      return hay.includes(search);
+    });
+  }
+
+  function renderTable() {
+    const filtered = applyFilters();
+    const tbody = $("tblPublics");
+    tbody.innerHTML = "";
+    $("totalCount").textContent = `${filtered.length} públicos`;
+    $("emptyState").style.display = filtered.length ? "none" : "";
+
+    filtered.forEach(pub => {
+      const tr = document.createElement("tr");
+      const isChecked = selectedIds.has(pub.id);
+      tr.innerHTML = `
+        <td><input type="checkbox" class="table-checkbox" data-id="${pub.id}" ${isChecked ? "checked" : ""}></td>
+        <td>${pub.id}</td>
+        <td>${pub.name}</td>
+        <td>${pub.description || "—"}</td>
+        <td>${pub.records_count || 0}</td>
+        <td>${pub.created_at || "—"}</td>
+        <td>${pub.updated_at || "—"}</td>
+        <td><button class="btn-warning" data-delete="${pub.id}">Eliminar</button></td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    tbody.querySelectorAll("input[type=checkbox]").forEach(cb => {
+      cb.addEventListener("change", (event) => {
+        const id = Number(event.target.dataset.id);
+        if (event.target.checked) selectedIds.add(id);
+        else selectedIds.delete(id);
+        updateSelectedCount();
+      });
+    });
+
+    tbody.querySelectorAll("button[data-delete]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const id = Number(btn.dataset.delete);
+        openConfirm([id]);
+      });
+    });
+
+    updateSelectedCount();
+  }
+
+  function updateSelectedCount() {
+    $("selectedCount").textContent = `${selectedIds.size} seleccionados`;
+    $("btnDeleteSelected").disabled = selectedIds.size === 0;
+  }
+
+  function openConfirm(ids) {
+    $("confirmCount").textContent = ids.length;
+    $("confirmBackdrop").style.display = "flex";
+    $("confirmBackdrop").dataset.ids = ids.join(",");
+  }
+
+  function closeConfirm() {
+    $("confirmBackdrop").style.display = "none";
+    $("confirmBackdrop").dataset.ids = "";
+  }
+
+  async function deleteIds(ids) {
+    try {
+      await Promise.all(ids.map(id => apiDelete(`/publics/${id}`)));
+      publics = publics.filter(pub => !ids.includes(pub.id));
+      ids.forEach(id => selectedIds.delete(id));
+      renderTable();
+      showToast("Públicos eliminados correctamente.");
+    } catch (e) {
+      showToast(String(e), "error");
+    }
+  }
+
+  async function loadAll() {
+    try {
+      publics = await apiGet("/publics/");
+      renderTable();
+    } catch (e) {
+      showToast("Error cargando públicos: " + String(e), "error");
+    }
+  }
+
+  $("fSearch").addEventListener("input", renderTable);
+  $("btnSelectAll").addEventListener("click", () => {
+    applyFilters().forEach(pub => selectedIds.add(pub.id));
+    renderTable();
+  });
+  $("btnClearAll").addEventListener("click", () => {
+    selectedIds.clear();
+    renderTable();
+  });
+  $("btnDeleteSelected").addEventListener("click", () => {
+    if (!selectedIds.size) return;
+    openConfirm(Array.from(selectedIds));
+  });
+
+  $("btnCancelDelete").addEventListener("click", closeConfirm);
+  $("confirmBackdrop").addEventListener("click", (event) => {
+    if (event.target === $("confirmBackdrop")) closeConfirm();
+  });
+  $("btnConfirmDelete").addEventListener("click", async () => {
+    const ids = ($("confirmBackdrop").dataset.ids || "")
+      .split(",")
+      .map(x => Number(x))
+      .filter(Boolean);
+    closeConfirm();
+    if (!ids.length) return;
+    await deleteIds(ids);
+  });
+
+  loadAll();
+</script>
+</body>
+</html>

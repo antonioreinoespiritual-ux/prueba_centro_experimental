@@ -298,6 +298,22 @@ def get_public_detail(db: Session, public_id: int):
     return public, records, metrics
 
 
+
+
+def delete_public(db: Session, public_id: int):
+    public = get_public(db, public_id)
+    if not public:
+        return None
+
+    affected = db.execute(
+        update(models.ExperimentRecord)
+        .where(models.ExperimentRecord.public_id == public_id)
+        .values(public_id=None, publico=None)
+    )
+    db.delete(public)
+    db.commit()
+    return {"deleted": True, "public_id": public_id, "records_unlinked": affected.rowcount or 0}
+
 def create_record(db: Session, data: schemas.RecordCreate):
     # Normalización: si viene string vacío => None (por seguridad)
     organic_piece_type = (data.organic_piece_type or "").strip() or None
