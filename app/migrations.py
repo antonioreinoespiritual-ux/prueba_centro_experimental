@@ -411,10 +411,14 @@ def ensure_schema() -> None:
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 template_id INTEGER NOT NULL REFERENCES interview_templates(id),
                 project_id INTEGER NOT NULL REFERENCES cloud_projects(id),
+                hypothesis_id INTEGER REFERENCES experiments(id),
+                client_id INTEGER REFERENCES clients(id),
+                metric_name VARCHAR(120),
                 interviewee_name VARCHAR(200) NOT NULL,
                 notes TEXT,
                 responses_json TEXT NOT NULL,
-                created_at DATETIME NOT NULL DEFAULT (datetime('now'))
+                created_at DATETIME NOT NULL DEFAULT (datetime('now')),
+                updated_at DATETIME
             )
             """
         )
@@ -430,6 +434,77 @@ def ensure_schema() -> None:
             ON interview_sessions (template_id)
             """
         )
+        cur.execute(
+            """
+            CREATE INDEX IF NOT EXISTS ix_interview_sessions_hypothesis_id
+            ON interview_sessions (hypothesis_id)
+            """
+        )
+        cur.execute(
+            """
+            CREATE INDEX IF NOT EXISTS ix_interview_sessions_client_id
+            ON interview_sessions (client_id)
+            """
+        )
+
+
+    # --- Clients ---
+    cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='clients'")
+    if not cur.fetchone():
+        cur.execute(
+            """
+            CREATE TABLE clients (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                full_name VARCHAR(200) NOT NULL,
+                age INTEGER,
+                email VARCHAR(200),
+                phone VARCHAR(60),
+                country VARCHAR(120) NOT NULL,
+                state VARCHAR(120),
+                city VARCHAR(120),
+                nationality VARCHAR(120),
+                gender VARCHAR(60),
+                tags_json TEXT,
+                notes TEXT,
+                created_at DATETIME NOT NULL DEFAULT (datetime('now')),
+                updated_at DATETIME
+            )
+            """
+        )
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_clients_full_name ON clients (full_name)")
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_clients_country ON clients (country)")
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_clients_email ON clients (email)")
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_clients_phone ON clients (phone)")
+
+    # --- Interview sessions additive columns ---
+    if _column_exists(cur, "interview_sessions", "hypothesis_id") is False:
+        cur.execute("ALTER TABLE interview_sessions ADD COLUMN hypothesis_id INTEGER REFERENCES experiments(id)")
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_interview_sessions_hypothesis_id ON interview_sessions (hypothesis_id)")
+    if _column_exists(cur, "interview_sessions", "client_id") is False:
+        cur.execute("ALTER TABLE interview_sessions ADD COLUMN client_id INTEGER REFERENCES clients(id)")
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_interview_sessions_client_id ON interview_sessions (client_id)")
+    if _column_exists(cur, "interview_sessions", "metric_name") is False:
+        cur.execute("ALTER TABLE interview_sessions ADD COLUMN metric_name VARCHAR(120)")
+    if _column_exists(cur, "interview_sessions", "updated_at") is False:
+        cur.execute("ALTER TABLE interview_sessions ADD COLUMN updated_at DATETIME")
+
+    # --- Interview attachments ---
+    cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='interview_attachments'")
+    if not cur.fetchone():
+        cur.execute(
+            """
+            CREATE TABLE interview_attachments (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                interview_session_id INTEGER NOT NULL REFERENCES interview_sessions(id),
+                filename VARCHAR(255) NOT NULL,
+                content_type VARCHAR(100),
+                size INTEGER NOT NULL,
+                storage_path VARCHAR(500) NOT NULL,
+                created_at DATETIME NOT NULL DEFAULT (datetime('now'))
+            )
+            """
+        )
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_interview_attachments_session_id ON interview_attachments (interview_session_id)")
 
     conn.commit()
     conn.close()

@@ -1,12 +1,15 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from pathlib import Path
+from uuid import uuid4
+
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from sqlalchemy.orm import Session
 
 from .. import crud, schemas
 from ..database import SessionLocal
 
-router = APIRouter(prefix="/interviews", tags=["interviews"])
+router = APIRouter(tags=["interviews"])
 
 
 def get_db():
@@ -17,17 +20,17 @@ def get_db():
         db.close()
 
 
-@router.post("/templates", response_model=schemas.InterviewTemplateOut)
+@router.post("/interviews/templates", response_model=schemas.InterviewTemplateOut)
 def create_template(payload: schemas.InterviewTemplateCreate, db: Session = Depends(get_db)):
     return crud.create_interview_template(db, payload)
 
 
-@router.get("/templates", response_model=list[schemas.InterviewTemplateOut])
+@router.get("/interviews/templates", response_model=list[schemas.InterviewTemplateOut])
 def list_templates(project_id: int | None = Query(default=None), db: Session = Depends(get_db)):
     return crud.list_interview_templates(db, project_id=project_id)
 
 
-@router.get("/templates/{template_id}", response_model=schemas.InterviewTemplateOut)
+@router.get("/interviews/templates/{template_id}", response_model=schemas.InterviewTemplateOut)
 def get_template(template_id: int, db: Session = Depends(get_db)):
     item = crud.get_interview_template(db, template_id)
     if not item:
@@ -35,7 +38,7 @@ def get_template(template_id: int, db: Session = Depends(get_db)):
     return item
 
 
-@router.patch("/templates/{template_id}", response_model=schemas.InterviewTemplateOut)
+@router.patch("/interviews/templates/{template_id}", response_model=schemas.InterviewTemplateOut)
 def update_template(template_id: int, payload: schemas.InterviewTemplateUpdate, db: Session = Depends(get_db)):
     item = crud.update_interview_template(db, template_id, payload)
     if not item:
@@ -43,7 +46,7 @@ def update_template(template_id: int, payload: schemas.InterviewTemplateUpdate, 
     return item
 
 
-@router.delete("/templates/{template_id}")
+@router.delete("/interviews/templates/{template_id}")
 def delete_template(template_id: int, db: Session = Depends(get_db)):
     result = crud.delete_interview_template(db, template_id)
     if not result:
@@ -51,45 +54,93 @@ def delete_template(template_id: int, db: Session = Depends(get_db)):
     return result
 
 
-@router.get("/projects/{project_id}/templates", response_model=list[schemas.InterviewTemplateOut])
+@router.get("/interviews/projects/{project_id}/templates", response_model=list[schemas.InterviewTemplateOut])
 def list_project_templates(project_id: int, db: Session = Depends(get_db)):
     return crud.list_interview_templates(db, project_id=project_id)
 
 
-@router.post("/sessions", response_model=schemas.InterviewSessionOut)
+@router.post("/interviews", response_model=schemas.InterviewSessionOut)
+def create_interview(payload: schemas.InterviewSessionCreateV2, db: Session = Depends(get_db)):
+    return crud.create_interview_v2(db, payload)
+
+
+@router.get("/interviews", response_model=list[schemas.InterviewSessionOut])
+def list_interviews(
+    project_id: int | None = Query(default=None),
+    hypothesis_id: int | None = Query(default=None),
+    client_id: int | None = Query(default=None),
+    limit: int = Query(default=100, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
+    db: Session = Depends(get_db),
+):
+    return crud.list_interviews_v2(db, project_id=project_id, hypothesis_id=hypothesis_id, client_id=client_id, limit=limit, offset=offset)
+
+
+@router.get("/interviews/{interview_id}", response_model=schemas.InterviewSessionOut)
+def get_interview(interview_id: int, db: Session = Depends(get_db)):
+    item = crud.get_interview_session(db, interview_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="Interview session not found")
+    return item
+
+
+@router.patch("/interviews/{interview_id}", response_model=schemas.InterviewSessionOut)
+def patch_interview(interview_id: int, payload: schemas.InterviewSessionPatchV2, db: Session = Depends(get_db)):
+    item = crud.patch_interview_v2(db, interview_id, payload)
+    if not item:
+        raise HTTPException(status_code=404, detail="Interview session not found")
+    return item
+
+
+@router.post("/interviews/{interview_id}/attachments", response_model=schemas.InterviewAttachmentOut)
+def upload_interview_attachment(interview_id: int, file: UploadFile = File(...), db: Session = Depends(get_db)):
+    interview = crud.get_interview_session(db, interview_id)
+    if not interview:
+        raise HTTPException(status_code=404, detail="Interview session not found")
+    base_dir = Path("data/uploads/interviews") / str(interview_id)
+    base_dir.mkdir(parents=True, exist_ok=True)
+    safe_name = f"{uuid4().hex}_{Path(file.filename or 'attachment').name}"
+    destination = base_dir / safe_name
+    content = file.file.read()
+    destination.write_bytes(content)
+    return crud.create_interview_attachment(
+        db,
+        interview_id=interview_id,
+        filename=file.filename or safe_name,
+        content_type=file.content_type,
+        size=len(content),
+        storage_path=str(destination),
+    )
+
+
+@router.get("/interviews/{interview_id}/attachments", response_model=list[schemas.InterviewAttachmentOut])
+def list_attachments(interview_id: int, db: Session = Depends(get_db)):
+    return crud.list_interview_attachments(db, interview_id)
+
+
+@router.delete("/attachments/{attachment_id}")
+def delete_attachment(attachment_id: int, db: Session = Depends(get_db)):
+    obj = crud.delete_attachment(db, attachment_id)
+    if not obj:
+        raise HTTPException(status_code=404, detail="Attachment not found")
+    try:
+        Path(obj.storage_path).unlink(missing_ok=True)
+    except OSError:
+        pass
+    return {"deleted": True, "attachment_id": attachment_id}
+
+
+# backward-compatible endpoints
+@router.post("/interviews/sessions", response_model=schemas.InterviewSessionOut)
 def create_session(payload: schemas.InterviewSessionCreate, db: Session = Depends(get_db)):
     return crud.create_interview_session(db, payload)
 
 
-@router.get("/sessions", response_model=list[schemas.InterviewSessionOut])
+@router.get("/interviews/sessions", response_model=list[schemas.InterviewSessionOut])
 def list_sessions(project_id: int | None = Query(default=None), db: Session = Depends(get_db)):
     return crud.list_interview_sessions(db, project_id=project_id)
 
 
-@router.get("/sessions/{session_id}", response_model=schemas.InterviewSessionOut)
-def get_session(session_id: int, db: Session = Depends(get_db)):
-    item = crud.get_interview_session(db, session_id)
-    if not item:
-        raise HTTPException(status_code=404, detail="Interview session not found")
-    return item
-
-
-@router.patch("/sessions/{session_id}", response_model=schemas.InterviewSessionOut)
-def update_session(session_id: int, payload: schemas.InterviewSessionUpdate, db: Session = Depends(get_db)):
-    item = crud.update_interview_session(db, session_id, payload)
-    if not item:
-        raise HTTPException(status_code=404, detail="Interview session not found")
-    return item
-
-
-@router.delete("/sessions/{session_id}")
-def delete_session(session_id: int, db: Session = Depends(get_db)):
-    result = crud.delete_interview_session(db, session_id)
-    if not result:
-        raise HTTPException(status_code=404, detail="Interview session not found")
-    return result
-
-
-@router.get("/projects/{project_id}/sessions", response_model=list[schemas.InterviewSessionOut])
+@router.get("/interviews/projects/{project_id}/sessions", response_model=list[schemas.InterviewSessionOut])
 def list_project_sessions(project_id: int, db: Session = Depends(get_db)):
     return crud.list_interview_sessions(db, project_id=project_id)

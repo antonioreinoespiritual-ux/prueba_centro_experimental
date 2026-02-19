@@ -1317,10 +1317,14 @@ def _session_out(session: models.InterviewSession) -> schemas.InterviewSessionOu
         id=session.id,
         template_id=session.template_id,
         project_id=session.project_id,
+        hypothesis_id=session.hypothesis_id,
+        client_id=session.client_id,
+        metric_name=session.metric_name,
         interviewee_name=session.interviewee_name,
         notes=session.notes,
         responses_json=json.loads(session.responses_json or "{}"),
         created_at=session.created_at,
+        updated_at=session.updated_at,
     )
 
 
@@ -1380,6 +1384,9 @@ def create_interview_session(db: Session, data: schemas.InterviewSessionCreate):
     obj = models.InterviewSession(
         template_id=data.template_id,
         project_id=data.project_id,
+        hypothesis_id=data.hypothesis_id,
+        client_id=data.client_id,
+        metric_name=(data.metric_name or "").strip() or None,
         interviewee_name=data.interviewee_name.strip(),
         notes=(data.notes or "").strip() or None,
         responses_json=json.dumps(data.responses_json),
@@ -1408,12 +1415,16 @@ def update_interview_session(db: Session, session_id: int, data: schemas.Intervi
     if not item:
         return None
     payload = data.model_dump(exclude_unset=True)
+    for key in ["hypothesis_id", "client_id", "template_id", "metric_name"]:
+        if key in payload:
+            setattr(item, key, payload[key])
     if "interviewee_name" in payload:
         item.interviewee_name = (payload["interviewee_name"] or "").strip()
     if "notes" in payload:
         item.notes = (payload["notes"] or "").strip() or None
     if "responses_json" in payload and payload["responses_json"] is not None:
         item.responses_json = json.dumps(payload["responses_json"])
+    item.updated_at = datetime.utcnow()
     db.commit()
     db.refresh(item)
     return _session_out(item)
@@ -1426,3 +1437,175 @@ def delete_interview_session(db: Session, session_id: int):
     db.delete(item)
     db.commit()
     return {"deleted": True, "session_id": session_id}
+
+# ------------------------------------------------------------------ #
+#  CLIENTS + INTERVIEWS V2 + ATTACHMENTS
+# ------------------------------------------------------------------ #
+
+def _client_out(client: models.Client) -> schemas.ClientOut:
+    return schemas.ClientOut(
+        id=client.id,
+        full_name=client.full_name,
+        age=client.age,
+        email=client.email,
+        phone=client.phone,
+        country=client.country,
+        state=client.state,
+        city=client.city,
+        nationality=client.nationality,
+        gender=client.gender,
+        tags=json.loads(client.tags_json or "[]"),
+        notes=client.notes,
+        created_at=client.created_at,
+        updated_at=client.updated_at,
+    )
+
+
+def create_client(db: Session, data: schemas.ClientCreate):
+    obj = models.Client(
+        full_name=data.full_name.strip(),
+        age=data.age,
+        email=(data.email or "").strip() or None,
+        phone=(data.phone or "").strip() or None,
+        country=data.country.strip(),
+        state=(data.state or "").strip() or None,
+        city=(data.city or "").strip() or None,
+        nationality=(data.nationality or "").strip() or None,
+        gender=(data.gender or "").strip() or None,
+        tags_json=json.dumps(data.tags or []),
+        notes=(data.notes or "").strip() or None,
+    )
+    db.add(obj)
+    db.commit()
+    db.refresh(obj)
+    return _client_out(obj)
+
+
+def list_clients(db: Session, search: str | None = None, country: str | None = None, limit: int = 100, offset: int = 0):
+    q = select(models.Client)
+    if search:
+        term = f"%{search.strip()}%"
+        q = q.where(or_(models.Client.full_name.ilike(term), models.Client.email.ilike(term), models.Client.phone.ilike(term), models.Client.country.ilike(term)))
+    if country:
+        q = q.where(models.Client.country.ilike(country.strip()))
+    q = q.order_by(desc(models.Client.created_at)).offset(offset).limit(limit)
+    return [_client_out(x) for x in db.scalars(q).all()]
+
+
+def get_client(db: Session, client_id: int):
+    obj = db.get(models.Client, client_id)
+    return _client_out(obj) if obj else None
+
+
+def update_client(db: Session, client_id: int, data: schemas.ClientUpdate):
+    obj = db.get(models.Client, client_id)
+    if not obj:
+        return None
+    payload = data.model_dump(exclude_unset=True)
+    for key in ["full_name", "age", "email", "phone", "country", "state", "city", "nationality", "gender", "notes"]:
+        if key in payload:
+            val = payload[key]
+            if isinstance(val, str):
+                val = val.strip() or None
+            setattr(obj, key, val)
+    if "tags" in payload and payload["tags"] is not None:
+        obj.tags_json = json.dumps(payload["tags"])
+    obj.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(obj)
+    return _client_out(obj)
+
+
+def delete_client(db: Session, client_id: int):
+    obj = db.get(models.Client, client_id)
+    if not obj:
+        return None
+    db.execute(update(models.InterviewSession).where(models.InterviewSession.client_id == client_id).values(client_id=None))
+    db.delete(obj)
+    db.commit()
+    return {"deleted": True, "client_id": client_id}
+
+
+def list_client_interviews(db: Session, client_id: int):
+    q = select(models.InterviewSession).where(models.InterviewSession.client_id == client_id).order_by(desc(models.InterviewSession.created_at))
+    return [_session_out(item) for item in db.scalars(q).all()]
+
+
+def create_interview_v2(db: Session, data: schemas.InterviewSessionCreateV2):
+    obj = models.InterviewSession(
+        project_id=data.project_id,
+        hypothesis_id=data.hypothesis_id,
+        client_id=data.client_id,
+        template_id=data.template_id,
+        metric_name=(data.metric_name or "").strip() or None,
+        interviewee_name=data.interviewee_name.strip(),
+        responses_json=json.dumps(data.responses_json or {}),
+        notes=(data.notes or "").strip() or None,
+    )
+    db.add(obj)
+    db.commit()
+    db.refresh(obj)
+    return _session_out(obj)
+
+
+def list_interviews_v2(db: Session, project_id: int | None = None, hypothesis_id: int | None = None, client_id: int | None = None, limit: int = 100, offset: int = 0):
+    q = select(models.InterviewSession)
+    if project_id is not None:
+        q = q.where(models.InterviewSession.project_id == project_id)
+    if hypothesis_id is not None:
+        q = q.where(models.InterviewSession.hypothesis_id == hypothesis_id)
+    if client_id is not None:
+        q = q.where(models.InterviewSession.client_id == client_id)
+    q = q.order_by(desc(models.InterviewSession.created_at)).offset(offset).limit(limit)
+    return [_session_out(item) for item in db.scalars(q).all()]
+
+
+def patch_interview_v2(db: Session, interview_id: int, data: schemas.InterviewSessionPatchV2):
+    obj = db.get(models.InterviewSession, interview_id)
+    if not obj:
+        return None
+    payload = data.model_dump(exclude_unset=True)
+    for key in ["project_id", "hypothesis_id", "client_id", "template_id", "interviewee_name", "metric_name", "notes"]:
+        if key in payload:
+            val = payload[key]
+            if isinstance(val, str):
+                val = val.strip() or None
+            setattr(obj, key, val)
+    if "responses_json" in payload and payload["responses_json"] is not None:
+        obj.responses_json = json.dumps(payload["responses_json"])
+    obj.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(obj)
+    return _session_out(obj)
+
+
+def create_interview_attachment(db: Session, interview_id: int, filename: str, content_type: str | None, size: int, storage_path: str):
+    obj = models.InterviewAttachment(
+        interview_session_id=interview_id,
+        filename=filename,
+        content_type=content_type,
+        size=size,
+        storage_path=storage_path,
+    )
+    db.add(obj)
+    db.commit()
+    db.refresh(obj)
+    return schemas.InterviewAttachmentOut.model_validate(obj)
+
+
+def list_interview_attachments(db: Session, interview_id: int):
+    q = select(models.InterviewAttachment).where(models.InterviewAttachment.interview_session_id == interview_id).order_by(desc(models.InterviewAttachment.created_at))
+    return [schemas.InterviewAttachmentOut.model_validate(x) for x in db.scalars(q).all()]
+
+
+def get_attachment(db: Session, attachment_id: int):
+    return db.get(models.InterviewAttachment, attachment_id)
+
+
+def delete_attachment(db: Session, attachment_id: int):
+    obj = db.get(models.InterviewAttachment, attachment_id)
+    if not obj:
+        return None
+    db.delete(obj)
+    db.commit()
+    return obj

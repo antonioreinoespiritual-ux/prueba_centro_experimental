@@ -736,12 +736,19 @@ class InterviewTemplateOut(BaseModel):
 class InterviewSessionCreate(BaseModel):
     template_id: int
     project_id: int
+    hypothesis_id: Optional[int] = None
+    client_id: Optional[int] = None
+    metric_name: Optional[str] = None
     interviewee_name: str = Field(min_length=1, max_length=200)
     notes: Optional[str] = Field(default=None, max_length=50000)
     responses_json: dict[str, Any] = Field(default_factory=dict)
 
 
 class InterviewSessionUpdate(BaseModel):
+    hypothesis_id: Optional[int] = None
+    client_id: Optional[int] = None
+    template_id: Optional[int] = None
+    metric_name: Optional[str] = None
     interviewee_name: Optional[str] = Field(default=None, min_length=1, max_length=200)
     notes: Optional[str] = Field(default=None, max_length=50000)
     responses_json: Optional[dict[str, Any]] = None
@@ -753,7 +760,84 @@ class InterviewSessionOut(BaseModel):
     id: int
     template_id: int
     project_id: int
+    hypothesis_id: Optional[int] = None
+    client_id: Optional[int] = None
+    metric_name: Optional[str] = None
     interviewee_name: str
     notes: Optional[str] = None
     responses_json: dict[str, Any]
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+# ---------- Clients (CRM mínimo) ----------
+class ClientBase(BaseModel):
+    full_name: str = Field(min_length=1, max_length=200)
+    age: Optional[int] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    country: str = Field(min_length=1, max_length=120)
+    state: Optional[str] = None
+    city: Optional[str] = None
+    nationality: Optional[str] = None
+    gender: Optional[str] = None
+    tags: list[str] = Field(default_factory=list)
+    notes: Optional[str] = None
+
+
+class ClientCreate(ClientBase):
+    pass
+
+
+class ClientUpdate(BaseModel):
+    full_name: Optional[str] = Field(default=None, min_length=1, max_length=200)
+    age: Optional[int] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    country: Optional[str] = Field(default=None, min_length=1, max_length=120)
+    state: Optional[str] = None
+    city: Optional[str] = None
+    nationality: Optional[str] = None
+    gender: Optional[str] = None
+    tags: Optional[list[str]] = None
+    notes: Optional[str] = None
+
+
+class ClientOut(ClientBase):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+
+class InterviewSessionCreateV2(BaseModel):
+    project_id: int
+    hypothesis_id: Optional[int] = None
+    client_id: Optional[int] = None
+    template_id: int
+    metric_name: Optional[str] = None
+    interviewee_name: str = Field(min_length=1, max_length=200)
+    responses_json: dict[str, Any] = Field(default_factory=dict)
+    notes: Optional[str] = None
+
+
+class InterviewSessionPatchV2(BaseModel):
+    hypothesis_id: Optional[int] = None
+    client_id: Optional[int] = None
+    template_id: Optional[int] = None
+    metric_name: Optional[str] = None
+    interviewee_name: Optional[str] = Field(default=None, min_length=1, max_length=200)
+    responses_json: Optional[dict[str, Any]] = None
+    notes: Optional[str] = None
+
+
+class InterviewAttachmentOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    interview_session_id: int
+    filename: str
+    content_type: Optional[str] = None
+    size: int
+    storage_path: str
     created_at: datetime

@@ -184,3 +184,27 @@ API usada por el módulo:
 - `GET/POST/PATCH/DELETE /interviews/sessions`
 - `GET /interviews/projects/{project_id}/templates`
 - `GET /interviews/projects/{project_id}/sessions`
+
+### Entrevistas CRM + Wizard + Adjuntos
+
+Endpoints nuevos:
+- `GET/POST/PATCH/DELETE /clients`
+- `GET /clients/{id}/interviews`
+- `POST /interviews`
+- `GET /interviews?project_id=&hypothesis_id=&client_id=&limit=&offset=`
+- `GET /interviews/{id}`
+- `PATCH /interviews/{id}`
+- `POST /interviews/{id}/attachments` (multipart)
+- `GET /interviews/{id}/attachments`
+- `DELETE /attachments/{id}`
+
+Almacenamiento de adjuntos:
+- Archivos de transcripción en `data/uploads/interviews/{session_id}/`
+- Metadata en tabla `interview_attachments`
+
+Build frontend entrevistas:
+```bash
+cd frontend/interviews
+npm install
+npm run build
+```
