@@ -381,5 +381,55 @@ def ensure_schema() -> None:
                 ON experiment_records (drive_folder_path)
             """)
 
+    # --- Interviews ---
+    cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='interview_templates'")
+    if not cur.fetchone():
+        cur.execute(
+            """
+            CREATE TABLE interview_templates (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                project_id INTEGER NOT NULL REFERENCES cloud_projects(id),
+                name VARCHAR(200) NOT NULL,
+                description TEXT,
+                fields_json TEXT NOT NULL,
+                created_at DATETIME NOT NULL DEFAULT (datetime('now'))
+            )
+            """
+        )
+        cur.execute(
+            """
+            CREATE INDEX IF NOT EXISTS ix_interview_templates_project_id
+            ON interview_templates (project_id)
+            """
+        )
+
+    cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='interview_sessions'")
+    if not cur.fetchone():
+        cur.execute(
+            """
+            CREATE TABLE interview_sessions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                template_id INTEGER NOT NULL REFERENCES interview_templates(id),
+                project_id INTEGER NOT NULL REFERENCES cloud_projects(id),
+                interviewee_name VARCHAR(200) NOT NULL,
+                notes TEXT,
+                responses_json TEXT NOT NULL,
+                created_at DATETIME NOT NULL DEFAULT (datetime('now'))
+            )
+            """
+        )
+        cur.execute(
+            """
+            CREATE INDEX IF NOT EXISTS ix_interview_sessions_project_id
+            ON interview_sessions (project_id)
+            """
+        )
+        cur.execute(
+            """
+            CREATE INDEX IF NOT EXISTS ix_interview_sessions_template_id
+            ON interview_sessions (template_id)
+            """
+        )
+
     conn.commit()
     conn.close()

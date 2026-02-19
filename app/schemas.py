@@ -698,3 +698,62 @@ class CloudProjectHypothesisOut(BaseModel):
     experiment_id: int
     display_name: str
     drive_folder_path: Optional[str] = None
+
+
+# ---------- Interviews ----------
+class InterviewQuestion(BaseModel):
+    id: str
+    label: str
+    type: Literal["short_text", "long_text", "multiple_choice", "checkbox", "scale_1_5"]
+    options: list[str] = []
+    required: bool = False
+
+
+class InterviewTemplateCreate(BaseModel):
+    project_id: int
+    name: str = Field(min_length=1, max_length=200)
+    description: Optional[str] = Field(default=None, max_length=5000)
+    fields_json: dict[str, list[InterviewQuestion]]
+
+
+class InterviewTemplateUpdate(BaseModel):
+    name: Optional[str] = Field(default=None, min_length=1, max_length=200)
+    description: Optional[str] = Field(default=None, max_length=5000)
+    fields_json: Optional[dict[str, list[InterviewQuestion]]] = None
+
+
+class InterviewTemplateOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    project_id: int
+    name: str
+    description: Optional[str] = None
+    fields_json: dict[str, Any]
+    created_at: datetime
+
+
+class InterviewSessionCreate(BaseModel):
+    template_id: int
+    project_id: int
+    interviewee_name: str = Field(min_length=1, max_length=200)
+    notes: Optional[str] = Field(default=None, max_length=50000)
+    responses_json: dict[str, Any] = Field(default_factory=dict)
+
+
+class InterviewSessionUpdate(BaseModel):
+    interviewee_name: Optional[str] = Field(default=None, min_length=1, max_length=200)
+    notes: Optional[str] = Field(default=None, max_length=50000)
+    responses_json: Optional[dict[str, Any]] = None
+
+
+class InterviewSessionOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    template_id: int
+    project_id: int
+    interviewee_name: str
+    notes: Optional[str] = None
+    responses_json: dict[str, Any]
+    created_at: datetime

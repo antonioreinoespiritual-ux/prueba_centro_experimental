@@ -1295,3 +1295,134 @@ def evaluate_experiment(db: Session, experiment_id: int) -> schemas.ExperimentEv
         segmented_by_public=segmented_by_public,
         segments=segments,
     )
+
+
+# ------------------------------------------------------------------ #
+#  INTERVIEWS
+# ------------------------------------------------------------------ #
+
+def _template_out(template: models.InterviewTemplate) -> schemas.InterviewTemplateOut:
+    return schemas.InterviewTemplateOut(
+        id=template.id,
+        project_id=template.project_id,
+        name=template.name,
+        description=template.description,
+        fields_json=json.loads(template.fields_json or "{}"),
+        created_at=template.created_at,
+    )
+
+
+def _session_out(session: models.InterviewSession) -> schemas.InterviewSessionOut:
+    return schemas.InterviewSessionOut(
+        id=session.id,
+        template_id=session.template_id,
+        project_id=session.project_id,
+        interviewee_name=session.interviewee_name,
+        notes=session.notes,
+        responses_json=json.loads(session.responses_json or "{}"),
+        created_at=session.created_at,
+    )
+
+
+def create_interview_template(db: Session, data: schemas.InterviewTemplateCreate):
+    obj = models.InterviewTemplate(
+        project_id=data.project_id,
+        name=data.name.strip(),
+        description=(data.description or "").strip() or None,
+        fields_json=json.dumps(data.fields_json),
+    )
+    db.add(obj)
+    db.commit()
+    db.refresh(obj)
+    return _template_out(obj)
+
+
+def list_interview_templates(db: Session, project_id: int | None = None):
+    query = select(models.InterviewTemplate)
+    if project_id is not None:
+        query = query.where(models.InterviewTemplate.project_id == project_id)
+    query = query.order_by(desc(models.InterviewTemplate.created_at))
+    return [_template_out(item) for item in db.scalars(query).all()]
+
+
+def get_interview_template(db: Session, template_id: int):
+    item = db.get(models.InterviewTemplate, template_id)
+    return _template_out(item) if item else None
+
+
+def update_interview_template(db: Session, template_id: int, data: schemas.InterviewTemplateUpdate):
+    item = db.get(models.InterviewTemplate, template_id)
+    if not item:
+        return None
+    payload = data.model_dump(exclude_unset=True)
+    if "name" in payload:
+        item.name = (payload["name"] or "").strip()
+    if "description" in payload:
+        item.description = (payload["description"] or "").strip() or None
+    if "fields_json" in payload and payload["fields_json"] is not None:
+        item.fields_json = json.dumps(payload["fields_json"])
+    db.commit()
+    db.refresh(item)
+    return _template_out(item)
+
+
+def delete_interview_template(db: Session, template_id: int):
+    item = db.get(models.InterviewTemplate, template_id)
+    if not item:
+        return None
+    db.execute(delete(models.InterviewSession).where(models.InterviewSession.template_id == template_id))
+    db.delete(item)
+    db.commit()
+    return {"deleted": True, "template_id": template_id}
+
+
+def create_interview_session(db: Session, data: schemas.InterviewSessionCreate):
+    obj = models.InterviewSession(
+        template_id=data.template_id,
+        project_id=data.project_id,
+        interviewee_name=data.interviewee_name.strip(),
+        notes=(data.notes or "").strip() or None,
+        responses_json=json.dumps(data.responses_json),
+    )
+    db.add(obj)
+    db.commit()
+    db.refresh(obj)
+    return _session_out(obj)
+
+
+def list_interview_sessions(db: Session, project_id: int | None = None):
+    query = select(models.InterviewSession)
+    if project_id is not None:
+        query = query.where(models.InterviewSession.project_id == project_id)
+    query = query.order_by(desc(models.InterviewSession.created_at))
+    return [_session_out(item) for item in db.scalars(query).all()]
+
+
+def get_interview_session(db: Session, session_id: int):
+    item = db.get(models.InterviewSession, session_id)
+    return _session_out(item) if item else None
+
+
+def update_interview_session(db: Session, session_id: int, data: schemas.InterviewSessionUpdate):
+    item = db.get(models.InterviewSession, session_id)
+    if not item:
+        return None
+    payload = data.model_dump(exclude_unset=True)
+    if "interviewee_name" in payload:
+        item.interviewee_name = (payload["interviewee_name"] or "").strip()
+    if "notes" in payload:
+        item.notes = (payload["notes"] or "").strip() or None
+    if "responses_json" in payload and payload["responses_json"] is not None:
+        item.responses_json = json.dumps(payload["responses_json"])
+    db.commit()
+    db.refresh(item)
+    return _session_out(item)
+
+
+def delete_interview_session(db: Session, session_id: int):
+    item = db.get(models.InterviewSession, session_id)
+    if not item:
+        return None
+    db.delete(item)
+    db.commit()
+    return {"deleted": True, "session_id": session_id}

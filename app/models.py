@@ -305,3 +305,26 @@ class AssistantDraft(Base):
     payload_json: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, onupdate=datetime.utcnow)
+
+
+class InterviewTemplate(Base):
+    __tablename__ = "interview_templates"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("cloud_projects.id"), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    fields_json: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class InterviewSession(Base):
+    __tablename__ = "interview_sessions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    template_id: Mapped[int] = mapped_column(ForeignKey("interview_templates.id"), nullable=False, index=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("cloud_projects.id"), nullable=False, index=True)
+    interviewee_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    responses_json: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)

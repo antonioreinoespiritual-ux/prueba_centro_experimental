@@ -157,3 +157,30 @@ curl http://127.0.0.1:8000/api/cloud/projects/1/hypotheses
 6. Crea una hipótesis y verifica la carpeta en `Projects/<project_slug>/Hypotheses/H<ID>_<slug>`.
 7. Crea un record y verifica la carpeta en `Projects/<project_slug>/Hypotheses/H<ID>_<slug>/Records/R<ID>_<slug>`.
 8. Ejecuta el backfill para crear carpetas faltantes.
+
+## Entrevistas (Vite + React)
+
+Nuevo módulo en `frontend/interviews` servido en `/interviews` (build estático en `static/interviews`).
+
+### Desarrollo
+```bash
+cd frontend/interviews
+npm install
+npm run dev
+```
+
+### Build para producción (FastAPI)
+```bash
+cd frontend/interviews
+npm install
+npm run build
+```
+
+Luego abrir:
+- `http://127.0.0.1:8000/interviews`
+
+API usada por el módulo:
+- `GET/POST/PATCH/DELETE /interviews/templates`
+- `GET/POST/PATCH/DELETE /interviews/sessions`
+- `GET /interviews/projects/{project_id}/templates`
+- `GET /interviews/projects/{project_id}/sessions`
