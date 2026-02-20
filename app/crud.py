@@ -13,6 +13,18 @@ from .services import drive_sync_service
 from .storage import remove_entity_files
 
 
+def _json_dumps_safe(value):
+    """Serialize nested Pydantic/plain payloads as stable JSON for DB storage."""
+    def _default(obj):
+        if hasattr(obj, "model_dump"):
+            return obj.model_dump(mode="json")
+        if hasattr(obj, "dict"):
+            return obj.dict()
+        raise TypeError(f"Object of type {obj.__class__.__name__} is not JSON serializable")
+
+    return json.dumps(value, default=_default)
+
+
 # ------------------------------------------------------------------ #
 #  EXPERIMENTS
 # ------------------------------------------------------------------ #
@@ -1333,7 +1345,7 @@ def create_interview_template(db: Session, data: schemas.InterviewTemplateCreate
         project_id=data.project_id,
         name=data.name.strip(),
         description=(data.description or "").strip() or None,
-        fields_json=json.dumps(data.fields_json),
+        fields_json=_json_dumps_safe(data.fields_json),
     )
     db.add(obj)
     db.commit()
@@ -1358,13 +1370,13 @@ def update_interview_template(db: Session, template_id: int, data: schemas.Inter
     item = db.get(models.InterviewTemplate, template_id)
     if not item:
         return None
-    payload = data.model_dump(exclude_unset=True)
+    payload = data.model_dump(exclude_unset=True, mode="json")
     if "name" in payload:
         item.name = (payload["name"] or "").strip()
     if "description" in payload:
         item.description = (payload["description"] or "").strip() or None
     if "fields_json" in payload and payload["fields_json"] is not None:
-        item.fields_json = json.dumps(payload["fields_json"])
+        item.fields_json = _json_dumps_safe(payload["fields_json"])
     db.commit()
     db.refresh(item)
     return _template_out(item)
@@ -1414,7 +1426,7 @@ def update_interview_session(db: Session, session_id: int, data: schemas.Intervi
     item = db.get(models.InterviewSession, session_id)
     if not item:
         return None
-    payload = data.model_dump(exclude_unset=True)
+    payload = data.model_dump(exclude_unset=True, mode="json")
     for key in ["hypothesis_id", "client_id", "template_id", "metric_name"]:
         if key in payload:
             setattr(item, key, payload[key])
@@ -1501,7 +1513,7 @@ def update_client(db: Session, client_id: int, data: schemas.ClientUpdate):
     obj = db.get(models.Client, client_id)
     if not obj:
         return None
-    payload = data.model_dump(exclude_unset=True)
+    payload = data.model_dump(exclude_unset=True, mode="json")
     for key in ["full_name", "age", "email", "phone", "country", "state", "city", "nationality", "gender", "notes"]:
         if key in payload:
             val = payload[key]
@@ -1564,7 +1576,7 @@ def patch_interview_v2(db: Session, interview_id: int, data: schemas.InterviewSe
     obj = db.get(models.InterviewSession, interview_id)
     if not obj:
         return None
-    payload = data.model_dump(exclude_unset=True)
+    payload = data.model_dump(exclude_unset=True, mode="json")
     for key in ["project_id", "hypothesis_id", "client_id", "template_id", "interviewee_name", "metric_name", "notes"]:
         if key in payload:
             val = payload[key]
