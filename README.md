@@ -180,23 +180,23 @@ Luego abrir:
 - `http://127.0.0.1:8000/interviews`
 
 API usada por el módulo:
-- `GET/POST/PATCH/DELETE /interviews/templates`
-- `GET/POST/PATCH/DELETE /interviews/sessions`
-- `GET /interviews/projects/{project_id}/templates`
-- `GET /interviews/projects/{project_id}/sessions`
+- `GET/POST/PATCH/DELETE /api/interviews/templates`
+- `GET/POST/PATCH/DELETE /interviews/sessions (legacy)`
+- `GET /api/interviews/projects/{project_id}/templates`
+- `GET /interviews/projects/{project_id}/sessions (legacy)`
 
 ### Entrevistas CRM + Wizard + Adjuntos
 
 Endpoints nuevos:
 - `GET/POST/PATCH/DELETE /clients`
 - `GET /clients/{id}/interviews`
-- `POST /interviews`
-- `GET /interviews?project_id=&hypothesis_id=&client_id=&limit=&offset=`
-- `GET /interviews/{id}`
-- `PATCH /interviews/{id}`
-- `POST /interviews/{id}/attachments` (multipart)
-- `GET /interviews/{id}/attachments`
-- `DELETE /attachments/{id}`
+- `POST /api/interviews`
+- `GET /api/interviews?project_id=&hypothesis_id=&client_id=&limit=&offset=`
+- `GET /api/interviews/{id}`
+- `PATCH /api/interviews/{id}`
+- `POST /api/interviews/{id}/attachments` (multipart)
+- `GET /api/interviews/{id}/attachments`
+- `DELETE /api/attachments/{id}`
 
 Almacenamiento de adjuntos:
 - Archivos de transcripción en `data/uploads/interviews/{session_id}/`

@@ -20,17 +20,20 @@ def get_db():
         db.close()
 
 
-@router.post("/interviews/templates", response_model=schemas.InterviewTemplateOut)
+# -----------------------------
+# Canonical API namespace (/api)
+# -----------------------------
+@router.post("/api/interviews/templates", response_model=schemas.InterviewTemplateOut)
 def create_template(payload: schemas.InterviewTemplateCreate, db: Session = Depends(get_db)):
     return crud.create_interview_template(db, payload)
 
 
-@router.get("/interviews/templates", response_model=list[schemas.InterviewTemplateOut])
+@router.get("/api/interviews/templates", response_model=list[schemas.InterviewTemplateOut])
 def list_templates(project_id: int | None = Query(default=None), db: Session = Depends(get_db)):
     return crud.list_interview_templates(db, project_id=project_id)
 
 
-@router.get("/interviews/templates/{template_id}", response_model=schemas.InterviewTemplateOut)
+@router.get("/api/interviews/templates/{template_id}", response_model=schemas.InterviewTemplateOut)
 def get_template(template_id: int, db: Session = Depends(get_db)):
     item = crud.get_interview_template(db, template_id)
     if not item:
@@ -38,7 +41,7 @@ def get_template(template_id: int, db: Session = Depends(get_db)):
     return item
 
 
-@router.patch("/interviews/templates/{template_id}", response_model=schemas.InterviewTemplateOut)
+@router.patch("/api/interviews/templates/{template_id}", response_model=schemas.InterviewTemplateOut)
 def update_template(template_id: int, payload: schemas.InterviewTemplateUpdate, db: Session = Depends(get_db)):
     item = crud.update_interview_template(db, template_id, payload)
     if not item:
@@ -46,7 +49,7 @@ def update_template(template_id: int, payload: schemas.InterviewTemplateUpdate, 
     return item
 
 
-@router.delete("/interviews/templates/{template_id}")
+@router.delete("/api/interviews/templates/{template_id}")
 def delete_template(template_id: int, db: Session = Depends(get_db)):
     result = crud.delete_interview_template(db, template_id)
     if not result:
@@ -54,17 +57,17 @@ def delete_template(template_id: int, db: Session = Depends(get_db)):
     return result
 
 
-@router.get("/interviews/projects/{project_id}/templates", response_model=list[schemas.InterviewTemplateOut])
+@router.get("/api/interviews/projects/{project_id}/templates", response_model=list[schemas.InterviewTemplateOut])
 def list_project_templates(project_id: int, db: Session = Depends(get_db)):
     return crud.list_interview_templates(db, project_id=project_id)
 
 
-@router.post("/interviews", response_model=schemas.InterviewSessionOut)
+@router.post("/api/interviews", response_model=schemas.InterviewSessionOut)
 def create_interview(payload: schemas.InterviewSessionCreateV2, db: Session = Depends(get_db)):
     return crud.create_interview_v2(db, payload)
 
 
-@router.get("/interviews", response_model=list[schemas.InterviewSessionOut])
+@router.get("/api/interviews", response_model=list[schemas.InterviewSessionOut])
 def list_interviews(
     project_id: int | None = Query(default=None),
     hypothesis_id: int | None = Query(default=None),
@@ -76,7 +79,7 @@ def list_interviews(
     return crud.list_interviews_v2(db, project_id=project_id, hypothesis_id=hypothesis_id, client_id=client_id, limit=limit, offset=offset)
 
 
-@router.get("/interviews/{interview_id}", response_model=schemas.InterviewSessionOut)
+@router.get("/api/interviews/{interview_id}", response_model=schemas.InterviewSessionOut)
 def get_interview(interview_id: int, db: Session = Depends(get_db)):
     item = crud.get_interview_session(db, interview_id)
     if not item:
@@ -84,7 +87,7 @@ def get_interview(interview_id: int, db: Session = Depends(get_db)):
     return item
 
 
-@router.patch("/interviews/{interview_id}", response_model=schemas.InterviewSessionOut)
+@router.patch("/api/interviews/{interview_id}", response_model=schemas.InterviewSessionOut)
 def patch_interview(interview_id: int, payload: schemas.InterviewSessionPatchV2, db: Session = Depends(get_db)):
     item = crud.patch_interview_v2(db, interview_id, payload)
     if not item:
@@ -92,7 +95,7 @@ def patch_interview(interview_id: int, payload: schemas.InterviewSessionPatchV2,
     return item
 
 
-@router.post("/interviews/{interview_id}/attachments", response_model=schemas.InterviewAttachmentOut)
+@router.post("/api/interviews/{interview_id}/attachments", response_model=schemas.InterviewAttachmentOut)
 def upload_interview_attachment(interview_id: int, file: UploadFile = File(...), db: Session = Depends(get_db)):
     interview = crud.get_interview_session(db, interview_id)
     if not interview:
@@ -113,12 +116,12 @@ def upload_interview_attachment(interview_id: int, file: UploadFile = File(...),
     )
 
 
-@router.get("/interviews/{interview_id}/attachments", response_model=list[schemas.InterviewAttachmentOut])
+@router.get("/api/interviews/{interview_id}/attachments", response_model=list[schemas.InterviewAttachmentOut])
 def list_attachments(interview_id: int, db: Session = Depends(get_db)):
     return crud.list_interview_attachments(db, interview_id)
 
 
-@router.delete("/attachments/{attachment_id}")
+@router.delete("/api/attachments/{attachment_id}")
 def delete_attachment(attachment_id: int, db: Session = Depends(get_db)):
     obj = crud.delete_attachment(db, attachment_id)
     if not obj:
@@ -130,7 +133,9 @@ def delete_attachment(attachment_id: int, db: Session = Depends(get_db)):
     return {"deleted": True, "attachment_id": attachment_id}
 
 
-# backward-compatible endpoints
+# -----------------------------
+# Backward-compatible legacy endpoints
+# -----------------------------
 @router.post("/interviews/sessions", response_model=schemas.InterviewSessionOut)
 def create_session(payload: schemas.InterviewSessionCreate, db: Session = Depends(get_db)):
     return crud.create_interview_session(db, payload)
