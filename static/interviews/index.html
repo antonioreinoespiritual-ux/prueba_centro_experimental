@@ -40,8 +40,9 @@
 
   <div id="modal"><div class="modal-box card" id="modalBox"></div></div>
 
+  <script src="/static/js/api-client.js"></script>
   <script>
-    const API_BASE = localStorage.getItem('ce_api_base') || location.origin || 'http://127.0.0.1:8000';
+    const API_BASE = window.CEApi.base;
     const state = {
       tab: 'clients',
       clients: [], publics: [], templates: [], sessions: [], projects: [], hypotheses: [], attachments: [], campaigns: [],
@@ -53,9 +54,7 @@
     const esc = (v) => String(v ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 
     async function api(path, init){
-      const r = await fetch(API_BASE + path, init);
-      if(!r.ok) throw new Error(await r.text());
-      return r.json();
+      return window.CEApi.request(path, init);
     }
 
     function toast(msg){
@@ -149,6 +148,7 @@
       $('#m_cancel').onclick = () => $('#modal').style.display='none';
       const saveBtn = $('#m_save');
       if(state.publics.length===0){ saveBtn.disabled=true; $('#m_err').textContent='No se pudieron cargar públicos.'; }
+      if(state.campaigns.length===0){ saveBtn.disabled=true; $('#m_err').textContent='Primero crea una Campaña de investigación.'; }
       $('#c_campaign_search').oninput = (e)=>{ const q=e.target.value.toLowerCase(); Array.from($('#c_campaign').options).forEach((o,i)=>{ if(i===0)return; o.hidden=!o.textContent.toLowerCase().includes(q);}); };
       $('#m_save').onclick = async () => {
         const payload = {
@@ -156,9 +156,8 @@
           public_id: $('#c_public').value?Number($('#c_public').value):null,
           sex: $('#c_sex').value || null, social_network: $('#c_social').value || null,
           email: $('#c_email').value.trim(), phone: $('#c_phone').value.trim(), notes: $('#c_notes').value, tags: [],
-          campaign_id: state.activeCampaign ? state.activeCampaign.id : null
+          campaign_id: $('#c_campaign').value ? Number($('#c_campaign').value) : null
         };
-        payload.campaign_id = $('#c_campaign').value ? Number($('#c_campaign').value) : null;
         if(!payload.full_name || !payload.country || !payload.public_id || !payload.campaign_id){ $('#m_err').textContent='Nombre, país, público y campaña son obligatorios'; return; }
         try{
           await api('/clients', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
@@ -185,15 +184,15 @@
       $('#m_cancel').onclick = () => $('#modal').style.display='none';
       const saveBtn = $('#m_save');
       if(state.publics.length===0){ saveBtn.disabled=true; $('#m_err').textContent='No se pudieron cargar públicos.'; }
+      if(state.campaigns.length===0){ saveBtn.disabled=true; $('#m_err').textContent='Primero crea una Campaña de investigación.'; }
       $('#m_save').onclick = async () => {
         const payload = {
           full_name: $('#c_name').value.trim(), country: $('#c_country').value.trim(), age: $('#c_age').value?Number($('#c_age').value):null,
           public_id: $('#c_public').value?Number($('#c_public').value):null,
           sex: $('#c_sex').value || null, social_network: $('#c_social').value || null,
           email: $('#c_email').value.trim(), phone: $('#c_phone').value.trim(), notes: $('#c_notes').value,
-campaign_id: $('#c_campaign').value ? Number($('#c_campaign').value) : null
+          campaign_id: $('#c_campaign').value ? Number($('#c_campaign').value) : null
         };
-        payload.campaign_id = $('#c_campaign').value ? Number($('#c_campaign').value) : null;
         if(!payload.full_name || !payload.country || !payload.public_id || !payload.campaign_id){ $('#m_err').textContent='Nombre, país, público y campaña son obligatorios'; return; }
         try{
           await api(`/clients/${c.id}`, {method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
@@ -277,7 +276,7 @@ campaign_id: $('#c_campaign').value ? Number($('#c_campaign').value) : null
         $('#addQ').onclick = () => { questions.push({id: crypto.randomUUID(), label:'', type:'short_text', required:false, options:[]}); redraw(); };
         $('#cl').onclick = () => $('#modal').style.display='none';
         $('#sv').onclick = async () => {
-          const payload = { project_id: state.run.project_id, name: $('#tp_name').value, description: $('#tp_desc').value, fields_json: {questions}, campaign_id: $('#tp_campaign').value?Number($('#tp_campaign').value):null }; if(!payload.campaign_id){ toast('Selecciona campaña'); return; }
+          const payload = { project_id: state.run.project_id, name: $('#tp_name').value, description: $('#tp_desc').value, fields_json: {questions}, campaign_id: $('#tp_campaign').value?Number($('#tp_campaign').value):null }; if(!payload.campaign_id){ toast('Primero crea/selecciona una Campaña de investigación'); return; }
           if(templateId){
             await api(`/api/interviews/templates/${templateId}`, {method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
           } else {
@@ -319,6 +318,7 @@ campaign_id: $('#c_campaign').value ? Number($('#c_campaign').value) : null
       const lockContext = Boolean(campaign);
       $('#tab-run').innerHTML = `
         <h2>Realizar entrevista ${campaign ? `· Campaña: ${esc(campaign.name)}` : ''}</h2>
+        ${state.campaigns.length===0 ? `<div class='item'><p class='muted'>Primero crea una Campaña de investigación en la pestaña correspondiente.</p></div>` : ''}
         ${campaign ? `<p class='muted'>Proyecto ${esc(campaign.project_name||campaign.project_id)} · Hipótesis ${esc(campaign.hypothesis_name||campaign.hypothesis_id||'-')} · ${esc(campaign.metric_name||'sin métrica')}</p><button class='btn' id='clearCampaign'>Salir de campaña</button>` : ''}
         <h4>Paso 0 · Campaña</h4>
         <select id='r_campaign'><option value=''>Campaña*</option>${state.campaigns.map(c=>`<option value='${c.id}' ${state.run.campaign_id==c.id?'selected':''}>${esc(c.name)}</option>`).join('')}</select>
@@ -391,7 +391,7 @@ campaign_id: $('#c_campaign').value ? Number($('#c_campaign').value) : null
       drawAttachments();
 
       const persist = async (autosave=false) => {
-        if(!state.run.campaign_id || !state.run.project_id || !state.run.template_id || !state.run.client_id || !state.run.interviewee_name.trim()) { $('#saveState').textContent='Selecciona campaña'; return; }
+        if(!state.run.campaign_id || !state.run.project_id || !state.run.template_id || !state.run.client_id || !state.run.interviewee_name.trim()) { $('#saveState').textContent='Completa campaña, cliente, plantilla y entrevistado'; return; }
         $('#saveState').textContent = 'Guardando…';
         const payload = {
           project_id: state.run.project_id,
@@ -426,8 +426,7 @@ campaign_id: $('#c_campaign').value ? Number($('#c_campaign').value) : null
         if(!f) return;
         if(!state.run.session_id){ toast('Guarda la entrevista antes de adjuntar archivos'); return; }
         const fd = new FormData(); fd.append('file', f);
-        const r = await fetch(API_BASE + `/api/interviews/${state.run.session_id}/attachments`, {method:'POST', body: fd});
-        if(!r.ok){ toast('Error al subir archivo'); return; }
+        try{ await window.CEApi.request(`/api/interviews/${state.run.session_id}/attachments`, {method:'POST', body: fd}); }catch(_){ toast('Error al subir archivo'); return; }
         state.attachments = await api(`/api/interviews/${state.run.session_id}/attachments`);
         drawAttachments();
         toast('Archivo adjuntado');

@@ -228,3 +228,18 @@ Reglas implementadas:
 - Validación de consistencia `project_id` + `hypothesis_id` al crear/editar campañas.
 - `Client`, `InterviewTemplate` e `InterviewSession` **requieren** `campaign_id` (campaña obligatoria).
 - Para compatibilidad histórica, la migración crea automáticamente una **Campaña default** por proyecto y asigna registros antiguos sin campaña.
+
+
+## Frontend QA
+
+Checklist de validación visual/UX (Research OS):
+
+- [ ] `/` Home: carga con header, cards y navegación operativa (sin rutas rotas).
+- [ ] `/cloud`: UI renderiza y mantiene estilos del design system.
+- [ ] `/hypotheses`: UI renderiza correctamente y mantiene layout consistente.
+- [ ] `/interviews`: UI renderiza correctamente con tabs, estados loading/empty/error.
+- [ ] Botones del Home (`Chat`, `Dashboard`, `Proyectos`, `Records`, `Públicos`, `Entrevistas`, `Cloud`, `Hypotheses`) abren páginas HTML/SPA (no JSON crudo).
+- [ ] Listados de Clientes/Plantillas/Entrevistas permiten filtrar por campaña y muestran campaña asociada.
+- [ ] Formularios de Clientes/Plantillas/Entrevistas bloquean guardar sin campaña y muestran mensajes claros.
+- [ ] Modales: cierre por botón, foco usable por teclado, confirmaciones de borrado activas.
+- [ ] Toasts de éxito/error visibles en operaciones CRUD.
