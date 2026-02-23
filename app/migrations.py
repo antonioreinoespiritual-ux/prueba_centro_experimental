@@ -464,6 +464,9 @@ def ensure_schema() -> None:
                 city VARCHAR(120),
                 nationality VARCHAR(120),
                 gender VARCHAR(60),
+                public_id INTEGER REFERENCES publics(id),
+                sex VARCHAR(40),
+                social_network VARCHAR(40),
                 tags_json TEXT,
                 notes TEXT,
                 created_at DATETIME NOT NULL DEFAULT (datetime('now')),
@@ -475,6 +478,14 @@ def ensure_schema() -> None:
         cur.execute("CREATE INDEX IF NOT EXISTS ix_clients_country ON clients (country)")
         cur.execute("CREATE INDEX IF NOT EXISTS ix_clients_email ON clients (email)")
         cur.execute("CREATE INDEX IF NOT EXISTS ix_clients_phone ON clients (phone)")
+
+    if _column_exists(cur, "clients", "public_id") is False:
+        cur.execute("ALTER TABLE clients ADD COLUMN public_id INTEGER REFERENCES publics(id)")
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_clients_public_id ON clients (public_id)")
+    if _column_exists(cur, "clients", "sex") is False:
+        cur.execute("ALTER TABLE clients ADD COLUMN sex VARCHAR(40)")
+    if _column_exists(cur, "clients", "social_network") is False:
+        cur.execute("ALTER TABLE clients ADD COLUMN social_network VARCHAR(40)")
 
     # --- Interview sessions additive columns ---
     if _column_exists(cur, "interview_sessions", "hypothesis_id") is False:

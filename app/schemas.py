@@ -779,7 +779,10 @@ class ClientBase(BaseModel):
     state: Optional[str] = None
     city: Optional[str] = None
     nationality: Optional[str] = None
-    gender: Optional[str] = None
+    gender: Optional[str] = None  # backward compatibility
+    public_id: Optional[int] = None
+    sex: Optional[Literal["Hombre", "Mujer", "Otro", "Prefiero no decir"]] = None
+    social_network: Optional[Literal["Instagram", "WhatsApp", "TikTok", "Facebook"]] = None
     tags: list[str] = Field(default_factory=list)
     notes: Optional[str] = None
 
@@ -798,6 +801,9 @@ class ClientUpdate(BaseModel):
     city: Optional[str] = None
     nationality: Optional[str] = None
     gender: Optional[str] = None
+    public_id: Optional[int] = None
+    sex: Optional[Literal["Hombre", "Mujer", "Otro", "Prefiero no decir"]] = None
+    social_network: Optional[Literal["Instagram", "WhatsApp", "TikTok", "Facebook"]] = None
     tags: Optional[list[str]] = None
     notes: Optional[str] = None
 
@@ -806,6 +812,7 @@ class ClientOut(ClientBase):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+    public_name: Optional[str] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
 

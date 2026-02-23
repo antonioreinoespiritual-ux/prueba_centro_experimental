@@ -43,7 +43,7 @@
     const API_BASE = localStorage.getItem('ce_api_base') || location.origin || 'http://127.0.0.1:8000';
     const state = {
       tab: 'clients',
-      clients: [], templates: [], sessions: [], projects: [], hypotheses: [], attachments: [],
+      clients: [], publics: [], templates: [], sessions: [], projects: [], hypotheses: [], attachments: [],
       run: { project_id: 1, hypothesis_id: '', client_id: '', template_id: '', metric_name: '', interviewee_name: '', notes: '', responses: {}, session_id: null }
     };
 
@@ -88,6 +88,9 @@
     async function loadHypotheses(){
       try{ state.hypotheses = await api(`/api/cloud/projects/${state.run.project_id}/hypotheses`); }catch{ state.hypotheses = []; }
     }
+    async function loadPublics(){
+      try{ state.publics = await api('/publics/'); }catch{ state.publics = []; }
+    }
 
     async function renderClients(){
       $('#tab-clients').innerHTML = `
@@ -109,7 +112,7 @@
         });
         $('#clientsList').innerHTML = rows.length ? rows.map(x => `
           <article class='item'>
-            <div><strong>${esc(x.full_name)}</strong><p class='muted'>${esc(x.country)} · ${esc(x.email||'sin email')} · ${esc(x.phone||'sin teléfono')}</p></div>
+            <div><strong>${esc(x.full_name)}</strong><p class='muted'>${esc(x.country)} · ${esc(x.email||'sin email')} · ${esc(x.phone||'sin teléfono')} · Público: ${esc(x.public_name||'N/D')}</p></div>
             <button class='btn' data-open='${x.id}'>Detalle</button>
           </article>`).join('') : `<p class='muted'>No hay clientes todavía.</p>`;
         document.querySelectorAll('[data-open]').forEach(b => b.onclick = () => openClientDetail(Number(b.dataset.open)));
@@ -122,23 +125,65 @@
     }
 
     function openClientForm(){
+      const publicsOptions = state.publics.map(p=>`<option value='${p.id}'>${esc(p.name)}</option>`).join('');
       modal(`
         <h3>Crear cliente</h3>
         <div class='grid'><input id='c_name' placeholder='Nombre completo*'><input id='c_country' placeholder='País*'></div>
+        <div class='grid'><input id='c_age' type='number' min='0' placeholder='Edad'><select id='c_public'><option value=''>Público*</option>${publicsOptions}</select></div>
+        <div class='grid'><select id='c_sex'><option value=''>Sexo</option><option>Hombre</option><option>Mujer</option><option>Otro</option><option>Prefiero no decir</option></select><select id='c_social'><option value=''>Red social</option><option>Instagram</option><option>WhatsApp</option><option>TikTok</option><option>Facebook</option></select></div>
         <div class='grid'><input id='c_email' placeholder='Email'><input id='c_phone' placeholder='Teléfono'></div>
         <textarea id='c_notes' rows='4' placeholder='Notas'></textarea>
         <div class='row'><button class='btn' id='m_cancel'>Cancelar</button><button class='btn primary' id='m_save'>Guardar</button></div>
         <p id='m_err' class='muted'></p>`);
       $('#m_cancel').onclick = () => $('#modal').style.display='none';
+      const saveBtn = $('#m_save');
+      if(state.publics.length===0){ saveBtn.disabled=true; $('#m_err').textContent='No se pudieron cargar públicos.'; }
       $('#m_save').onclick = async () => {
-        const payload = { full_name: $('#c_name').value.trim(), country: $('#c_country').value.trim(), email: $('#c_email').value.trim(), phone: $('#c_phone').value.trim(), notes: $('#c_notes').value, tags: [] };
-        if(!payload.full_name || !payload.country){ $('#m_err').textContent='Nombre y país obligatorios'; return; }
+        const payload = {
+          full_name: $('#c_name').value.trim(), country: $('#c_country').value.trim(), age: $('#c_age').value?Number($('#c_age').value):null,
+          public_id: $('#c_public').value?Number($('#c_public').value):null,
+          sex: $('#c_sex').value || null, social_network: $('#c_social').value || null,
+          email: $('#c_email').value.trim(), phone: $('#c_phone').value.trim(), notes: $('#c_notes').value, tags: []
+        };
+        if(!payload.full_name || !payload.country || !payload.public_id){ $('#m_err').textContent='Nombre, país y público son obligatorios'; return; }
         try{
           await api('/clients', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
           state.clients = await api('/clients');
           $('#modal').style.display='none';
           renderClients();
           toast('Cliente creado');
+        }catch(e){ $('#m_err').textContent = e.message; }
+      };
+    }
+
+    function openClientEditForm(c){
+      const publicsOptions = state.publics.map(p=>`<option value='${p.id}' ${c.public_id===p.id?'selected':''}>${esc(p.name)}</option>`).join('');
+      modal(`
+        <h3>Editar cliente</h3>
+        <div class='grid'><input id='c_name' placeholder='Nombre completo*' value='${esc(c.full_name||'')}'><input id='c_country' placeholder='País*' value='${esc(c.country||'')}'></div>
+        <div class='grid'><input id='c_age' type='number' min='0' placeholder='Edad' value='${c.age ?? ''}'><select id='c_public'><option value=''>Público*</option>${publicsOptions}</select></div>
+        <div class='grid'><select id='c_sex'><option value=''>Sexo</option>${['Hombre','Mujer','Otro','Prefiero no decir'].map(v=>`<option ${((c.sex||c.gender)===v)?'selected':''}>${v}</option>`).join('')}</select><select id='c_social'><option value=''>Red social</option>${['Instagram','WhatsApp','TikTok','Facebook'].map(v=>`<option ${c.social_network===v?'selected':''}>${v}</option>`).join('')}</select></div>
+        <div class='grid'><input id='c_email' placeholder='Email' value='${esc(c.email||'')}'><input id='c_phone' placeholder='Teléfono' value='${esc(c.phone||'')}'></div>
+        <textarea id='c_notes' rows='4' placeholder='Notas'>${esc(c.notes||'')}</textarea>
+        <div class='row'><button class='btn' id='m_cancel'>Cancelar</button><button class='btn primary' id='m_save'>Guardar cambios</button></div>
+        <p id='m_err' class='muted'></p>`);
+      $('#m_cancel').onclick = () => $('#modal').style.display='none';
+      const saveBtn = $('#m_save');
+      if(state.publics.length===0){ saveBtn.disabled=true; $('#m_err').textContent='No se pudieron cargar públicos.'; }
+      $('#m_save').onclick = async () => {
+        const payload = {
+          full_name: $('#c_name').value.trim(), country: $('#c_country').value.trim(), age: $('#c_age').value?Number($('#c_age').value):null,
+          public_id: $('#c_public').value?Number($('#c_public').value):null,
+          sex: $('#c_sex').value || null, social_network: $('#c_social').value || null,
+          email: $('#c_email').value.trim(), phone: $('#c_phone').value.trim(), notes: $('#c_notes').value
+        };
+        if(!payload.full_name || !payload.country || !payload.public_id){ $('#m_err').textContent='Nombre, país y público son obligatorios'; return; }
+        try{
+          await api(`/clients/${c.id}`, {method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
+          state.clients = await api('/clients');
+          $('#modal').style.display='none';
+          renderClients();
+          toast('Cliente actualizado');
         }catch(e){ $('#m_err').textContent = e.message; }
       };
     }
@@ -150,12 +195,14 @@
       modal(`
         <div class='row' style='justify-content:space-between'><h3>${esc(c.full_name)}</h3><button class='btn' id='m_close'>Cerrar</button></div>
         <p class='muted'>${esc(c.country)} · ${esc(c.email||'sin email')} · ${esc(c.phone||'sin teléfono')}</p>
+        <p class='muted'>Edad: ${esc(c.age||'-')} · Público: ${esc(c.public_name||'-')} · Sexo: ${esc(c.sex||c.gender||'-')} · Red social: ${esc(c.social_network||'-')}</p>
         <p>${esc(c.notes||'Sin notas')}</p>
-        <div class='row'><button class='btn primary' id='m_run'>Nueva entrevista para este cliente</button><button class='btn danger' id='m_del'>Eliminar cliente</button></div>
+        <div class='row'><button class='btn' id='m_edit'>Editar cliente</button><button class='btn primary' id='m_run'>Nueva entrevista para este cliente</button><button class='btn danger' id='m_del'>Eliminar cliente</button></div>
         <h4>Entrevistas del cliente</h4>
         ${iv.length ? `<div class='list'>${iv.map(s => `<div class='item'><span>#${s.id} · ${new Date(s.created_at).toLocaleString()}</span><span class='muted'>${esc(s.metric_name || 'sin métrica')}</span></div>`).join('')}</div>` : `<p class='muted'>No tiene entrevistas aún.</p>`}`
       );
       $('#m_close').onclick = () => $('#modal').style.display='none';
+      $('#m_edit').onclick = () => openClientEditForm(c);
       $('#m_run').onclick = () => { state.run.client_id = id; state.tab = 'run'; $('#modal').style.display='none'; render(); };
       $('#m_del').onclick = async () => {
         if(!confirm('¿Eliminar cliente?')) return;
@@ -363,6 +410,7 @@
     async function load(){
       try{ state.clients = await api('/clients'); }catch{ state.clients = []; }
       try{ state.projects = await api('/api/cloud/projects'); }catch{ state.projects = []; }
+      await loadPublics();
       await loadTemplates();
       await loadSessions();
       await loadHypotheses();

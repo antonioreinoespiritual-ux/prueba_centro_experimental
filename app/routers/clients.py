@@ -30,7 +30,10 @@ def list_clients(
 
 @router.post("", response_model=schemas.ClientOut)
 def create_client(payload: schemas.ClientCreate, db: Session = Depends(get_db)):
-    return crud.create_client(db, payload)
+    try:
+        return crud.create_client(db, payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.get("/{client_id}", response_model=schemas.ClientOut)
@@ -43,7 +46,10 @@ def get_client(client_id: int, db: Session = Depends(get_db)):
 
 @router.patch("/{client_id}", response_model=schemas.ClientOut)
 def update_client(client_id: int, payload: schemas.ClientUpdate, db: Session = Depends(get_db)):
-    item = crud.update_client(db, client_id, payload)
+    try:
+        item = crud.update_client(db, client_id, payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     if not item:
         raise HTTPException(status_code=404, detail="Client not found")
     return item

@@ -1454,7 +1454,11 @@ def delete_interview_session(db: Session, session_id: int):
 #  CLIENTS + INTERVIEWS V2 + ATTACHMENTS
 # ------------------------------------------------------------------ #
 
-def _client_out(client: models.Client) -> schemas.ClientOut:
+def _client_out(db: Session, client: models.Client) -> schemas.ClientOut:
+    public_name = None
+    if client.public_id:
+        public = db.get(models.Public, client.public_id)
+        public_name = public.name if public else None
     return schemas.ClientOut(
         id=client.id,
         full_name=client.full_name,
@@ -1466,6 +1470,10 @@ def _client_out(client: models.Client) -> schemas.ClientOut:
         city=client.city,
         nationality=client.nationality,
         gender=client.gender,
+        public_id=client.public_id,
+        public_name=public_name,
+        sex=client.sex or client.gender,
+        social_network=client.social_network,
         tags=json.loads(client.tags_json or "[]"),
         notes=client.notes,
         created_at=client.created_at,
@@ -1474,6 +1482,10 @@ def _client_out(client: models.Client) -> schemas.ClientOut:
 
 
 def create_client(db: Session, data: schemas.ClientCreate):
+    if data.public_id:
+        public = db.get(models.Public, data.public_id)
+        if not public:
+            raise ValueError("Public not found")
     obj = models.Client(
         full_name=data.full_name.strip(),
         age=data.age,
@@ -1483,14 +1495,17 @@ def create_client(db: Session, data: schemas.ClientCreate):
         state=(data.state or "").strip() or None,
         city=(data.city or "").strip() or None,
         nationality=(data.nationality or "").strip() or None,
-        gender=(data.gender or "").strip() or None,
+        gender=(data.gender or data.sex or "").strip() or None,
+        public_id=data.public_id,
+        sex=(data.sex or "").strip() or None,
+        social_network=(data.social_network or "").strip() or None,
         tags_json=json.dumps(data.tags or []),
         notes=(data.notes or "").strip() or None,
     )
     db.add(obj)
     db.commit()
     db.refresh(obj)
-    return _client_out(obj)
+    return _client_out(db, obj)
 
 
 def list_clients(db: Session, search: str | None = None, country: str | None = None, limit: int = 100, offset: int = 0):
@@ -1501,12 +1516,12 @@ def list_clients(db: Session, search: str | None = None, country: str | None = N
     if country:
         q = q.where(models.Client.country.ilike(country.strip()))
     q = q.order_by(desc(models.Client.created_at)).offset(offset).limit(limit)
-    return [_client_out(x) for x in db.scalars(q).all()]
+    return [_client_out(db, x) for x in db.scalars(q).all()]
 
 
 def get_client(db: Session, client_id: int):
     obj = db.get(models.Client, client_id)
-    return _client_out(obj) if obj else None
+    return _client_out(db, obj) if obj else None
 
 
 def update_client(db: Session, client_id: int, data: schemas.ClientUpdate):
@@ -1514,7 +1529,7 @@ def update_client(db: Session, client_id: int, data: schemas.ClientUpdate):
     if not obj:
         return None
     payload = data.model_dump(exclude_unset=True, mode="json")
-    for key in ["full_name", "age", "email", "phone", "country", "state", "city", "nationality", "gender", "notes"]:
+    for key in ["full_name", "age", "email", "phone", "country", "state", "city", "nationality", "gender", "public_id", "sex", "social_network", "notes"]:
         if key in payload:
             val = payload[key]
             if isinstance(val, str):
@@ -1522,10 +1537,16 @@ def update_client(db: Session, client_id: int, data: schemas.ClientUpdate):
             setattr(obj, key, val)
     if "tags" in payload and payload["tags"] is not None:
         obj.tags_json = json.dumps(payload["tags"])
+    if "public_id" in payload and payload["public_id"]:
+        public = db.get(models.Public, payload["public_id"])
+        if not public:
+            raise ValueError("Public not found")
+    if "sex" in payload and payload["sex"]:
+        obj.gender = payload["sex"]
     obj.updated_at = datetime.utcnow()
     db.commit()
     db.refresh(obj)
-    return _client_out(obj)
+    return _client_out(db, obj)
 
 
 def delete_client(db: Session, client_id: int):
