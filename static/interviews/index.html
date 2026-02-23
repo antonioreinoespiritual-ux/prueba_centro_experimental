@@ -35,6 +35,7 @@
     <section id="tab-run" class="card hidden"></section>
     <section id="tab-templates" class="card hidden"></section>
     <section id="tab-sessions" class="card hidden"></section>
+    <section id="tab-campaigns" class="card hidden"></section>
   </div>
 
   <div id="modal"><div class="modal-box card" id="modalBox"></div></div>
@@ -43,8 +44,9 @@
     const API_BASE = localStorage.getItem('ce_api_base') || location.origin || 'http://127.0.0.1:8000';
     const state = {
       tab: 'clients',
-      clients: [], publics: [], templates: [], sessions: [], projects: [], hypotheses: [], attachments: [],
-      run: { project_id: 1, hypothesis_id: '', client_id: '', template_id: '', metric_name: '', interviewee_name: '', notes: '', responses: {}, session_id: null }
+      clients: [], publics: [], templates: [], sessions: [], projects: [], hypotheses: [], attachments: [], campaigns: [],
+      activeCampaign: null, campaignViewTab: 'clients',
+      run: { project_id: 1, hypothesis_id: '', client_id: '', template_id: '', metric_name: '', campaign_id: null, interviewee_name: '', notes: '', responses: {}, session_id: null }
     };
 
     const $ = (s) => document.querySelector(s);
@@ -73,6 +75,7 @@
         {id:'run', label:'Realizar entrevista'},
         {id:'templates', label:'Plantillas'},
         {id:'sessions', label:'Entrevistas realizadas'},
+        {id:'campaigns', label:'Campaña de investigación'},
       ];
       $('#tabs').innerHTML = tabs.map(t => `<button class="btn ${state.tab===t.id?'primary':''}" data-tab="${t.id}">${t.label}</button>`).join('');
       tabs.forEach(t => $(`#tab-${t.id}`).classList.toggle('hidden', state.tab !== t.id));
@@ -90,6 +93,9 @@
     }
     async function loadPublics(){
       try{ state.publics = await api('/publics/'); }catch{ state.publics = []; }
+    }
+    async function loadCampaigns(){
+      try{ state.campaigns = await api('/api/campaigns'); }catch{ state.campaigns = []; }
     }
 
     async function renderClients(){
@@ -112,7 +118,7 @@
         });
         $('#clientsList').innerHTML = rows.length ? rows.map(x => `
           <article class='item'>
-            <div><strong>${esc(x.full_name)}</strong><p class='muted'>${esc(x.country)} · ${esc(x.email||'sin email')} · ${esc(x.phone||'sin teléfono')} · Público: ${esc(x.public_name||'N/D')}</p></div>
+            <div><strong>${esc(x.full_name)}</strong><p class='muted'>${esc(x.country)} · ${esc(x.email||'sin email')} · ${esc(x.phone||'sin teléfono')} · Público: ${esc(x.public_name||'N/D')} · Campaña: ${esc((state.campaigns.find(c=>c.id===x.campaign_id)||{}).name||'N/D')}</p></div>
             <button class='btn' data-open='${x.id}'>Detalle</button>
           </article>`).join('') : `<p class='muted'>No hay clientes todavía.</p>`;
         document.querySelectorAll('[data-open]').forEach(b => b.onclick = () => openClientDetail(Number(b.dataset.open)));
@@ -143,7 +149,8 @@
           full_name: $('#c_name').value.trim(), country: $('#c_country').value.trim(), age: $('#c_age').value?Number($('#c_age').value):null,
           public_id: $('#c_public').value?Number($('#c_public').value):null,
           sex: $('#c_sex').value || null, social_network: $('#c_social').value || null,
-          email: $('#c_email').value.trim(), phone: $('#c_phone').value.trim(), notes: $('#c_notes').value, tags: []
+          email: $('#c_email').value.trim(), phone: $('#c_phone').value.trim(), notes: $('#c_notes').value, tags: [],
+          campaign_id: state.activeCampaign ? state.activeCampaign.id : null
         };
         if(!payload.full_name || !payload.country || !payload.public_id){ $('#m_err').textContent='Nombre, país y público son obligatorios'; return; }
         try{
@@ -175,7 +182,8 @@
           full_name: $('#c_name').value.trim(), country: $('#c_country').value.trim(), age: $('#c_age').value?Number($('#c_age').value):null,
           public_id: $('#c_public').value?Number($('#c_public').value):null,
           sex: $('#c_sex').value || null, social_network: $('#c_social').value || null,
-          email: $('#c_email').value.trim(), phone: $('#c_phone').value.trim(), notes: $('#c_notes').value
+          email: $('#c_email').value.trim(), phone: $('#c_phone').value.trim(), notes: $('#c_notes').value,
+          campaign_id: state.activeCampaign ? state.activeCampaign.id : (c.campaign_id || null)
         };
         if(!payload.full_name || !payload.country || !payload.public_id){ $('#m_err').textContent='Nombre, país y público son obligatorios'; return; }
         try{
@@ -256,7 +264,7 @@
         $('#addQ').onclick = () => { questions.push({id: crypto.randomUUID(), label:'', type:'short_text', required:false, options:[]}); redraw(); };
         $('#cl').onclick = () => $('#modal').style.display='none';
         $('#sv').onclick = async () => {
-          const payload = { project_id: state.run.project_id, name: $('#tp_name').value, description: $('#tp_desc').value, fields_json: {questions} };
+          const payload = { project_id: state.run.project_id, name: $('#tp_name').value, description: $('#tp_desc').value, fields_json: {questions}, campaign_id: state.activeCampaign ? state.activeCampaign.id : null };
           if(templateId){
             await api(`/api/interviews/templates/${templateId}`, {method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
           } else {
@@ -291,19 +299,24 @@
     }
 
     function renderRun(){
-      const template = state.templates.find(t => t.id == state.run.template_id);
+      const campaign = state.activeCampaign;
+      const clients = campaign ? state.clients.filter(c => c.campaign_id === campaign.id) : state.clients;
+      const templates = campaign ? state.templates.filter(t => t.campaign_id === campaign.id) : state.templates;
+      const template = templates.find(t => t.id == state.run.template_id);
+      const lockContext = Boolean(campaign);
       $('#tab-run').innerHTML = `
-        <h2>Realizar entrevista</h2>
+        <h2>Realizar entrevista ${campaign ? `· Campaña: ${esc(campaign.name)}` : ''}</h2>
+        ${campaign ? `<p class='muted'>Proyecto ${esc(campaign.project_name||campaign.project_id)} · Hipótesis ${esc(campaign.hypothesis_name||campaign.hypothesis_id||'-')} · ${esc(campaign.metric_name||'sin métrica')}</p><button class='btn' id='clearCampaign'>Salir de campaña</button>` : ''}
         <h4>Paso 1 · Contexto</h4>
         <div class='grid'>
-          <select id='r_project'><option value=''>Proyecto</option>${state.projects.map(p => `<option value='${p.id}' ${state.run.project_id==p.id?'selected':''}>${esc(p.project_name)}</option>`).join('')}</select>
-          <select id='r_hyp'><option value=''>Hipótesis</option>${state.hypotheses.map(h => `<option value='${h.experiment_id}' ${state.run.hypothesis_id==h.experiment_id?'selected':''}>${esc(h.display_name)}</option>`).join('')}</select>
+          <select id='r_project' ${lockContext?'disabled':''}><option value=''>Proyecto</option>${state.projects.map(p => `<option value='${p.id}' ${state.run.project_id==p.id?'selected':''}>${esc(p.project_name)}</option>`).join('')}</select>
+          <select id='r_hyp' ${lockContext?'disabled':''}><option value=''>Hipótesis</option>${state.hypotheses.map(h => `<option value='${h.experiment_id}' ${state.run.hypothesis_id==h.experiment_id?'selected':''}>${esc(h.display_name)}</option>`).join('')}</select>
         </div>
-        <input id='r_metric' placeholder='Métrica X o variable X' value='${esc(state.run.metric_name)}'>
+        <input id='r_metric' placeholder='Métrica X o variable X' value='${esc(state.run.metric_name)}' ${lockContext?'readonly':''}>
         <h4>Paso 2 · Cliente</h4>
-        <select id='r_client'><option value=''>Cliente</option>${state.clients.map(c => `<option value='${c.id}' ${state.run.client_id==c.id?'selected':''}>${esc(c.full_name)} · ${esc(c.country)}</option>`).join('')}</select>
+        <select id='r_client'><option value=''>Cliente</option>${clients.map(c => `<option value='${c.id}' ${state.run.client_id==c.id?'selected':''}>${esc(c.full_name)} · ${esc(c.country)}</option>`).join('')}</select>
         <h4>Paso 3 · Plantilla</h4>
-        <select id='r_template'><option value=''>Plantilla</option>${state.templates.map(t => `<option value='${t.id}' ${state.run.template_id==t.id?'selected':''}>${esc(t.name)}</option>`).join('')}</select>
+        <select id='r_template'><option value=''>Plantilla</option>${templates.map(t => `<option value='${t.id}' ${state.run.template_id==t.id?'selected':''}>${esc(t.name)}</option>`).join('')}</select>
         <h4>Paso 4 · Entrevista</h4>
         <input id='r_name' placeholder='Nombre entrevistado' value='${esc(state.run.interviewee_name)}'>
         <div id='runQuestions'></div>
@@ -313,9 +326,12 @@
         <input id='r_file' type='file' accept='.txt,.pdf,.doc,.docx'>
         <div id='attachList' class='list'></div>`;
 
-      $('#r_project').onchange = async (e)=>{ state.run.project_id = Number(e.target.value)||1; await loadTemplates(); await loadHypotheses(); renderRun(); };
-      $('#r_hyp').onchange = (e)=> state.run.hypothesis_id = e.target.value ? Number(e.target.value) : '';
-      $('#r_metric').oninput = (e)=> state.run.metric_name = e.target.value;
+      if(!lockContext){
+        $('#r_project').onchange = async (e)=>{ state.run.project_id = Number(e.target.value)||1; await loadTemplates(); await loadHypotheses(); renderRun(); };
+        $('#r_hyp').onchange = (e)=> state.run.hypothesis_id = e.target.value ? Number(e.target.value) : '';
+        $('#r_metric').oninput = (e)=> state.run.metric_name = e.target.value;
+      }
+      if($('#clearCampaign')) $('#clearCampaign').onclick = ()=>{ state.activeCampaign = null; state.run.campaign_id = null; render(); };
       $('#r_client').onchange = (e)=> state.run.client_id = e.target.value ? Number(e.target.value) : '';
       $('#r_template').onchange = (e)=> { state.run.template_id = e.target.value ? Number(e.target.value) : ''; renderRun(); };
       $('#r_name').oninput = (e)=> state.run.interviewee_name = e.target.value;
@@ -366,6 +382,7 @@
           hypothesis_id: state.run.hypothesis_id || null,
           client_id: state.run.client_id || null,
           template_id: state.run.template_id,
+          campaign_id: state.run.campaign_id || null,
           metric_name: state.run.metric_name,
           interviewee_name: state.run.interviewee_name,
           responses_json: state.run.responses,
@@ -407,6 +424,113 @@
         : `<p class='muted'>No hay entrevistas todavía.</p>`);
     }
 
+
+    async function openCampaignForm(campaign){
+      const form = campaign || {name:'', description:'', project_id: state.projects[0]?.id || '', hypothesis_id:'', metric_name:'', status:'planned', start_date:'', end_date:''};
+      let hypotheses = [];
+      async function loadHyps(pid){
+        try{ hypotheses = await api(`/api/cloud/projects/${pid}/hypotheses`); }catch{ hypotheses = []; }
+      }
+      if(form.project_id) await loadHyps(form.project_id);
+      const redraw = ()=>{
+        modal(`
+          <h3>${campaign ? 'Editar campaña' : 'Nueva campaña de investigación'}</h3>
+          <input id='cp_name' placeholder='Nombre' value='${esc(form.name||'')}'>
+          <textarea id='cp_desc' rows='3' placeholder='Descripción'>${esc(form.description||'')}</textarea>
+          <select id='cp_project'><option value=''>Proyecto</option>${state.projects.map(p=>`<option value='${p.id}' ${Number(form.project_id)===p.id?'selected':''}>${esc(p.project_name)}</option>`).join('')}</select>
+          <select id='cp_hyp'><option value=''>Hipótesis</option>${hypotheses.map(h=>`<option value='${h.experiment_id}' ${Number(form.hypothesis_id)===h.experiment_id?'selected':''}>${esc(h.display_name)}</option>`).join('')}</select>
+          <input id='cp_metric' placeholder='Variable/Métrica X' value='${esc(form.metric_name||'')}'>
+          <select id='cp_status'>${['planned','running','paused','completed'].map(st=>`<option value='${st}' ${form.status===st?'selected':''}>${st}</option>`).join('')}</select>
+          <div class='grid'><input id='cp_start' type='date' value='${esc(form.start_date?String(form.start_date).slice(0,10):'')}'><input id='cp_end' type='date' value='${esc(form.end_date?String(form.end_date).slice(0,10):'')}'></div>
+          <p id='cp_err' class='muted'></p>
+          <div class='row'><button class='btn' id='cp_cancel'>Cancelar</button><button class='btn primary' id='cp_save'>Guardar</button></div>
+        `);
+        $('#cp_project').onchange = async (e)=>{ form.project_id = Number(e.target.value)||''; form.hypothesis_id=''; await loadHyps(form.project_id); redraw(); };
+        $('#cp_cancel').onclick = ()=> $('#modal').style.display='none';
+        $('#cp_save').onclick = async ()=>{
+          const payload = {
+            name: $('#cp_name').value.trim(),
+            description: $('#cp_desc').value.trim() || null,
+            project_id: Number($('#cp_project').value)||null,
+            hypothesis_id: $('#cp_hyp').value ? Number($('#cp_hyp').value) : null,
+            metric_name: $('#cp_metric').value.trim() || null,
+            status: $('#cp_status').value,
+            start_date: $('#cp_start').value || null,
+            end_date: $('#cp_end').value || null,
+          };
+          if(!payload.name || !payload.project_id){ $('#cp_err').textContent='Nombre y proyecto son obligatorios.'; return; }
+          try{
+            if(campaign){
+              await api(`/api/campaigns/${campaign.id}`, {method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
+            } else {
+              await api('/api/campaigns', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
+            }
+            await loadCampaigns();
+            $('#modal').style.display='none';
+            renderCampaigns();
+            toast('Campaña guardada');
+          }catch(e){ $('#cp_err').textContent = e.message; }
+        };
+      };
+      redraw();
+    }
+
+    async function openCampaignDetail(campaignId){
+      state.activeCampaign = await api(`/api/campaigns/${campaignId}`);
+      state.run.project_id = state.activeCampaign.project_id;
+      state.run.hypothesis_id = state.activeCampaign.hypothesis_id || '';
+      state.run.metric_name = state.activeCampaign.metric_name || '';
+      state.run.campaign_id = state.activeCampaign.id;
+      await loadTemplates();
+      await loadHypotheses();
+      renderCampaigns();
+    }
+
+    async function renderCampaigns(){
+      if(!state.activeCampaign){
+        $('#tab-campaigns').innerHTML = `
+          <div class='row' style='justify-content:space-between'>
+            <h2>Campañas de investigación</h2>
+            <button class='btn primary' id='btnNewCampaign'>Crear campaña</button>
+          </div>
+          <div class='list'>
+            ${state.campaigns.length ? state.campaigns.map(c => `<article class='item'><div><strong>${esc(c.name)}</strong><p class='muted'>${esc(c.project_name||`Proyecto ${c.project_id}`)} · ${esc(c.hypothesis_name||'Sin hipótesis')} · ${esc(c.status)} · Inicio: ${esc(c.start_date ? new Date(c.start_date).toLocaleDateString() : '-')}</p></div><div class='row'><button class='btn' data-open-c='${c.id}'>Abrir</button><button class='btn' data-edit-c='${c.id}'>Editar</button></div></article>`).join('') : `<p class='muted'>No hay campañas creadas.</p>`}
+          </div>`;
+        $('#btnNewCampaign').onclick = ()=> openCampaignForm();
+        document.querySelectorAll('[data-open-c]').forEach(b => b.onclick = ()=> openCampaignDetail(Number(b.dataset.openC)));
+        document.querySelectorAll('[data-edit-c]').forEach(b => b.onclick = ()=> {
+          const c = state.campaigns.find(x => x.id===Number(b.dataset.editC));
+          if(c) openCampaignForm(c);
+        });
+        return;
+      }
+
+      const c = state.activeCampaign;
+      const tabs = ['clients','templates','interviews'];
+      const data = {
+        clients: await api(`/api/campaigns/${c.id}/clients`).catch(()=>[]),
+        templates: await api(`/api/campaigns/${c.id}/templates`).catch(()=>[]),
+        interviews: await api(`/api/campaigns/${c.id}/interviews`).catch(()=>[]),
+      };
+      $('#tab-campaigns').innerHTML = `
+        <div class='row' style='justify-content:space-between'><div><h2>${esc(c.name)}</h2><p class='muted'>${esc(c.project_name||`Proyecto ${c.project_id}`)} · ${esc(c.hypothesis_name||'Sin hipótesis')} · ${esc(c.status)}</p></div><div class='row'><button class='btn' id='backCampaigns'>Volver</button><button class='btn primary' id='runFromCampaign'>Realizar entrevista</button></div></div>
+        <div class='row'>${tabs.map(t=>`<button class='btn ${state.campaignViewTab===t?'primary':''}' data-c-tab='${t}'>${t==='clients'?'Clientes':t==='templates'?'Plantillas':'Entrevistas'}</button>`).join('')}</div>
+        <div id='campaignBody'></div>
+      `;
+      $('#backCampaigns').onclick = ()=>{ state.activeCampaign=null; state.run.campaign_id=null; renderCampaigns(); };
+      $('#runFromCampaign').onclick = ()=>{ state.tab='run'; render(); };
+      document.querySelectorAll('[data-c-tab]').forEach(btn=> btn.onclick = ()=>{ state.campaignViewTab = btn.dataset.cTab; renderCampaigns(); });
+
+      const tab = state.campaignViewTab;
+      const rows = data[tab] || [];
+      const body = tab === 'clients'
+        ? (rows.length ? rows.map(x => `<div class='item'><strong>${esc(x.full_name)}</strong><span class='muted'>${esc(x.public_name||'Sin público')}</span></div>`).join('') : `<p class='muted'>Sin clientes.</p>`)
+        : tab === 'templates'
+          ? (rows.length ? rows.map(x => `<div class='item'><strong>${esc(x.name)}</strong><span class='muted'>${esc(x.description||'Sin descripción')}</span></div>`).join('') : `<p class='muted'>Sin plantillas.</p>`)
+          : (rows.length ? rows.map(x => `<div class='item'><strong>#${x.id} · ${esc(x.interviewee_name)}</strong><span class='muted'>${new Date(x.created_at).toLocaleString()}</span></div>`).join('') : `<p class='muted'>Sin entrevistas.</p>`);
+      $('#campaignBody').innerHTML = `<div class='list'>${body}</div>`;
+    }
+
     async function load(){
       try{ state.clients = await api('/clients'); }catch{ state.clients = []; }
       try{ state.projects = await api('/api/cloud/projects'); }catch{ state.projects = []; }
@@ -414,6 +538,7 @@
       await loadTemplates();
       await loadSessions();
       await loadHypotheses();
+      await loadCampaigns();
     }
 
     async function render(){
@@ -422,6 +547,7 @@
       renderTemplates();
       renderRun();
       renderSessions();
+      await renderCampaigns();
     }
 
     (async ()=>{ await load(); await render(); })();

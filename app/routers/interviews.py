@@ -25,12 +25,19 @@ def get_db():
 # -----------------------------
 @router.post("/api/interviews/templates", response_model=schemas.InterviewTemplateOut)
 def create_template(payload: schemas.InterviewTemplateCreate, db: Session = Depends(get_db)):
-    return crud.create_interview_template(db, payload)
+    try:
+        return crud.create_interview_template(db, payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.get("/api/interviews/templates", response_model=list[schemas.InterviewTemplateOut])
-def list_templates(project_id: int | None = Query(default=None), db: Session = Depends(get_db)):
-    return crud.list_interview_templates(db, project_id=project_id)
+def list_templates(
+    project_id: int | None = Query(default=None),
+    campaign_id: int | None = Query(default=None),
+    db: Session = Depends(get_db),
+):
+    return crud.list_interview_templates(db, project_id=project_id, campaign_id=campaign_id)
 
 
 @router.get("/api/interviews/templates/{template_id}", response_model=schemas.InterviewTemplateOut)
@@ -43,7 +50,10 @@ def get_template(template_id: int, db: Session = Depends(get_db)):
 
 @router.patch("/api/interviews/templates/{template_id}", response_model=schemas.InterviewTemplateOut)
 def update_template(template_id: int, payload: schemas.InterviewTemplateUpdate, db: Session = Depends(get_db)):
-    item = crud.update_interview_template(db, template_id, payload)
+    try:
+        item = crud.update_interview_template(db, template_id, payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     if not item:
         raise HTTPException(status_code=404, detail="Interview template not found")
     return item
@@ -64,7 +74,10 @@ def list_project_templates(project_id: int, db: Session = Depends(get_db)):
 
 @router.post("/api/interviews", response_model=schemas.InterviewSessionOut)
 def create_interview(payload: schemas.InterviewSessionCreateV2, db: Session = Depends(get_db)):
-    return crud.create_interview_v2(db, payload)
+    try:
+        return crud.create_interview_v2(db, payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.get("/api/interviews", response_model=list[schemas.InterviewSessionOut])
@@ -72,11 +85,12 @@ def list_interviews(
     project_id: int | None = Query(default=None),
     hypothesis_id: int | None = Query(default=None),
     client_id: int | None = Query(default=None),
+    campaign_id: int | None = Query(default=None),
     limit: int = Query(default=100, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
 ):
-    return crud.list_interviews_v2(db, project_id=project_id, hypothesis_id=hypothesis_id, client_id=client_id, limit=limit, offset=offset)
+    return crud.list_interviews_v2(db, project_id=project_id, hypothesis_id=hypothesis_id, client_id=client_id, campaign_id=campaign_id, limit=limit, offset=offset)
 
 
 @router.get("/api/interviews/{interview_id}", response_model=schemas.InterviewSessionOut)
@@ -89,7 +103,10 @@ def get_interview(interview_id: int, db: Session = Depends(get_db)):
 
 @router.patch("/api/interviews/{interview_id}", response_model=schemas.InterviewSessionOut)
 def patch_interview(interview_id: int, payload: schemas.InterviewSessionPatchV2, db: Session = Depends(get_db)):
-    item = crud.patch_interview_v2(db, interview_id, payload)
+    try:
+        item = crud.patch_interview_v2(db, interview_id, payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     if not item:
         raise HTTPException(status_code=404, detail="Interview session not found")
     return item

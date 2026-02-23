@@ -21,11 +21,12 @@ def get_db():
 def list_clients(
     search: str | None = Query(default=None),
     country: str | None = Query(default=None),
+    campaign_id: int | None = Query(default=None),
     limit: int = Query(default=100, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
 ):
-    return crud.list_clients(db, search=search, country=country, limit=limit, offset=offset)
+    return crud.list_clients(db, search=search, country=country, campaign_id=campaign_id, limit=limit, offset=offset)
 
 
 @router.post("", response_model=schemas.ClientOut)

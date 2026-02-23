@@ -191,7 +191,7 @@ Endpoints nuevos:
 - `GET/POST/PATCH/DELETE /clients`
 - `GET /clients/{id}/interviews`
 - `POST /api/interviews`
-- `GET /api/interviews?project_id=&hypothesis_id=&client_id=&limit=&offset=`
+- `GET /api/interviews?project_id=&hypothesis_id=&client_id=&campaign_id=&limit=&offset=`
 - `GET /api/interviews/{id}`
 - `PATCH /api/interviews/{id}`
 - `POST /api/interviews/{id}/attachments` (multipart)
@@ -208,3 +208,23 @@ cd frontend/interviews
 npm install
 npm run build
 ```
+
+
+### Campañas de investigación
+
+El módulo de Entrevistas ahora incluye una pestaña **Campaña de investigación** para gestionar recolección jerárquica de datos.
+
+Endpoints:
+- `GET /api/campaigns?project_id=&status=&search=`
+- `GET /api/campaigns/{id}`
+- `POST /api/campaigns`
+- `PATCH /api/campaigns/{id}`
+- `DELETE /api/campaigns/{id}`
+- `GET /api/campaigns/{id}/clients`
+- `GET /api/campaigns/{id}/templates`
+- `GET /api/campaigns/{id}/interviews`
+
+Reglas implementadas:
+- Validación de consistencia `project_id` + `hypothesis_id` al crear/editar campañas.
+- `Client`, `InterviewTemplate` e `InterviewSession` soportan `campaign_id` opcional.
+- Se mantiene compatibilidad: entrevistas fuera de campaña siguen funcionando con `campaign_id = null`.

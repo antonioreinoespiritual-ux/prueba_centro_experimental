@@ -381,6 +381,31 @@ def ensure_schema() -> None:
                 ON experiment_records (drive_folder_path)
             """)
 
+
+    # --- Research campaigns ---
+    cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='research_campaigns'")
+    if not cur.fetchone():
+        cur.execute(
+            """
+            CREATE TABLE research_campaigns (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name VARCHAR(200) NOT NULL,
+                description TEXT,
+                project_id INTEGER NOT NULL REFERENCES cloud_projects(id),
+                hypothesis_id INTEGER REFERENCES experiments(id),
+                metric_name VARCHAR(120),
+                status VARCHAR(20) NOT NULL DEFAULT 'planned',
+                start_date DATETIME,
+                end_date DATETIME,
+                created_at DATETIME NOT NULL DEFAULT (datetime('now')),
+                updated_at DATETIME
+            )
+            """
+        )
+    cur.execute("CREATE INDEX IF NOT EXISTS ix_research_campaigns_project_id ON research_campaigns (project_id)")
+    cur.execute("CREATE INDEX IF NOT EXISTS ix_research_campaigns_hypothesis_id ON research_campaigns (hypothesis_id)")
+    cur.execute("CREATE INDEX IF NOT EXISTS ix_research_campaigns_status ON research_campaigns (status)")
+
     # --- Interviews ---
     cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='interview_templates'")
     if not cur.fetchone():
@@ -392,6 +417,7 @@ def ensure_schema() -> None:
                 name VARCHAR(200) NOT NULL,
                 description TEXT,
                 fields_json TEXT NOT NULL,
+                campaign_id INTEGER REFERENCES research_campaigns(id),
                 created_at DATETIME NOT NULL DEFAULT (datetime('now'))
             )
             """
@@ -402,6 +428,11 @@ def ensure_schema() -> None:
             ON interview_templates (project_id)
             """
         )
+
+
+    if _column_exists(cur, "interview_templates", "campaign_id") is False:
+        cur.execute("ALTER TABLE interview_templates ADD COLUMN campaign_id INTEGER REFERENCES research_campaigns(id)")
+    cur.execute("CREATE INDEX IF NOT EXISTS ix_interview_templates_campaign_id ON interview_templates (campaign_id)")
 
     cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='interview_sessions'")
     if not cur.fetchone():
@@ -414,6 +445,7 @@ def ensure_schema() -> None:
                 hypothesis_id INTEGER REFERENCES experiments(id),
                 client_id INTEGER REFERENCES clients(id),
                 metric_name VARCHAR(120),
+                campaign_id INTEGER REFERENCES research_campaigns(id),
                 interviewee_name VARCHAR(200) NOT NULL,
                 notes TEXT,
                 responses_json TEXT NOT NULL,
@@ -467,6 +499,7 @@ def ensure_schema() -> None:
                 public_id INTEGER REFERENCES publics(id),
                 sex VARCHAR(40),
                 social_network VARCHAR(40),
+                campaign_id INTEGER REFERENCES research_campaigns(id),
                 tags_json TEXT,
                 notes TEXT,
                 created_at DATETIME NOT NULL DEFAULT (datetime('now')),
@@ -487,6 +520,10 @@ def ensure_schema() -> None:
     if _column_exists(cur, "clients", "social_network") is False:
         cur.execute("ALTER TABLE clients ADD COLUMN social_network VARCHAR(40)")
 
+    if _column_exists(cur, "clients", "campaign_id") is False:
+        cur.execute("ALTER TABLE clients ADD COLUMN campaign_id INTEGER REFERENCES research_campaigns(id)")
+    cur.execute("CREATE INDEX IF NOT EXISTS ix_clients_campaign_id ON clients (campaign_id)")
+
     # --- Interview sessions additive columns ---
     if _column_exists(cur, "interview_sessions", "hypothesis_id") is False:
         cur.execute("ALTER TABLE interview_sessions ADD COLUMN hypothesis_id INTEGER REFERENCES experiments(id)")
@@ -496,6 +533,10 @@ def ensure_schema() -> None:
         cur.execute("CREATE INDEX IF NOT EXISTS ix_interview_sessions_client_id ON interview_sessions (client_id)")
     if _column_exists(cur, "interview_sessions", "metric_name") is False:
         cur.execute("ALTER TABLE interview_sessions ADD COLUMN metric_name VARCHAR(120)")
+
+    if _column_exists(cur, "interview_sessions", "campaign_id") is False:
+        cur.execute("ALTER TABLE interview_sessions ADD COLUMN campaign_id INTEGER REFERENCES research_campaigns(id)")
+    cur.execute("CREATE INDEX IF NOT EXISTS ix_interview_sessions_campaign_id ON interview_sessions (campaign_id)")
     if _column_exists(cur, "interview_sessions", "updated_at") is False:
         cur.execute("ALTER TABLE interview_sessions ADD COLUMN updated_at DATETIME")
 
