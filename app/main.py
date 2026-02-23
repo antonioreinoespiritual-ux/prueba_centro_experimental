@@ -11,7 +11,7 @@ load_env()
 
 from .database import Base, engine
 from .migrations import ensure_schema
-from .routers import experiments, records, documentation, ai_analysis, publics, assistant, files, cloud, drive_sync, hypotheses_ui, interviews, interviews_ui, clients, campaigns
+from .routers import experiments, records, documentation, ai_analysis, publics, publics_ui, assistant, files, cloud, drive_sync, hypotheses_ui, interviews, interviews_ui, clients, campaigns
 ensure_schema()
 Base.metadata.create_all(bind=engine)
 
@@ -54,6 +54,7 @@ app.include_router(records.router, prefix="/records", tags=["records"])
 app.include_router(documentation.router, prefix="/documentation", tags=["documentation"])
 app.include_router(ai_analysis.router, prefix="/ai", tags=["ai-analysis"])
 app.include_router(publics.router, prefix="/publics", tags=["publics"])
+app.include_router(publics_ui.router, tags=["publics-ui"])
 app.include_router(assistant.router, tags=["assistant"])
 app.include_router(files.router, prefix="/files", tags=["files"])
 app.include_router(cloud.router, tags=["cloud"])

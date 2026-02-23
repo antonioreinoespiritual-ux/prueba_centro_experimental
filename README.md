@@ -239,6 +239,7 @@ Checklist de validación visual/UX (Research OS):
 - [ ] `/hypotheses`: UI renderiza correctamente y mantiene layout consistente.
 - [ ] `/interviews`: UI renderiza correctamente con tabs, estados loading/empty/error.
 - [ ] Botones del Home (`Chat`, `Dashboard`, `Proyectos`, `Records`, `Públicos`, `Entrevistas`, `Cloud`, `Hypotheses`) abren páginas HTML/SPA (no JSON crudo).
+- [ ] Ruta de Públicos UI: `/publics-app` (no colisiona con API `/publics/*`).
 - [ ] Listados de Clientes/Plantillas/Entrevistas permiten filtrar por campaña y muestran campaña asociada.
 - [ ] Formularios de Clientes/Plantillas/Entrevistas bloquean guardar sin campaña y muestran mensajes claros.
 - [ ] Modales: cierre por botón, foco usable por teclado, confirmaciones de borrado activas.
