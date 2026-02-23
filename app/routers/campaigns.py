@@ -56,7 +56,10 @@ def update_campaign(campaign_id: int, payload: schemas.ResearchCampaignUpdate, d
 
 @router.delete("/{campaign_id}")
 def delete_campaign(campaign_id: int, db: Session = Depends(get_db)):
-    result = crud.delete_research_campaign(db, campaign_id)
+    try:
+        result = crud.delete_research_campaign(db, campaign_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     if not result:
         raise HTTPException(status_code=404, detail="Campaign not found")
     return result

@@ -417,7 +417,7 @@ def ensure_schema() -> None:
                 name VARCHAR(200) NOT NULL,
                 description TEXT,
                 fields_json TEXT NOT NULL,
-                campaign_id INTEGER REFERENCES research_campaigns(id),
+                campaign_id INTEGER NOT NULL REFERENCES research_campaigns(id),
                 created_at DATETIME NOT NULL DEFAULT (datetime('now'))
             )
             """
@@ -445,7 +445,7 @@ def ensure_schema() -> None:
                 hypothesis_id INTEGER REFERENCES experiments(id),
                 client_id INTEGER REFERENCES clients(id),
                 metric_name VARCHAR(120),
-                campaign_id INTEGER REFERENCES research_campaigns(id),
+                campaign_id INTEGER NOT NULL REFERENCES research_campaigns(id),
                 interviewee_name VARCHAR(200) NOT NULL,
                 notes TEXT,
                 responses_json TEXT NOT NULL,
@@ -499,7 +499,7 @@ def ensure_schema() -> None:
                 public_id INTEGER REFERENCES publics(id),
                 sex VARCHAR(40),
                 social_network VARCHAR(40),
-                campaign_id INTEGER REFERENCES research_campaigns(id),
+                campaign_id INTEGER NOT NULL REFERENCES research_campaigns(id),
                 tags_json TEXT,
                 notes TEXT,
                 created_at DATETIME NOT NULL DEFAULT (datetime('now')),
@@ -539,6 +539,131 @@ def ensure_schema() -> None:
     cur.execute("CREATE INDEX IF NOT EXISTS ix_interview_sessions_campaign_id ON interview_sessions (campaign_id)")
     if _column_exists(cur, "interview_sessions", "updated_at") is False:
         cur.execute("ALTER TABLE interview_sessions ADD COLUMN updated_at DATETIME")
+
+    # --- Backfill campaign_id for legacy rows (mandatory campaign container) ---
+    default_campaign_cache: dict[tuple[int, int | None], int] = {}
+
+    def _ensure_default_campaign(project_id: int, hypothesis_id: int | None = None) -> int:
+        key = (project_id, hypothesis_id)
+        if key in default_campaign_cache:
+            return default_campaign_cache[key]
+        cur.execute(
+            """
+            SELECT id FROM research_campaigns
+            WHERE project_id = ? AND ((hypothesis_id IS NULL AND ? IS NULL) OR hypothesis_id = ?) AND name = ?
+            ORDER BY id ASC LIMIT 1
+            """,
+            (project_id, hypothesis_id, hypothesis_id, "Campaña default"),
+        )
+        row = cur.fetchone()
+        if row:
+            default_campaign_cache[key] = int(row[0])
+            return int(row[0])
+        cur.execute(
+            """
+            INSERT INTO research_campaigns (name, description, project_id, hypothesis_id, status, created_at, updated_at)
+            VALUES (?, ?, ?, ?, 'running', datetime('now'), datetime('now'))
+            """,
+            ("Campaña default", "Campaña creada automáticamente para compatibilidad.", project_id, hypothesis_id),
+        )
+        campaign_id = int(cur.lastrowid)
+        default_campaign_cache[key] = campaign_id
+        return campaign_id
+
+    # clients without campaign -> assign by most recent interview project fallback
+    cur.execute("SELECT id FROM clients WHERE campaign_id IS NULL")
+    missing_client_ids = [int(row[0]) for row in cur.fetchall()]
+    for client_id in missing_client_ids:
+        cur.execute(
+            "SELECT project_id, hypothesis_id FROM interview_sessions WHERE client_id = ? ORDER BY created_at DESC LIMIT 1",
+            (client_id,),
+        )
+        row = cur.fetchone()
+        project_id = int(row[0]) if row else 1
+        hypothesis_id = int(row[1]) if row and row[1] is not None else None
+        campaign_id = _ensure_default_campaign(project_id, hypothesis_id)
+        cur.execute("UPDATE clients SET campaign_id = ? WHERE id = ?", (campaign_id, client_id))
+
+    # templates without campaign -> assign by project
+    cur.execute("SELECT id, project_id FROM interview_templates WHERE campaign_id IS NULL")
+    for tpl_id, project_id in cur.fetchall():
+        campaign_id = _ensure_default_campaign(int(project_id), None)
+        cur.execute("UPDATE interview_templates SET campaign_id = ? WHERE id = ?", (campaign_id, int(tpl_id)))
+
+    # sessions without campaign -> assign by project/hypothesis and align template/client
+    cur.execute("SELECT id, project_id, hypothesis_id, template_id, client_id FROM interview_sessions")
+    for session_id, project_id, hypothesis_id, template_id, client_id in cur.fetchall():
+        effective_campaign_id = None
+        cur.execute("SELECT campaign_id FROM interview_sessions WHERE id = ?", (int(session_id),))
+        existing = cur.fetchone()
+        if existing and existing[0] is not None:
+            effective_campaign_id = int(existing[0])
+        if effective_campaign_id is None:
+            effective_campaign_id = _ensure_default_campaign(int(project_id), int(hypothesis_id) if hypothesis_id is not None else None)
+            cur.execute("UPDATE interview_sessions SET campaign_id = ? WHERE id = ?", (effective_campaign_id, int(session_id)))
+
+        # align template campaign
+        cur.execute("SELECT campaign_id FROM interview_templates WHERE id = ?", (int(template_id),))
+        tpl_row = cur.fetchone()
+        if tpl_row and tpl_row[0] is None:
+            cur.execute("UPDATE interview_templates SET campaign_id = ? WHERE id = ?", (effective_campaign_id, int(template_id)))
+
+        # align client campaign
+        if client_id is not None:
+            cur.execute("SELECT campaign_id FROM clients WHERE id = ?", (int(client_id),))
+            c_row = cur.fetchone()
+            if c_row and c_row[0] is None:
+                cur.execute("UPDATE clients SET campaign_id = ? WHERE id = ?", (effective_campaign_id, int(client_id)))
+
+    # safety triggers for sqlite legacy tables that cannot be ALTERed to NOT NULL
+    cur.execute("""
+        CREATE TRIGGER IF NOT EXISTS trg_clients_campaign_not_null_insert
+        BEFORE INSERT ON clients FOR EACH ROW
+        WHEN NEW.campaign_id IS NULL
+        BEGIN
+            SELECT RAISE(ABORT, 'campaign_id is required for clients');
+        END;
+    """)
+    cur.execute("""
+        CREATE TRIGGER IF NOT EXISTS trg_clients_campaign_not_null_update
+        BEFORE UPDATE ON clients FOR EACH ROW
+        WHEN NEW.campaign_id IS NULL
+        BEGIN
+            SELECT RAISE(ABORT, 'campaign_id is required for clients');
+        END;
+    """)
+    cur.execute("""
+        CREATE TRIGGER IF NOT EXISTS trg_templates_campaign_not_null_insert
+        BEFORE INSERT ON interview_templates FOR EACH ROW
+        WHEN NEW.campaign_id IS NULL
+        BEGIN
+            SELECT RAISE(ABORT, 'campaign_id is required for interview_templates');
+        END;
+    """)
+    cur.execute("""
+        CREATE TRIGGER IF NOT EXISTS trg_templates_campaign_not_null_update
+        BEFORE UPDATE ON interview_templates FOR EACH ROW
+        WHEN NEW.campaign_id IS NULL
+        BEGIN
+            SELECT RAISE(ABORT, 'campaign_id is required for interview_templates');
+        END;
+    """)
+    cur.execute("""
+        CREATE TRIGGER IF NOT EXISTS trg_sessions_campaign_not_null_insert
+        BEFORE INSERT ON interview_sessions FOR EACH ROW
+        WHEN NEW.campaign_id IS NULL
+        BEGIN
+            SELECT RAISE(ABORT, 'campaign_id is required for interview_sessions');
+        END;
+    """)
+    cur.execute("""
+        CREATE TRIGGER IF NOT EXISTS trg_sessions_campaign_not_null_update
+        BEFORE UPDATE ON interview_sessions FOR EACH ROW
+        WHEN NEW.campaign_id IS NULL
+        BEGIN
+            SELECT RAISE(ABORT, 'campaign_id is required for interview_sessions');
+        END;
+    """)
 
     # --- Interview attachments ---
     cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='interview_attachments'")

@@ -45,7 +45,7 @@
     const state = {
       tab: 'clients',
       clients: [], publics: [], templates: [], sessions: [], projects: [], hypotheses: [], attachments: [], campaigns: [],
-      activeCampaign: null, campaignViewTab: 'clients',
+      activeCampaign: null, campaignViewTab: 'clients', clientCampaignFilter:'', templateCampaignFilter:'', sessionCampaignFilter:'',
       run: { project_id: 1, hypothesis_id: '', client_id: '', template_id: '', metric_name: '', campaign_id: null, interviewee_name: '', notes: '', responses: {}, session_id: null }
     };
 
@@ -107,6 +107,7 @@
           <input id='clientSearch' placeholder='Buscar por nombre, email, teléfono, país'>
           <input id='clientCountry' placeholder='Filtrar país'>
         </div>
+        <select id='clientCampaignFilter'><option value=''>Todas las campañas</option>${state.campaigns.map(c=>`<option value='${c.id}' ${String(state.clientCampaignFilter)===String(c.id)?'selected':''}>${esc(c.name)}</option>`).join('')}</select>
         <div id='clientsList' class='list'></div>`;
 
       const draw = () => {
@@ -114,7 +115,8 @@
         const c = $('#clientCountry').value.toLowerCase();
         const rows = state.clients.filter(x => {
           const all = `${x.full_name} ${x.email||''} ${x.phone||''} ${x.country||''}`.toLowerCase();
-          return (!q || all.includes(q)) && (!c || String(x.country||'').toLowerCase().includes(c));
+          const campaignOk = !state.clientCampaignFilter || String(x.campaign_id)===String(state.clientCampaignFilter);
+          return (!q || all.includes(q)) && (!c || String(x.country||'').toLowerCase().includes(c)) && campaignOk;
         });
         $('#clientsList').innerHTML = rows.length ? rows.map(x => `
           <article class='item'>
@@ -126,6 +128,7 @@
 
       $('#clientSearch').oninput = draw;
       $('#clientCountry').oninput = draw;
+      $('#clientCampaignFilter').onchange = (e)=>{ state.clientCampaignFilter = e.target.value; draw(); };
       $('#btnNewClient').onclick = openClientForm;
       draw();
     }
@@ -136,6 +139,8 @@
         <h3>Crear cliente</h3>
         <div class='grid'><input id='c_name' placeholder='Nombre completo*'><input id='c_country' placeholder='País*'></div>
         <div class='grid'><input id='c_age' type='number' min='0' placeholder='Edad'><select id='c_public'><option value=''>Público*</option>${publicsOptions}</select></div>
+        <input id='c_campaign_search' placeholder='Buscar campaña'>
+        <select id='c_campaign'><option value=''>Campaña*</option>${state.campaigns.map(c=>`<option value='${c.id}' ${state.activeCampaign?.id===c.id?'selected':''}>${esc(c.name)}</option>`).join('')}</select>
         <div class='grid'><select id='c_sex'><option value=''>Sexo</option><option>Hombre</option><option>Mujer</option><option>Otro</option><option>Prefiero no decir</option></select><select id='c_social'><option value=''>Red social</option><option>Instagram</option><option>WhatsApp</option><option>TikTok</option><option>Facebook</option></select></div>
         <div class='grid'><input id='c_email' placeholder='Email'><input id='c_phone' placeholder='Teléfono'></div>
         <textarea id='c_notes' rows='4' placeholder='Notas'></textarea>
@@ -144,6 +149,7 @@
       $('#m_cancel').onclick = () => $('#modal').style.display='none';
       const saveBtn = $('#m_save');
       if(state.publics.length===0){ saveBtn.disabled=true; $('#m_err').textContent='No se pudieron cargar públicos.'; }
+      $('#c_campaign_search').oninput = (e)=>{ const q=e.target.value.toLowerCase(); Array.from($('#c_campaign').options).forEach((o,i)=>{ if(i===0)return; o.hidden=!o.textContent.toLowerCase().includes(q);}); };
       $('#m_save').onclick = async () => {
         const payload = {
           full_name: $('#c_name').value.trim(), country: $('#c_country').value.trim(), age: $('#c_age').value?Number($('#c_age').value):null,
@@ -152,7 +158,8 @@
           email: $('#c_email').value.trim(), phone: $('#c_phone').value.trim(), notes: $('#c_notes').value, tags: [],
           campaign_id: state.activeCampaign ? state.activeCampaign.id : null
         };
-        if(!payload.full_name || !payload.country || !payload.public_id){ $('#m_err').textContent='Nombre, país y público son obligatorios'; return; }
+        payload.campaign_id = $('#c_campaign').value ? Number($('#c_campaign').value) : null;
+        if(!payload.full_name || !payload.country || !payload.public_id || !payload.campaign_id){ $('#m_err').textContent='Nombre, país, público y campaña son obligatorios'; return; }
         try{
           await api('/clients', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
           state.clients = await api('/clients');
@@ -171,6 +178,7 @@
         <div class='grid'><input id='c_age' type='number' min='0' placeholder='Edad' value='${c.age ?? ''}'><select id='c_public'><option value=''>Público*</option>${publicsOptions}</select></div>
         <div class='grid'><select id='c_sex'><option value=''>Sexo</option>${['Hombre','Mujer','Otro','Prefiero no decir'].map(v=>`<option ${((c.sex||c.gender)===v)?'selected':''}>${v}</option>`).join('')}</select><select id='c_social'><option value=''>Red social</option>${['Instagram','WhatsApp','TikTok','Facebook'].map(v=>`<option ${c.social_network===v?'selected':''}>${v}</option>`).join('')}</select></div>
         <div class='grid'><input id='c_email' placeholder='Email' value='${esc(c.email||'')}'><input id='c_phone' placeholder='Teléfono' value='${esc(c.phone||'')}'></div>
+        <select id='c_campaign'><option value=''>Campaña*</option>${state.campaigns.map(cp=>`<option value='${cp.id}' ${c.campaign_id===cp.id?'selected':''}>${esc(cp.name)}</option>`).join('')}</select>
         <textarea id='c_notes' rows='4' placeholder='Notas'>${esc(c.notes||'')}</textarea>
         <div class='row'><button class='btn' id='m_cancel'>Cancelar</button><button class='btn primary' id='m_save'>Guardar cambios</button></div>
         <p id='m_err' class='muted'></p>`);
@@ -183,9 +191,10 @@
           public_id: $('#c_public').value?Number($('#c_public').value):null,
           sex: $('#c_sex').value || null, social_network: $('#c_social').value || null,
           email: $('#c_email').value.trim(), phone: $('#c_phone').value.trim(), notes: $('#c_notes').value,
-          campaign_id: state.activeCampaign ? state.activeCampaign.id : (c.campaign_id || null)
+campaign_id: $('#c_campaign').value ? Number($('#c_campaign').value) : null
         };
-        if(!payload.full_name || !payload.country || !payload.public_id){ $('#m_err').textContent='Nombre, país y público son obligatorios'; return; }
+        payload.campaign_id = $('#c_campaign').value ? Number($('#c_campaign').value) : null;
+        if(!payload.full_name || !payload.country || !payload.public_id || !payload.campaign_id){ $('#m_err').textContent='Nombre, país, público y campaña son obligatorios'; return; }
         try{
           await api(`/clients/${c.id}`, {method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
           state.clients = await api('/clients');
@@ -228,13 +237,16 @@
           <h2>Plantillas</h2>
           <div class='row'><input type='number' id='tplProject' value='${state.run.project_id}' style='width:120px'><button class='btn primary' id='btnNewTpl'>Crear plantilla</button></div>
         </div>
+        <select id='tplCampaignFilter'><option value=''>Todas las campañas</option>${state.campaigns.map(c=>`<option value='${c.id}' ${String(state.templateCampaignFilter)===String(c.id)?'selected':''}>${esc(c.name)}</option>`).join('')}</select>
         <div id='tplList' class='list'></div>`;
 
       $('#tplProject').onchange = async (e) => { state.run.project_id = Number(e.target.value)||1; await loadTemplates(); await loadHypotheses(); renderTemplates(); };
       $('#btnNewTpl').onclick = () => openTplEditor();
+      $('#tplCampaignFilter').onchange = (e)=>{ state.templateCampaignFilter = e.target.value; renderTemplates(); };
 
-      $('#tplList').innerHTML = state.templates.length ? state.templates.map(t => `
-        <div class='item'><div><strong>${esc(t.name)}</strong><p class='muted'>${esc(t.description||'Sin descripción')}</p></div>
+      const templatesRows = state.templates.filter(t => !state.templateCampaignFilter || String(t.campaign_id)===String(state.templateCampaignFilter));
+      $('#tplList').innerHTML = templatesRows.length ? templatesRows.map(t => `
+        <div class='item'><div><strong>${esc(t.name)}</strong><p class='muted'>${esc(t.description||'Sin descripción')} · Campaña: ${esc(t.campaign_name||state.campaigns.find(c=>c.id===t.campaign_id)?.name||'-')}</p></div>
         <div class='row'><button class='btn' data-edit='${t.id}'>Editar</button><button class='btn danger' data-del='${t.id}'>Eliminar</button></div></div>`).join('') : `<p class='muted'>No hay plantillas para este proyecto.</p>`;
 
       document.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => openTplEditor(Number(b.dataset.edit)));
@@ -256,6 +268,7 @@
           <h3>${templateId ? 'Editar' : 'Nueva'} plantilla</h3>
           <input id='tp_name' placeholder='Nombre' value='${esc(src.name||'')}'>
           <textarea id='tp_desc' rows='3' placeholder='Descripción'>${esc(src.description||'')}</textarea>
+          <select id='tp_campaign'><option value=''>Campaña*</option>${state.campaigns.map(c=>`<option value='${c.id}' ${String((src.campaign_id||state.activeCampaign?.id||''))===String(c.id)?'selected':''}>${esc(c.name)}</option>`).join('')}</select>
           <button class='btn' id='addQ'>Agregar pregunta</button>
           <div id='qList' class='list'></div>
           <div class='row'><button class='btn' id='cl'>Cancelar</button><button class='btn primary' id='sv'>Guardar</button></div>
@@ -264,7 +277,7 @@
         $('#addQ').onclick = () => { questions.push({id: crypto.randomUUID(), label:'', type:'short_text', required:false, options:[]}); redraw(); };
         $('#cl').onclick = () => $('#modal').style.display='none';
         $('#sv').onclick = async () => {
-          const payload = { project_id: state.run.project_id, name: $('#tp_name').value, description: $('#tp_desc').value, fields_json: {questions}, campaign_id: state.activeCampaign ? state.activeCampaign.id : null };
+          const payload = { project_id: state.run.project_id, name: $('#tp_name').value, description: $('#tp_desc').value, fields_json: {questions}, campaign_id: $('#tp_campaign').value?Number($('#tp_campaign').value):null }; if(!payload.campaign_id){ toast('Selecciona campaña'); return; }
           if(templateId){
             await api(`/api/interviews/templates/${templateId}`, {method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
           } else {
@@ -307,6 +320,8 @@
       $('#tab-run').innerHTML = `
         <h2>Realizar entrevista ${campaign ? `· Campaña: ${esc(campaign.name)}` : ''}</h2>
         ${campaign ? `<p class='muted'>Proyecto ${esc(campaign.project_name||campaign.project_id)} · Hipótesis ${esc(campaign.hypothesis_name||campaign.hypothesis_id||'-')} · ${esc(campaign.metric_name||'sin métrica')}</p><button class='btn' id='clearCampaign'>Salir de campaña</button>` : ''}
+        <h4>Paso 0 · Campaña</h4>
+        <select id='r_campaign'><option value=''>Campaña*</option>${state.campaigns.map(c=>`<option value='${c.id}' ${state.run.campaign_id==c.id?'selected':''}>${esc(c.name)}</option>`).join('')}</select>
         <h4>Paso 1 · Contexto</h4>
         <div class='grid'>
           <select id='r_project' ${lockContext?'disabled':''}><option value=''>Proyecto</option>${state.projects.map(p => `<option value='${p.id}' ${state.run.project_id==p.id?'selected':''}>${esc(p.project_name)}</option>`).join('')}</select>
@@ -326,6 +341,7 @@
         <input id='r_file' type='file' accept='.txt,.pdf,.doc,.docx'>
         <div id='attachList' class='list'></div>`;
 
+      $('#r_campaign').onchange = async (e)=>{ const id = e.target.value?Number(e.target.value):null; state.run.campaign_id=id; if(id){ const cp=state.campaigns.find(c=>c.id===id); if(cp){ state.activeCampaign=cp; state.run.project_id=cp.project_id; state.run.hypothesis_id=cp.hypothesis_id||''; state.run.metric_name=cp.metric_name||''; await loadTemplates(); await loadHypotheses(); } } renderRun(); };
       if(!lockContext){
         $('#r_project').onchange = async (e)=>{ state.run.project_id = Number(e.target.value)||1; await loadTemplates(); await loadHypotheses(); renderRun(); };
         $('#r_hyp').onchange = (e)=> state.run.hypothesis_id = e.target.value ? Number(e.target.value) : '';
@@ -375,7 +391,7 @@
       drawAttachments();
 
       const persist = async (autosave=false) => {
-        if(!state.run.project_id || !state.run.template_id || !state.run.client_id || !state.run.interviewee_name.trim()) return;
+        if(!state.run.campaign_id || !state.run.project_id || !state.run.template_id || !state.run.client_id || !state.run.interviewee_name.trim()) { $('#saveState').textContent='Selecciona campaña'; return; }
         $('#saveState').textContent = 'Guardando…';
         const payload = {
           project_id: state.run.project_id,
@@ -419,9 +435,12 @@
     }
 
     function renderSessions(){
-      $('#tab-sessions').innerHTML = `<h2>Entrevistas realizadas</h2>` + (state.sessions.length
-        ? `<div class='list'>${state.sessions.map(s => `<div class='item'><div><strong>#${s.id} · ${esc(s.interviewee_name)}</strong><p class='muted'>Proyecto ${s.project_id} · Hipótesis ${s.hypothesis_id||'-'} · Cliente ${s.client_id||'-'} · ${new Date(s.created_at).toLocaleString()}</p></div><span class='muted'>${esc(s.metric_name||'sin métrica')}</span></div>`).join('')}</div>`
+      const rows = state.sessions.filter(s => !state.sessionCampaignFilter || String(s.campaign_id)===String(state.sessionCampaignFilter));
+      $('#tab-sessions').innerHTML = `<h2>Entrevistas realizadas</h2><select id='sessionCampaignFilter'><option value=''>Todas las campañas</option>${state.campaigns.map(c=>`<option value='${c.id}' ${String(state.sessionCampaignFilter)===String(c.id)?'selected':''}>${esc(c.name)}</option>`).join('')}</select>` + (rows.length
+        ? `<div class='list'>${rows.map(s => `<div class='item'><div><strong>#${s.id} · ${esc(s.interviewee_name)}</strong><p class='muted'>Campaña: ${esc(s.campaign_name||state.campaigns.find(c=>c.id===s.campaign_id)?.name||'-')} · Proyecto ${s.project_id} · Hipótesis ${s.hypothesis_id||'-'} · Cliente ${s.client_id||'-'} · ${new Date(s.created_at).toLocaleString()}</p></div><div class='row'><span class='muted'>${esc(s.metric_name||'sin métrica')}</span><button class='btn' data-edit-session='${s.id}'>Editar</button></div></div>`).join('')}</div>`
         : `<p class='muted'>No hay entrevistas todavía.</p>`);
+      $('#sessionCampaignFilter').onchange=(e)=>{ state.sessionCampaignFilter=e.target.value; renderSessions(); };
+      document.querySelectorAll('[data-edit-session]').forEach(b=> b.onclick=()=> openSessionEdit(Number(b.dataset.editSession)));
     }
 
 
@@ -529,6 +548,34 @@
           ? (rows.length ? rows.map(x => `<div class='item'><strong>${esc(x.name)}</strong><span class='muted'>${esc(x.description||'Sin descripción')}</span></div>`).join('') : `<p class='muted'>Sin plantillas.</p>`)
           : (rows.length ? rows.map(x => `<div class='item'><strong>#${x.id} · ${esc(x.interviewee_name)}</strong><span class='muted'>${new Date(x.created_at).toLocaleString()}</span></div>`).join('') : `<p class='muted'>Sin entrevistas.</p>`);
       $('#campaignBody').innerHTML = `<div class='list'>${body}</div>`;
+    }
+
+
+    async function openSessionEdit(sessionId){
+      const session = state.sessions.find(s=>s.id===sessionId);
+      if(!session) return;
+      modal(`<h3>Editar entrevista #${session.id}</h3><select id='se_campaign'><option value=''>Campaña*</option>${state.campaigns.map(c=>`<option value='${c.id}' ${session.campaign_id===c.id?'selected':''}>${esc(c.name)}</option>`).join('')}</select><p id='se_err' class='muted'></p><div class='row'><button class='btn' id='se_cancel'>Cancelar</button><button class='btn primary' id='se_save'>Guardar</button></div>`);
+      $('#se_cancel').onclick=()=> $('#modal').style.display='none';
+      $('#se_save').onclick=async ()=>{
+        const campaign_id = $('#se_campaign').value ? Number($('#se_campaign').value) : null;
+        if(!campaign_id){ $('#se_err').textContent='Campaña obligatoria'; return; }
+        try{
+          await api(`/api/interviews/${session.id}`, {method:'PATCH', headers:{'Content-Type':'application/json'}, body: JSON.stringify({
+            campaign_id,
+            project_id: session.project_id,
+            hypothesis_id: session.hypothesis_id,
+            client_id: session.client_id,
+            template_id: session.template_id,
+            interviewee_name: session.interviewee_name,
+            metric_name: session.metric_name,
+            notes: session.notes,
+          })});
+          await loadSessions();
+          $('#modal').style.display='none';
+          renderSessions();
+          toast('Entrevista actualizada');
+        }catch(e){ $('#se_err').textContent = e.message; }
+      };
     }
 
     async function load(){

@@ -226,5 +226,5 @@ Endpoints:
 
 Reglas implementadas:
 - Validación de consistencia `project_id` + `hypothesis_id` al crear/editar campañas.
-- `Client`, `InterviewTemplate` e `InterviewSession` soportan `campaign_id` opcional.
-- Se mantiene compatibilidad: entrevistas fuera de campaña siguen funcionando con `campaign_id = null`.
+- `Client`, `InterviewTemplate` e `InterviewSession` **requieren** `campaign_id` (campaña obligatoria).
+- Para compatibilidad histórica, la migración crea automáticamente una **Campaña default** por proyecto y asigna registros antiguos sin campaña.

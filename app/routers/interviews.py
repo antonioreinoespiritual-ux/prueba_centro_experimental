@@ -155,12 +155,22 @@ def delete_attachment(attachment_id: int, db: Session = Depends(get_db)):
 # -----------------------------
 @router.post("/interviews/sessions", response_model=schemas.InterviewSessionOut)
 def create_session(payload: schemas.InterviewSessionCreate, db: Session = Depends(get_db)):
-    return crud.create_interview_session(db, payload)
+    try:
+        return crud.create_interview_session(db, payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.get("/interviews/sessions", response_model=list[schemas.InterviewSessionOut])
-def list_sessions(project_id: int | None = Query(default=None), db: Session = Depends(get_db)):
-    return crud.list_interview_sessions(db, project_id=project_id)
+def list_sessions(
+    project_id: int | None = Query(default=None),
+    campaign_id: int | None = Query(default=None),
+    db: Session = Depends(get_db),
+):
+    sessions = crud.list_interview_sessions(db, project_id=project_id)
+    if campaign_id is not None:
+        sessions = [s for s in sessions if s.campaign_id == campaign_id]
+    return sessions
 
 
 @router.get("/interviews/projects/{project_id}/sessions", response_model=list[schemas.InterviewSessionOut])

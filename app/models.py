@@ -333,7 +333,7 @@ class InterviewTemplate(Base):
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     fields_json: Mapped[str] = mapped_column(Text, nullable=False)
-    campaign_id: Mapped[int | None] = mapped_column(ForeignKey("research_campaigns.id"), nullable=True, index=True)
+    campaign_id: Mapped[int] = mapped_column(ForeignKey("research_campaigns.id"), nullable=False, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
 
 
@@ -346,7 +346,7 @@ class InterviewSession(Base):
     hypothesis_id: Mapped[int | None] = mapped_column(ForeignKey("experiments.id"), nullable=True, index=True)
     client_id: Mapped[int | None] = mapped_column(ForeignKey("clients.id"), nullable=True, index=True)
     metric_name: Mapped[str | None] = mapped_column(String(120), nullable=True)
-    campaign_id: Mapped[int | None] = mapped_column(ForeignKey("research_campaigns.id"), nullable=True, index=True)
+    campaign_id: Mapped[int] = mapped_column(ForeignKey("research_campaigns.id"), nullable=False, index=True)
     interviewee_name: Mapped[str] = mapped_column(String(200), nullable=False)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     responses_json: Mapped[str] = mapped_column(Text, nullable=False)
@@ -370,7 +370,7 @@ class Client(Base):
     public_id: Mapped[int | None] = mapped_column(ForeignKey("publics.id"), nullable=True, index=True)
     sex: Mapped[str | None] = mapped_column(String(40), nullable=True)
     social_network: Mapped[str | None] = mapped_column(String(40), nullable=True)
-    campaign_id: Mapped[int | None] = mapped_column(ForeignKey("research_campaigns.id"), nullable=True, index=True)
+    campaign_id: Mapped[int] = mapped_column(ForeignKey("research_campaigns.id"), nullable=False, index=True)
     tags_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)

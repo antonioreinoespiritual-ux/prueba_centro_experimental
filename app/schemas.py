@@ -714,14 +714,14 @@ class InterviewTemplateCreate(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     description: Optional[str] = Field(default=None, max_length=5000)
     fields_json: dict[str, list[InterviewQuestion]]
-    campaign_id: Optional[int] = None
+    campaign_id: int
 
 
 class InterviewTemplateUpdate(BaseModel):
     name: Optional[str] = Field(default=None, min_length=1, max_length=200)
     description: Optional[str] = Field(default=None, max_length=5000)
     fields_json: Optional[dict[str, list[InterviewQuestion]]] = None
-    campaign_id: Optional[int] = None
+    campaign_id: int
 
 
 class InterviewTemplateOut(BaseModel):
@@ -732,7 +732,8 @@ class InterviewTemplateOut(BaseModel):
     name: str
     description: Optional[str] = None
     fields_json: dict[str, Any]
-    campaign_id: Optional[int] = None
+    campaign_id: int
+    campaign_name: Optional[str] = None
     created_at: datetime
 
 
@@ -742,7 +743,7 @@ class InterviewSessionCreate(BaseModel):
     hypothesis_id: Optional[int] = None
     client_id: Optional[int] = None
     metric_name: Optional[str] = None
-    campaign_id: Optional[int] = None
+    campaign_id: int
     interviewee_name: str = Field(min_length=1, max_length=200)
     notes: Optional[str] = Field(default=None, max_length=50000)
     responses_json: dict[str, Any] = Field(default_factory=dict)
@@ -753,7 +754,7 @@ class InterviewSessionUpdate(BaseModel):
     client_id: Optional[int] = None
     template_id: Optional[int] = None
     metric_name: Optional[str] = None
-    campaign_id: Optional[int] = None
+    campaign_id: int
     interviewee_name: Optional[str] = Field(default=None, min_length=1, max_length=200)
     notes: Optional[str] = Field(default=None, max_length=50000)
     responses_json: Optional[dict[str, Any]] = None
@@ -768,7 +769,8 @@ class InterviewSessionOut(BaseModel):
     hypothesis_id: Optional[int] = None
     client_id: Optional[int] = None
     metric_name: Optional[str] = None
-    campaign_id: Optional[int] = None
+    campaign_id: int
+    campaign_name: Optional[str] = None
     interviewee_name: str
     notes: Optional[str] = None
     responses_json: dict[str, Any]
@@ -789,7 +791,7 @@ class ClientBase(BaseModel):
     public_id: Optional[int] = None
     sex: Optional[Literal["Hombre", "Mujer", "Otro", "Prefiero no decir"]] = None
     social_network: Optional[Literal["Instagram", "WhatsApp", "TikTok", "Facebook"]] = None
-    campaign_id: Optional[int] = None
+    campaign_id: int
     tags: list[str] = Field(default_factory=list)
     notes: Optional[str] = None
 
@@ -811,7 +813,7 @@ class ClientUpdate(BaseModel):
     public_id: Optional[int] = None
     sex: Optional[Literal["Hombre", "Mujer", "Otro", "Prefiero no decir"]] = None
     social_network: Optional[Literal["Instagram", "WhatsApp", "TikTok", "Facebook"]] = None
-    campaign_id: Optional[int] = None
+    campaign_id: int
     tags: Optional[list[str]] = None
     notes: Optional[str] = None
 
@@ -821,7 +823,8 @@ class ClientOut(ClientBase):
 
     id: int
     public_name: Optional[str] = None
-    campaign_id: Optional[int] = None
+    campaign_id: int
+    campaign_name: Optional[str] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
 
@@ -832,7 +835,7 @@ class InterviewSessionCreateV2(BaseModel):
     client_id: Optional[int] = None
     template_id: int
     metric_name: Optional[str] = None
-    campaign_id: Optional[int] = None
+    campaign_id: int
     interviewee_name: str = Field(min_length=1, max_length=200)
     responses_json: dict[str, Any] = Field(default_factory=dict)
     notes: Optional[str] = None
@@ -843,7 +846,7 @@ class InterviewSessionPatchV2(BaseModel):
     client_id: Optional[int] = None
     template_id: Optional[int] = None
     metric_name: Optional[str] = None
-    campaign_id: Optional[int] = None
+    campaign_id: int
     interviewee_name: Optional[str] = Field(default=None, min_length=1, max_length=200)
     responses_json: Optional[dict[str, Any]] = None
     notes: Optional[str] = None
