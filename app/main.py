@@ -32,7 +32,7 @@ app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 @app.get("/")
 def home():
-    return FileResponse(str(STATIC_DIR / "index.html"))
+    return FileResponse(str(STATIC_DIR / "home" / "index.html"))
 
 app.include_router(experiments.router, prefix="/experiments", tags=["experiments"])
 app.include_router(records.router, prefix="/records", tags=["records"])
