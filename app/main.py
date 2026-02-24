@@ -75,8 +75,8 @@ app.include_router(cloud.router, tags=["cloud"])
 app.include_router(drive_sync.router, tags=["drive-sync"])
 app.include_router(hypotheses_ui.router, tags=["hypotheses-ui"])
 
-app.include_router(interviews_ui.router, tags=["interviews-ui"])
 app.include_router(interviews.router, tags=["interviews"])
+app.include_router(interviews_ui.router, tags=["interviews-ui"])
 app.include_router(clients.router, tags=["clients"])
 
 app.include_router(campaigns.router, tags=["campaigns"])

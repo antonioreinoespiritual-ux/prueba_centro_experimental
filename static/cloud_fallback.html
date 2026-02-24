@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Cloud — Centro Experimental</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root{color-scheme:dark;font-family:Inter,system-ui,sans-serif;--bg:#0b0d14;--surface:#121625;--border:rgba(255,255,255,.1);--text:#eef1ff;--muted:#9ca4b6;--accent:#7c6cff}
+    body{margin:0;background:var(--bg);color:var(--text)}
+    .wrap{max-width:1100px;margin:0 auto;padding:24px}
+    .top{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap}
+    .btn{background:var(--surface);border:1px solid var(--border);padding:10px 14px;border-radius:10px;color:inherit;text-decoration:none;cursor:pointer}
+    .btn.primary{background:var(--accent);border-color:transparent;color:#fff}
+    .card{margin-top:16px;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px}
+    .muted{color:var(--muted)}
+    .grid{display:grid;grid-template-columns:320px 1fr;gap:14px}
+    .item{padding:10px;border:1px solid var(--border);border-radius:10px;margin-bottom:8px;background:#0f1426}
+    input{width:100%;padding:10px;border-radius:10px;border:1px solid var(--border);background:#0d1220;color:var(--text)}
+    .row{display:flex;gap:8px;align-items:center}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <div>
+        <h1 style="margin:0">Cloud</h1>
+        <p class="muted" style="margin:.5rem 0 0">UI estática de producción local (sin Vite runtime).</p>
+      </div>
+      <div class="row">
+        <a href="/" class="btn">Home</a>
+        <a href="/interviews" class="btn">Entrevistas</a>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="row">
+        <input id="libName" placeholder="Nombre de biblioteca">
+        <button id="btnCreate" class="btn primary">Crear biblioteca</button>
+      </div>
+    </div>
+
+    <div class="grid">
+      <section class="card">
+        <h3>Bibliotecas</h3>
+        <div id="libs" class="muted">Cargando...</div>
+      </section>
+      <section class="card">
+        <h3 id="itemsTitle">Items</h3>
+        <div id="items" class="muted">Selecciona una biblioteca.</div>
+      </section>
+    </div>
+  </div>
+  <script src="/static/js/api-client.js"></script>
+  <script>
+    const libsEl = document.getElementById('libs');
+    const itemsEl = document.getElementById('items');
+    const itemsTitle = document.getElementById('itemsTitle');
+    const libName = document.getElementById('libName');
+    let selected = null;
+
+    async function api(path, init){ return window.CEApi.request(path, init); }
+
+    async function loadLibraries(){
+      const libs = await api('/api/cloud/libraries').catch(()=>[]);
+      if(!libs.length){ libsEl.innerHTML = '<div class="muted">Sin bibliotecas aún.</div>'; return; }
+      libsEl.innerHTML = libs.map(l => `<button class='item btn' style='width:100%;text-align:left' data-id='${l.id}'>${l.name}</button>`).join('');
+      libsEl.querySelectorAll('[data-id]').forEach(btn => btn.onclick = async ()=>{
+        selected = Number(btn.dataset.id);
+        itemsTitle.textContent = `Items · Biblioteca #${selected}`;
+        const items = await api(`/api/cloud/items?library_id=${selected}`).catch(()=>[]);
+        itemsEl.innerHTML = items.length ? items.map(i => `<div class='item'><strong>${i.name}</strong><div class='muted'>${i.item_type}</div></div>`).join('') : '<div class="muted">No hay items.</div>';
+      });
+    }
+
+    document.getElementById('btnCreate').onclick = async ()=>{
+      const name = libName.value.trim();
+      if(!name) return;
+      await api('/api/cloud/libraries', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({name})});
+      libName.value='';
+      await loadLibraries();
+    };
+
+    loadLibraries();
+  </script>
+</body>
+</html>

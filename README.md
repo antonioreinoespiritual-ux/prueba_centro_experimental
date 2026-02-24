@@ -19,6 +19,34 @@ uvicorn app.main:app --reload
 ```
 
 
+## Modo producción local (un solo puerto con FastAPI)
+
+Este modo **no usa Vite runtime**. Todo se sirve desde `http://127.0.0.1:8000`.
+
+### 1) Compilar frontends
+```bash
+./scripts/build_frontends.sh
+```
+
+### 2) Levantar backend
+```bash
+pip install -r requirements.txt
+uvicorn app.main:app --host 0.0.0.0 --port 8000
+```
+
+### 3) Verificar UIs
+- Home: `http://127.0.0.1:8000/`
+- Cloud: `http://127.0.0.1:8000/cloud`
+- Entrevistas: `http://127.0.0.1:8000/interviews`
+- Hypotheses: `http://127.0.0.1:8000/hypotheses`
+
+Checks rápidos:
+```bash
+curl -I http://127.0.0.1:8000/cloud
+curl -I http://127.0.0.1:8000/interviews
+```
+
+
 ## Frontend Home (Vite + React)
 
 Nuevo Home portal en `frontend/home` servido en `/` (build estático en `static/home`).
