@@ -18,6 +18,25 @@ mkdir -p /Users/m2/CloudDriveData
 uvicorn app.main:app --reload
 ```
 
+
+## Frontend Home (React + Vite)
+
+### Desarrollo
+```bash
+cd frontend/home
+npm install
+npm run dev
+```
+
+### Build para producción (servido por FastAPI en /)
+```bash
+cd frontend/home
+npm install
+npm run build
+```
+
+El build genera los assets en `static/home/`.
+
 ## Frontend Cloud Drive (Vite + React)
 
 ### Configuración API
