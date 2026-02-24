@@ -592,19 +592,50 @@
       for (const r of sorted) {
         const tr = document.createElement("tr");
         tr.className = "record-row";
+
         const statusClass = r.record_status || "collecting";
-        tr.innerHTML = `
-          <td>${escapeHtml(r.session_id || "—")}</td>
-          <td>${escapeHtml(r.record_name || "—")}</td>
-          <td>${escapeHtml(exp.independent_variable || "—")}</td>
-          <td>${escapeHtml(exp.project_name || "—")}</td>
-          <td><span class="badge badge-${statusClass}">${statusClass}</span></td>
-          <td>${fmt(r.clicks)}</td>
-          <td>${fmt(r.views)}</td>
-          <td>${fmt(r.purchase)}</td>
-          <td>${escapeHtml(r.created_at || "")}</td>
-          <td>${escapeHtml(r.updated_at || r.created_at || "")}</td>
-        `;
+        const statusBadge = document.createElement("span");
+        statusBadge.className = `badge badge-${statusClass}`;
+        statusBadge.textContent = statusClass;
+
+        const cols = [
+          r.session_id || "—",
+          r.record_name || "—",
+          exp.independent_variable || "—",
+          exp.project_name || "—",
+          fmt(r.clicks),
+          fmt(r.views),
+          fmt(r.purchase),
+          r.created_at || "",
+          r.updated_at || r.created_at || "",
+        ];
+
+        const firstTd = document.createElement("td");
+        firstTd.textContent = String(cols[0]);
+        tr.appendChild(firstTd);
+
+        const secondTd = document.createElement("td");
+        secondTd.textContent = String(cols[1]);
+        tr.appendChild(secondTd);
+
+        const thirdTd = document.createElement("td");
+        thirdTd.textContent = String(cols[2]);
+        tr.appendChild(thirdTd);
+
+        const fourthTd = document.createElement("td");
+        fourthTd.textContent = String(cols[3]);
+        tr.appendChild(fourthTd);
+
+        const statusTd = document.createElement("td");
+        statusTd.appendChild(statusBadge);
+        tr.appendChild(statusTd);
+
+        for (const value of cols.slice(4)) {
+          const td = document.createElement("td");
+          td.textContent = String(value);
+          tr.appendChild(td);
+        }
+
         tr.onclick = () => openRecordModal(exp, r);
         tbody.appendChild(tr);
       }
@@ -615,6 +646,7 @@
 
   function closeRecordsModal() {
     $("recordsModal").style.display = "none";
+    $("tblRecords").innerHTML = "";
     selectedExpId = null;
     renderHypList();
   }
