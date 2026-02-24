@@ -18,6 +18,27 @@ mkdir -p /Users/m2/CloudDriveData
 uvicorn app.main:app --reload
 ```
 
+
+## Frontend Home (Vite + React)
+
+Nuevo Home portal en `frontend/home` servido en `/` (build estático en `static/home`).
+
+### Desarrollo
+```bash
+cd frontend/home
+npm install
+npm run dev
+```
+
+### Build para producción (FastAPI)
+```bash
+cd frontend/home
+npm install
+npm run build
+```
+
+El backend sirve el build desde `/` y también soporta fallback SPA para `/create/*`.
+
 ## Frontend Cloud Drive (Vite + React)
 
 ### Configuración API

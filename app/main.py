@@ -30,9 +30,23 @@ STATIC_DIR = BASE_DIR / "static"
 
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
+def _serve_home() -> FileResponse:
+    spa_index = STATIC_DIR / "home" / "index.html"
+    legacy = STATIC_DIR / "index.html"
+    if spa_index.exists():
+        return FileResponse(str(spa_index), media_type="text/html")
+    return FileResponse(str(legacy), media_type="text/html")
+
+
 @app.get("/")
 def home():
-    return FileResponse(str(STATIC_DIR / "index.html"))
+    return _serve_home()
+
+
+@app.get("/create")
+@app.get("/create/{path:path}")
+def home_spa(path: str = ""):
+    return _serve_home()
 
 
 @app.get("/favicon.ico", include_in_schema=False)
