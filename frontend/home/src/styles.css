@@ -1,0 +1,27 @@
+:root {
+  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  color: #e7ebff;
+  background: radial-gradient(circle at top left, #222b52, #0b1022 55%);
+}
+* { box-sizing: border-box; }
+body { margin: 0; }
+.home { max-width: 1200px; margin: 0 auto; padding: 32px; }
+.hero { display: flex; justify-content: space-between; gap: 24px; padding: 28px; border: 1px solid #2d3a7a; border-radius: 18px; background: rgba(18, 27, 62, 0.75); }
+.tag { color: #9dc0ff; margin: 0 0 8px; text-transform: uppercase; letter-spacing: .08em; font-size: 12px; }
+h1 { margin: 0; font-size: 2rem; }
+.subtitle { opacity: 0.85; margin-top: 10px; }
+.heroActions { display: flex; align-items: flex-start; gap: 12px; }
+.btn { border: 1px solid #3a4b95; background: #18234f; color: #e7ebff; padding: 10px 14px; border-radius: 10px; text-decoration: none; cursor: pointer; }
+.btn.primary { background: linear-gradient(135deg, #4e6bff, #6f42ff); border: none; }
+.grid { margin-top: 24px; display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+.card { text-decoration: none; color: inherit; border: 1px solid #2d3a7a; background: rgba(15, 23, 53, 0.88); border-radius: 14px; padding: 18px; }
+.card h2 { margin: 0 0 6px; font-size: 1.2rem; }
+.card p { margin: 0 0 14px; opacity: 0.9; }
+.card span { color: #9dc0ff; }
+.quickLinks { margin-top: 24px; display: flex; gap: 10px; flex-wrap: wrap; }
+.quickLinks a { color: #d6deff; text-decoration: none; border: 1px solid #38458a; padding: 8px 11px; border-radius: 9px; background: rgba(14, 20, 48, 0.8); }
+.modalWrap { position: fixed; inset: 0; background: rgba(5, 8, 18, 0.75); padding: 32px; display: grid; place-items: center; }
+.modal { width: min(1100px, 95vw); height: min(90vh, 900px); border-radius: 16px; border: 1px solid #3d4b8f; background: #0f1739; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+.modalHeader { display: flex; justify-content: space-between; align-items: center; }
+.options { display: flex; flex-wrap: wrap; gap: 8px; }
+.frame { width: 100%; flex: 1; border: 1px solid #3d4b8f; border-radius: 12px; background: #fff; }

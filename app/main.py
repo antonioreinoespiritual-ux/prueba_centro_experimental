@@ -32,6 +32,9 @@ app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 @app.get("/")
 def home():
+    home_build = STATIC_DIR / "home" / "index.html"
+    if home_build.exists():
+        return FileResponse(str(home_build))
     return FileResponse(str(STATIC_DIR / "index.html"))
 
 app.include_router(experiments.router, prefix="/experiments", tags=["experiments"])
