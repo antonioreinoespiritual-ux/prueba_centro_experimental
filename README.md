@@ -134,3 +134,17 @@ curl http://127.0.0.1:8000/api/cloud/projects/1/hypotheses
 6. Crea una hipótesis y verifica la carpeta en `Projects/<project_slug>/Hypotheses/H<ID>_<slug>`.
 7. Crea un record y verifica la carpeta en `Projects/<project_slug>/Hypotheses/H<ID>_<slug>/Records/R<ID>_<slug>`.
 8. Ejecuta el backfill para crear carpetas faltantes.
+
+
+## Home (Vite + React)
+
+Nuevo home en `frontend/home` (build en `static/home`) con diseño alineado a Cloud.
+
+```bash
+cd frontend/home
+npm install
+npm run dev
+npm run build
+```
+
+FastAPI sirve esta SPA en `/` cuando existe `static/home/index.html`.
