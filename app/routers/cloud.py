@@ -23,13 +23,31 @@ def get_db():
         db.close()
 
 
+def _cloud_build_available() -> bool:
+    spa_index = STATIC_DIR / "cloud" / "index.html"
+    assets_dir = STATIC_DIR / "cloud" / "assets"
+    if not spa_index.exists() or not assets_dir.exists():
+        return False
+    return any(assets_dir.glob("*.js"))
+
+
+def _serve_cloud_ui() -> FileResponse:
+    if _cloud_build_available():
+        return FileResponse(str(STATIC_DIR / "cloud" / "index.html"), media_type="text/html")
+    fallback = STATIC_DIR / "cloud_fallback.html"
+    if fallback.exists():
+        return FileResponse(str(fallback), media_type="text/html")
+    return FileResponse(str(STATIC_DIR / "cloud.html"), media_type="text/html")
+
+
 @router.get("/cloud")
 def cloud_app():
-    spa_index = STATIC_DIR / "cloud" / "index.html"
-    legacy = STATIC_DIR / "cloud.html"
-    if spa_index.exists():
-        return FileResponse(str(spa_index))
-    return FileResponse(str(legacy))
+    return _serve_cloud_ui()
+
+
+@router.get("/cloud/{path:path}")
+def cloud_spa_fallback(path: str):
+    return _serve_cloud_ui()
 
 
 @router.get("/api/cloud/libraries", response_model=list[schemas.CloudLibraryOut])
@@ -120,47 +138,28 @@ def init_upload(payload: schemas.CloudUploadInit):
 
 
 @router.post("/api/cloud/files/complete-upload", response_model=schemas.CloudItemOut)
-async def complete_upload(
-    file: UploadFile = File(...),
+def complete_upload(
     filename: str = Form(...),
     library_id: int = Form(...),
     parent_id: int | None = Form(default=None),
-    owner_id: str | None = Form(default=None),
+    owner_id: int | None = Form(default=None),
+    file: UploadFile = File(...),
     db: Session = Depends(get_db),
 ):
-    safe_name = sanitize_filename(filename)
-    library = db.get(models.CloudLibrary, library_id)
-    if not library:
-        raise HTTPException(status_code=404, detail="Library not found")
-    library = cloud_service.ensure_library_root(db, library)
-    if parent_id:
-        parent = db.get(models.CloudItem, parent_id)
-        if not parent or parent.item_type != "folder":
-            raise HTTPException(status_code=400, detail="Parent must be a folder")
-    item = cloud_service.create_file_item(
-        db,
-        name=safe_name,
-        library_id=library_id,
-        parent_id=parent_id,
-        owner_id=owner_id,
-        size=None,
-    )
-    parent = db.get(models.CloudItem, parent_id) if parent_id else None
     try:
-        target_dir = cloud_service.resolve_parent_path(library, parent)
+        content = file.file.read()
+        safe_name = sanitize_filename(filename)
+        return cloud_service.save_uploaded_file(
+            db,
+            filename=safe_name,
+            library_id=library_id,
+            parent_id=parent_id,
+            owner_id=owner_id,
+            content=content,
+            content_type=file.content_type,
+        )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    target_dir.mkdir(parents=True, exist_ok=True)
-    stored_path = target_dir / safe_name
-    contents = await file.read()
-    stored_path.write_bytes(contents)
-    item.size = len(contents)
-    item.rel_path = str(stored_path.relative_to(Path(library.root_path)))
-    item.path = item.rel_path
-    db.add(item)
-    db.commit()
-    db.refresh(item)
-    return item
 
 
 @router.get("/api/cloud/files/{file_id}/download")
@@ -168,36 +167,38 @@ def download_file(file_id: int, db: Session = Depends(get_db)):
     item = db.get(models.CloudItem, file_id)
     if not item or item.item_type != "file":
         raise HTTPException(status_code=404, detail="File not found")
-    library = db.get(models.CloudLibrary, item.library_id)
-    if not library:
-        raise HTTPException(status_code=404, detail="Library not found")
-    library = cloud_service.ensure_library_root(db, library)
-    try:
-        file_path = cloud_service.resolve_item_path(library, item)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if not item.storage_path:
+        raise HTTPException(status_code=404, detail="File has no storage path")
+    file_path = Path(item.storage_path)
     if not file_path.exists():
-        raise HTTPException(status_code=404, detail="File missing on disk")
+        raise HTTPException(status_code=404, detail="Stored file not found")
     return FileResponse(str(file_path), filename=item.name)
 
 
 @router.post("/api/cloud/items/{item_id}/share", response_model=schemas.CloudShareOut)
-def share_item(item_id: int, payload: schemas.CloudShareCreate, db: Session = Depends(get_db)):
+def create_share(item_id: int, payload: schemas.CloudShareCreate, db: Session = Depends(get_db)):
     item = db.get(models.CloudItem, item_id)
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
-    return cloud_service.create_share(db, item_id=item_id, shared_with=payload.shared_with, permission=payload.permission)
+    return cloud_service.create_share(db, item, payload.permission, payload.expires_at)
 
 
 @router.get("/api/cloud/items/{item_id}/shares", response_model=list[schemas.CloudShareOut])
-def list_item_shares(item_id: int, db: Session = Depends(get_db)):
-    return cloud_service.list_shares(db, item_id=item_id)
+def list_shares(item_id: int, db: Session = Depends(get_db)):
+    item = db.get(models.CloudItem, item_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+    return cloud_service.list_shares(db, item)
 
 
 @router.get("/api/cloud/search", response_model=schemas.CloudSearchResponse)
-def search_items(q: str, db: Session = Depends(get_db)):
-    results = cloud_service.search_items(db, q)
-    return schemas.CloudSearchResponse(results=results)
+def search_cloud(
+    q: str,
+    library_id: int | None = None,
+    limit: int = 25,
+    db: Session = Depends(get_db),
+):
+    return cloud_service.search(db, q=q.strip(), library_id=library_id, limit=limit)
 
 
 @router.get("/api/cloud/hypotheses/{hypothesis_id}/records", response_model=list[schemas.CloudItemOut])
@@ -206,35 +207,20 @@ def list_hypothesis_records(hypothesis_id: int, db: Session = Depends(get_db)):
 
 
 @router.get("/api/cloud/display-map", response_model=schemas.CloudDisplayMap)
-def display_map(
-    library_id: int,
-    parent_id: int | None = None,
-    db: Session = Depends(get_db),
-):
-    items = cloud_service.build_display_map(db, library_id=library_id, parent_id=parent_id)
-    return schemas.CloudDisplayMap(items=items)
+def cloud_display_map(db: Session = Depends(get_db)):
+    return cloud_service.get_display_map(db)
 
 
 @router.get("/api/cloud/tree/projects", response_model=schemas.CloudProjectsTree)
-def projects_tree(db: Session = Depends(get_db)):
-    projects = cloud_service.list_projects_tree(db)
-    return schemas.CloudProjectsTree(projects=projects)
+def cloud_projects_tree(db: Session = Depends(get_db)):
+    return cloud_service.get_projects_tree(db)
 
 
 @router.get("/api/cloud/projects", response_model=list[schemas.CloudProjectOut])
-def list_projects(db: Session = Depends(get_db)):
+def list_cloud_projects(db: Session = Depends(get_db)):
     return cloud_service.list_projects(db)
 
 
 @router.get("/api/cloud/projects/{project_id}/hypotheses", response_model=list[schemas.CloudProjectHypothesisOut])
-def list_project_hypotheses(project_id: int, db: Session = Depends(get_db)):
-    experiments = cloud_service.list_project_hypotheses(db, project_id)
-    return [
-        schemas.CloudProjectHypothesisOut(
-            id=experiment.id,
-            experiment_id=experiment.id,
-            display_name=cloud_service.hypothesis_display_name(experiment),
-            drive_folder_path=experiment.drive_folder_path,
-        )
-        for experiment in experiments
-    ]
+def list_cloud_project_hypotheses(project_id: int, db: Session = Depends(get_db)):
+    return cloud_service.list_project_hypotheses(db, project_id)
