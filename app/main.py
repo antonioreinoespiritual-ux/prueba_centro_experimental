@@ -32,7 +32,9 @@ app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 @app.get("/")
 def home():
-    return FileResponse(str(STATIC_DIR / "index.html"))
+    home_spa = STATIC_DIR / "home" / "index.html"
+    legacy_home = STATIC_DIR / "index.html"
+    return FileResponse(str(home_spa if home_spa.exists() else legacy_home))
 
 
 @app.get("/favicon.ico", include_in_schema=False)

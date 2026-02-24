@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Centro Experimental</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root{color-scheme:dark;--bg:#0b0d14;--surface:#111423;--surface2:#171b2c;--border:rgba(255,255,255,.1);--text:#f0f2ff;--muted:#98a2b3;--accent:#7c6cff;font-family:Inter,system-ui,sans-serif}
+    *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text)}.home{max-width:1120px;margin:0 auto;padding:24px}.top{display:flex;justify-content:space-between;gap:16px;align-items:center}.actions,.menu,.quick{display:flex;gap:8px;flex-wrap:wrap}
+    a,button,input{font:inherit}button,a{border:1px solid var(--border);background:var(--surface);color:var(--text);border-radius:10px;padding:9px 12px;text-decoration:none;cursor:pointer}.primary{background:var(--accent);border-color:transparent}
+    .cards{margin-top:18px;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}.card{display:block;padding:16px;border:1px solid var(--border);border-radius:14px;background:linear-gradient(180deg,var(--surface),var(--surface2))}.card p{color:var(--muted)}
+    .quick{margin-top:14px}.quick a,.quick button{color:var(--muted)} .status{margin-top:12px}
+    .overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;padding:20px}.overlay.open{display:flex}.modal{width:min(900px,100%);background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:14px;display:grid;grid-template-columns:220px 1fr;gap:12px}
+    .menu{display:grid}.menu button.active{outline:2px solid var(--accent)}.form{display:grid;gap:8px}.form label{display:grid;gap:6px;color:var(--muted);text-transform:capitalize}.form input,.form select{background:#0d1020;border:1px solid var(--border);color:var(--text);padding:8px;border-radius:8px}
+  </style>
+</head>
+<body>
+<div class="home">
+  <div class="top">
+    <div><h1>Centro Experimental</h1><p style="color:var(--muted)">Portal unificado estilo Cloud</p></div>
+    <div class="actions"><button class="primary" id="openCrear">Crear</button><a href="/cloud">Cloud</a><a href="/interviews">Entrevistas</a><a href="/hypotheses">Hypotheses</a></div>
+  </div>
+  <div class="cards">
+    <a class="card" href="/cloud"><h3>Cloud</h3><p>Gestión documental y bibliotecas.</p></a>
+    <a class="card" href="/interviews"><h3>Entrevistas</h3><p>Campañas, plantillas y sesiones.</p></a>
+    <a class="card" href="/hypotheses"><h3>Hypotheses</h3><p>Hipótesis y validación.</p></a>
+    <a class="card" href="/publics-app"><h3>Públicos</h3><p>CRM y segmentación.</p></a>
+  </div>
+  <div class="quick">
+    <a href="/static/chat.html">Chat</a><a href="/static/openclaw.html">Crear hipótesis IA</a><a href="/static/dashboard.html">Dashboard</a><a href="/static/projects.html">Lista proyectos</a><a href="/static/records.html">Lista records</a>
+    <a href="/static/edit_project.html">Editar proyecto</a><a href="/static/edit_record.html?id=2">Editar record</a>
+    <a href="/static/delete_hypotheses.html">Eliminar hipótesis</a><a href="/static/delete_records.html">Eliminar records</a><a href="/static/delete_projects.html">Eliminar proyectos</a><a href="/static/delete_publics.html">Eliminar públicos</a>
+    <button onclick="location.reload()">Actualizar listas</button>
+  </div>
+  <p id="status" class="status"></p>
+</div>
+<div class="overlay" id="overlay"><div class="modal"><div class="menu" id="menu"></div><div class="form" id="form"></div></div></div>
+<script>
+const defs={project:['name','hypothesis','traffic_type'],campaign:['name','project_id','status'],hypothesis:['project_name','hypothesis','traffic_type'],client:['full_name','country','campaign_id'],template:['name','project_id','campaign_id'],interview:['project_id','campaign_id','template_id','interviewee_name'],record:['experiment_id','session_id','record_name']};
+const labels={project:'Crear Proyecto',campaign:'Crear Campaña',hypothesis:'Crear Hipótesis',client:'Crear Cliente',template:'Crear Plantilla',interview:'Crear Entrevista',record:'Crear Record'};
+const data={};Object.keys(defs).forEach(k=>data[k]={});
+let active='project';const ov=document.getElementById('overlay');const menu=document.getElementById('menu');const form=document.getElementById('form');
+function setStatus(t){document.getElementById('status').textContent=t}
+async function api(path,method='GET',body){const r=await fetch(location.origin+path,{method,headers:body?{'Content-Type':'application/json'}:undefined,body:body?JSON.stringify(body):undefined});const p=(r.headers.get('content-type')||'').includes('json')?await r.json():await r.text();if(!r.ok)throw new Error(typeof p==='string'?p:p.detail||'Error');return p}
+function render(){menu.innerHTML='';Object.keys(labels).forEach(k=>{const b=document.createElement('button');b.textContent=labels[k];if(k===active)b.className='active';b.onclick=()=>{active=k;render()};menu.appendChild(b)});form.innerHTML='';defs[active].forEach(f=>{const l=document.createElement('label');l.textContent=f;const i=f.includes('type')||f==='status'?document.createElement('select'):document.createElement('input');if(i.tagName==='SELECT'){const opts=f==='traffic_type'?['paid','organic','mixed','live']:['planned','running','paused','completed'];opts.forEach(v=>{const o=document.createElement('option');o.value=v;o.textContent=v;i.appendChild(o)})}
+ i.value=data[active][f]||'';i.oninput=e=>data[active][f]=e.target.value;l.appendChild(i);form.appendChild(l)});const s=document.createElement('button');s.className='primary';s.textContent=labels[active];s.onclick=submit;form.appendChild(s)}
+async function submit(){try{setStatus('Guardando...');if(active==='project'||active==='hypothesis')await api('/experiments/','POST',{project_name:data[active].project_name||data[active].name,hypothesis:data[active].hypothesis,traffic_type:data[active].traffic_type||'organic'});
+if(active==='campaign')await api('/api/campaigns','POST',{name:data.campaign.name,project_id:Number(data.campaign.project_id),status:data.campaign.status||'planned'});
+if(active==='client')await api('/clients','POST',{full_name:data.client.full_name,country:data.client.country,campaign_id:Number(data.client.campaign_id),tags:[]});
+if(active==='template')await api('/api/interviews/templates','POST',{name:data.template.name,project_id:Number(data.template.project_id),campaign_id:Number(data.template.campaign_id),fields_json:{sections:[]}});
+if(active==='interview')await api('/api/interviews','POST',{project_id:Number(data.interview.project_id),campaign_id:Number(data.interview.campaign_id),template_id:Number(data.interview.template_id),interviewee_name:data.interview.interviewee_name,responses_json:{}});
+if(active==='record')await api('/records/','POST',{experiment_id:Number(data.record.experiment_id),session_id:data.record.session_id,record_name:data.record.record_name});
+setStatus('✅ Creado correctamente');ov.classList.remove('open')}catch(e){setStatus('❌ '+e.message)}}
+document.getElementById('openCrear').onclick=()=>{ov.classList.add('open');render()};ov.onclick=e=>{if(e.target===ov)ov.classList.remove('open')}
+</script>
+</body>
+</html>

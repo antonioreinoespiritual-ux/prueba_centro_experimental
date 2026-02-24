@@ -64,6 +64,27 @@ npm run build
 
 El build genera los assets en `static/hypotheses/` y el backend los sirve desde `/hypotheses`.
 
+
+## Frontend Home (React + Vite)
+
+Home modernizado en `frontend/home` y servido por FastAPI en `/` usando build estático en `static/home`.
+
+### Desarrollo
+```bash
+cd frontend/home
+npm install
+npm run dev
+```
+
+### Build para producción (FastAPI en `/`)
+```bash
+cd frontend/home
+npm install
+npm run build
+```
+
+El build genera assets en `static/home/`. FastAPI usa `static/home/index.html` como Home principal y conserva `static/index.html` como fallback legacy.
+
 ## Producción
 1. Compila el frontend (`npm run build`).
 2. Levanta el backend con `uvicorn app.main:app`.
