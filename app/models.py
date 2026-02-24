@@ -221,6 +221,8 @@ class ChatMessage(Base):
     role: Mapped[str] = mapped_column(String(20), nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
     references_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, onupdate=datetime.utcnow)
 
 
 class CloudLibrary(Base):
@@ -303,3 +305,85 @@ class AssistantDraft(Base):
     payload_json: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, onupdate=datetime.utcnow)
+
+
+
+
+class ResearchCampaign(Base):
+    __tablename__ = "research_campaigns"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("cloud_projects.id"), nullable=False, index=True)
+    hypothesis_id: Mapped[int | None] = mapped_column(ForeignKey("experiments.id"), nullable=True, index=True)
+    metric_name: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="planned")
+    start_date: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    end_date: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, onupdate=datetime.utcnow)
+
+
+class InterviewTemplate(Base):
+    __tablename__ = "interview_templates"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("cloud_projects.id"), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    fields_json: Mapped[str] = mapped_column(Text, nullable=False)
+    campaign_id: Mapped[int] = mapped_column(ForeignKey("research_campaigns.id"), nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class InterviewSession(Base):
+    __tablename__ = "interview_sessions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    template_id: Mapped[int] = mapped_column(ForeignKey("interview_templates.id"), nullable=False, index=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("cloud_projects.id"), nullable=False, index=True)
+    hypothesis_id: Mapped[int | None] = mapped_column(ForeignKey("experiments.id"), nullable=True, index=True)
+    client_id: Mapped[int | None] = mapped_column(ForeignKey("clients.id"), nullable=True, index=True)
+    metric_name: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    campaign_id: Mapped[int] = mapped_column(ForeignKey("research_campaigns.id"), nullable=False, index=True)
+    interviewee_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    responses_json: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, onupdate=datetime.utcnow)
+
+
+class Client(Base):
+    __tablename__ = "clients"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    full_name: Mapped[str] = mapped_column(String(200), nullable=False, index=True)
+    age: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    email: Mapped[str | None] = mapped_column(String(200), nullable=True, index=True)
+    phone: Mapped[str | None] = mapped_column(String(60), nullable=True, index=True)
+    country: Mapped[str] = mapped_column(String(120), nullable=False, index=True)
+    state: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    city: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    nationality: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    gender: Mapped[str | None] = mapped_column(String(60), nullable=True)
+    public_id: Mapped[int | None] = mapped_column(ForeignKey("publics.id"), nullable=True, index=True)
+    sex: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    social_network: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    campaign_id: Mapped[int] = mapped_column(ForeignKey("research_campaigns.id"), nullable=False, index=True)
+    tags_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, onupdate=datetime.utcnow)
+
+
+class InterviewAttachment(Base):
+    __tablename__ = "interview_attachments"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    interview_session_id: Mapped[int] = mapped_column(ForeignKey("interview_sessions.id"), nullable=False, index=True)
+    filename: Mapped[str] = mapped_column(String(255), nullable=False)
+    content_type: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    size: Mapped[int] = mapped_column(Integer, nullable=False)
+    storage_path: Mapped[str] = mapped_column(String(500), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)

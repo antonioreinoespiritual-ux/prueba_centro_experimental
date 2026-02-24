@@ -6,6 +6,7 @@
   <title>Centro Experimental</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/css/design-system.css">
+  <script src="/static/js/api-client.js"></script>
 </head>
 <body>
   <div class="app-container" role="main">
@@ -24,13 +25,15 @@
         <a class="btn-link" href="/static/dashboard.html" aria-label="Abrir Dashboard">Abrir Dashboard</a>
         <a class="btn-link" href="/static/projects.html" aria-label="Ver lista de proyectos">Lista de proyectos</a>
         <a class="btn-link" href="/static/records.html" aria-label="Ver lista de records">Lista de records</a>
-        <a class="btn-link" href="/static/hypotheses.html" aria-label="Lista de hipotesis">Lista de hipotesis</a>
+        <a class="btn-link" href="/hypotheses" aria-label="Lista de hipotesis">Lista de hipotesis</a>
         <a class="btn-link" href="/cloud" aria-label="Abrir Cloud">CLOUD</a>
-        <a class="btn-link" href="/static/publics.html" aria-label="Lista de publicos">Públicos</a>
+        <a class="btn-link" href="/interviews" aria-label="Abrir entrevistas">Entrevistas</a>
+        <a class="btn-link" href="/publics-app" aria-label="Lista de publicos">Públicos</a>
         <button class="btn-link" id="btnOpenEditModal" aria-label="Editar">Editar</button>
         <a class="btn-link btn-warning" href="/static/delete_hypotheses.html" aria-label="Eliminar hipotesis">Eliminar hipotesis</a>
         <a class="btn-link btn-warning" href="/static/delete_records.html" aria-label="Eliminar records">Eliminar records</a>
         <a class="btn-link btn-warning" href="/static/delete_projects.html" aria-label="Eliminar proyectos">Eliminar proyectos</a>
+        <a class="btn-link btn-warning" href="/static/delete_publics.html" aria-label="Eliminar publicos">Eliminar publicos</a>
         <button id="btnRefresh" class="btn-secondary" aria-label="Actualizar listas">Actualizar listas</button>
       </div>
     </div>
@@ -48,6 +51,31 @@
           <a class="btn-primary" href="/static/edit_project.html" aria-label="Editar proyecto">Proyecto</a>
           <a class="btn-primary" href="/static/edit_record.html?id=2" aria-label="Editar record">Record</a>
         </div>
+      </div>
+    </div>
+
+
+
+    <div class="card mt-lg">
+      <div class="section-header">
+        <div>
+          <h2>Research OS</h2>
+          <div class="text-sm text-muted mt-sm">Acceso unificado a módulos con diseño Cloud.</div>
+        </div>
+      </div>
+      <div class="grid grid-4" id="moduleGrid">
+        <a class="card card--accent" href="/cloud" style="text-decoration:none;display:block;">
+          <h3>Cloud</h3><p class="text-sm text-muted mt-sm">Documentos, bibliotecas y estructura por proyecto.</p>
+        </a>
+        <a class="card card--accent" href="/interviews" style="text-decoration:none;display:block;">
+          <h3>Entrevistas</h3><p class="text-sm text-muted mt-sm">Campañas, clientes, plantillas y entrevistas.</p>
+        </a>
+        <a class="card card--accent" href="/hypotheses" style="text-decoration:none;display:block;">
+          <h3>Hypotheses</h3><p class="text-sm text-muted mt-sm">Gestión y análisis de hipótesis y records.</p>
+        </a>
+        <a class="card card--accent" href="/publics-app" style="text-decoration:none;display:block;">
+          <h3>Públicos</h3><p class="text-sm text-muted mt-sm">Taxonomía de públicos y detalle consolidado.</p>
+        </a>
       </div>
     </div>
 
@@ -83,15 +111,22 @@
           <label for="hypothesis_type">Tipo de Hipotesis</label>
           <select id="hypothesis_type">
             <option value="">-- seleccionar --</option>
+            <option value="" disabled>--- Validación Fundacional ---</option>
+            <option value="PROBLEM">Problema</option>
+            <option value="CUSTOMER_SEGMENT">Cliente / Segmento</option>
+            <option value="activation">Activación</option>
+            <option value="" disabled>--- Validación de Solución ---</option>
+            <option value="SOLUTION">Solución</option>
+            <option value="VALUE">Valor</option>
+            <option value="message_market_fit">Message-Market Fit</option>
+            <option value="" disabled>--- Escalamiento ---</option>
             <option value="acquisition">Acquisition</option>
-            <option value="activation">Activation</option>
             <option value="retention">Retention</option>
             <option value="monetization">Monetization</option>
-            <option value="trust_credibility">Trust / Credibility</option>
-            <option value="message_market_fit">Message-Market Fit</option>
             <option value="channel_fit">Channel Fit</option>
             <option value="pricing">Pricing</option>
             <option value="funnel_friction">Funnel Friction</option>
+            <option value="trust_credibility">Trust / Credibility</option>
           </select>
         </div>
 
@@ -888,7 +923,7 @@
   <div class="toast-container" id="toastContainer"></div>
 
 <script>
-  const API_BASE = "";
+  const API_BASE = window.CEApi.base;
   const $ = (id) => document.getElementById(id);
   const statusEl = $("status");
   const editModal = $("editModal");
@@ -924,31 +959,11 @@
     return Number.isFinite(n) ? n : null;
   }
 
-  async function apiGet(path) {
-    const r = await fetch(API_BASE + path);
-    if (!r.ok) throw new Error(await r.text());
-    return r.json();
-  }
+  async function apiGet(path) { return window.CEApi.get(path); }
 
-  async function apiPost(path, body) {
-    const r = await fetch(API_BASE + path, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    if (!r.ok) throw new Error(await r.text());
-    return r.json();
-  }
+  async function apiPost(path, body) { return window.CEApi.post(path, body); }
 
-  async function apiPatch(path, body) {
-    const r = await fetch(API_BASE + path, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    if (!r.ok) throw new Error(await r.text());
-    return r.json();
-  }
+  async function apiPatch(path, body) { return window.CEApi.patch(path, body); }
 
   function openEditModal() {
     editModal.classList.remove("hidden");

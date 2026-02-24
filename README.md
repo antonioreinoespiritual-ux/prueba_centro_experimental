@@ -41,6 +41,29 @@ npm run build
 
 El build genera los assets en `static/cloud/` y el backend los sirve desde `/cloud`.
 
+## Frontend Hypotheses (Vite + React)
+
+### Configuración API
+```bash
+export VITE_API_URL=http://127.0.0.1:8000
+```
+
+### Desarrollo
+```bash
+cd frontend/hypotheses
+npm install
+npm run dev
+```
+
+### Build para producción (servido por FastAPI en /hypotheses)
+```bash
+cd frontend/hypotheses
+npm install
+npm run build
+```
+
+El build genera los assets en `static/hypotheses/` y el backend los sirve desde `/hypotheses`.
+
 ## Producción
 1. Compila el frontend (`npm run build`).
 2. Levanta el backend con `uvicorn app.main:app`.
@@ -134,3 +157,90 @@ curl http://127.0.0.1:8000/api/cloud/projects/1/hypotheses
 6. Crea una hipótesis y verifica la carpeta en `Projects/<project_slug>/Hypotheses/H<ID>_<slug>`.
 7. Crea un record y verifica la carpeta en `Projects/<project_slug>/Hypotheses/H<ID>_<slug>/Records/R<ID>_<slug>`.
 8. Ejecuta el backfill para crear carpetas faltantes.
+
+## Entrevistas (Vite + React)
+
+Nuevo módulo en `frontend/interviews` servido en `/interviews` (build estático en `static/interviews`).
+
+### Desarrollo
+```bash
+cd frontend/interviews
+npm install
+npm run dev
+```
+
+### Build para producción (FastAPI)
+```bash
+cd frontend/interviews
+npm install
+npm run build
+```
+
+Luego abrir:
+- `http://127.0.0.1:8000/interviews`
+
+API usada por el módulo:
+- `GET/POST/PATCH/DELETE /api/interviews/templates`
+- `GET/POST/PATCH/DELETE /interviews/sessions (legacy)`
+- `GET /api/interviews/projects/{project_id}/templates`
+- `GET /interviews/projects/{project_id}/sessions (legacy)`
+
+### Entrevistas CRM + Wizard + Adjuntos
+
+Endpoints nuevos:
+- `GET/POST/PATCH/DELETE /clients`
+- `GET /clients/{id}/interviews`
+- `POST /api/interviews`
+- `GET /api/interviews?project_id=&hypothesis_id=&client_id=&campaign_id=&limit=&offset=`
+- `GET /api/interviews/{id}`
+- `PATCH /api/interviews/{id}`
+- `POST /api/interviews/{id}/attachments` (multipart)
+- `GET /api/interviews/{id}/attachments`
+- `DELETE /api/attachments/{id}`
+
+Almacenamiento de adjuntos:
+- Archivos de transcripción en `data/uploads/interviews/{session_id}/`
+- Metadata en tabla `interview_attachments`
+
+Build frontend entrevistas:
+```bash
+cd frontend/interviews
+npm install
+npm run build
+```
+
+
+### Campañas de investigación
+
+El módulo de Entrevistas ahora incluye una pestaña **Campaña de investigación** para gestionar recolección jerárquica de datos.
+
+Endpoints:
+- `GET /api/campaigns?project_id=&status=&search=`
+- `GET /api/campaigns/{id}`
+- `POST /api/campaigns`
+- `PATCH /api/campaigns/{id}`
+- `DELETE /api/campaigns/{id}`
+- `GET /api/campaigns/{id}/clients`
+- `GET /api/campaigns/{id}/templates`
+- `GET /api/campaigns/{id}/interviews`
+
+Reglas implementadas:
+- Validación de consistencia `project_id` + `hypothesis_id` al crear/editar campañas.
+- `Client`, `InterviewTemplate` e `InterviewSession` **requieren** `campaign_id` (campaña obligatoria).
+- Para compatibilidad histórica, la migración crea automáticamente una **Campaña default** por proyecto y asigna registros antiguos sin campaña.
+
+
+## Frontend QA
+
+Checklist de validación visual/UX (Research OS):
+
+- [ ] `/` Home: carga con header, cards y navegación operativa (sin rutas rotas).
+- [ ] `/cloud`: UI renderiza y mantiene estilos del design system.
+- [ ] `/hypotheses`: UI renderiza correctamente y mantiene layout consistente.
+- [ ] `/interviews`: UI renderiza correctamente con tabs, estados loading/empty/error.
+- [ ] Botones del Home (`Chat`, `Dashboard`, `Proyectos`, `Records`, `Públicos`, `Entrevistas`, `Cloud`, `Hypotheses`) abren páginas HTML/SPA (no JSON crudo).
+- [ ] Ruta de Públicos UI: `/publics-app` (no colisiona con API `/publics/*`).
+- [ ] Listados de Clientes/Plantillas/Entrevistas permiten filtrar por campaña y muestran campaña asociada.
+- [ ] Formularios de Clientes/Plantillas/Entrevistas bloquean guardar sin campaña y muestran mensajes claros.
+- [ ] Modales: cierre por botón, foco usable por teclado, confirmaciones de borrado activas.
+- [ ] Toasts de éxito/error visibles en operaciones CRUD.

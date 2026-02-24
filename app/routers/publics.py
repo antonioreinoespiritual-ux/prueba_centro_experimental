@@ -92,3 +92,11 @@ def update_public(
         updated_at=public.updated_at,
         records_count=len(public.records),
     )
+
+
+@router.delete("/{public_id}")
+def delete_public(public_id: int, db: Session = Depends(get_db)):
+    result = crud.delete_public(db, public_id)
+    if not result:
+        raise HTTPException(status_code=404, detail="Public not found")
+    return result

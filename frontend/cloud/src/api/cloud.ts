@@ -90,6 +90,10 @@ export async function fetchProjectHypotheses(projectId: number): Promise<CloudPr
   return fetchJson(`/api/cloud/projects/${projectId}/hypotheses`);
 }
 
+export async function fetchHypothesisRecords(hypothesisId: number): Promise<CloudItem[]> {
+  return fetchJson(`/api/cloud/hypotheses/${hypothesisId}/records`);
+}
+
 export async function createFolder(payload: {
   name: string;
   library_id: number;

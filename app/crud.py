@@ -13,6 +13,18 @@ from .services import drive_sync_service
 from .storage import remove_entity_files
 
 
+def _json_dumps_safe(value):
+    """Serialize nested Pydantic/plain payloads as stable JSON for DB storage."""
+    def _default(obj):
+        if hasattr(obj, "model_dump"):
+            return obj.model_dump(mode="json")
+        if hasattr(obj, "dict"):
+            return obj.dict()
+        raise TypeError(f"Object of type {obj.__class__.__name__} is not JSON serializable")
+
+    return json.dumps(value, default=_default)
+
+
 # ------------------------------------------------------------------ #
 #  EXPERIMENTS
 # ------------------------------------------------------------------ #
@@ -297,6 +309,22 @@ def get_public_detail(db: Session, public_id: int):
     )
     return public, records, metrics
 
+
+
+
+def delete_public(db: Session, public_id: int):
+    public = get_public(db, public_id)
+    if not public:
+        return None
+
+    affected = db.execute(
+        update(models.ExperimentRecord)
+        .where(models.ExperimentRecord.public_id == public_id)
+        .values(public_id=None, publico=None)
+    )
+    db.delete(public)
+    db.commit()
+    return {"deleted": True, "public_id": public_id, "records_unlinked": affected.rowcount or 0}
 
 def create_record(db: Session, data: schemas.RecordCreate):
     # Normalización: si viene string vacío => None (por seguridad)
@@ -1279,3 +1307,602 @@ def evaluate_experiment(db: Session, experiment_id: int) -> schemas.ExperimentEv
         segmented_by_public=segmented_by_public,
         segments=segments,
     )
+
+
+# ------------------------------------------------------------------ #
+#  INTERVIEWS
+# ------------------------------------------------------------------ #
+
+def _campaign_name(db: Session, campaign_id: int | None) -> str | None:
+    if campaign_id is None:
+        return None
+    campaign = db.get(models.ResearchCampaign, campaign_id)
+    return campaign.name if campaign else None
+
+
+def _template_out(db: Session, template: models.InterviewTemplate) -> schemas.InterviewTemplateOut:
+    return schemas.InterviewTemplateOut(
+        id=template.id,
+        project_id=template.project_id,
+        name=template.name,
+        description=template.description,
+        fields_json=json.loads(template.fields_json or "{}"),
+        campaign_id=template.campaign_id,
+        campaign_name=_campaign_name(db, template.campaign_id),
+        created_at=template.created_at,
+    )
+
+
+def _session_out(db: Session, session: models.InterviewSession) -> schemas.InterviewSessionOut:
+    return schemas.InterviewSessionOut(
+        id=session.id,
+        template_id=session.template_id,
+        project_id=session.project_id,
+        hypothesis_id=session.hypothesis_id,
+        client_id=session.client_id,
+        metric_name=session.metric_name,
+        campaign_id=session.campaign_id,
+        campaign_name=_campaign_name(db, session.campaign_id),
+        interviewee_name=session.interviewee_name,
+        notes=session.notes,
+        responses_json=json.loads(session.responses_json or "{}"),
+        created_at=session.created_at,
+        updated_at=session.updated_at,
+    )
+
+
+def create_interview_template(db: Session, data: schemas.InterviewTemplateCreate):
+    campaign = db.get(models.ResearchCampaign, data.campaign_id)
+    if not campaign:
+        raise ValueError("Campaign not found")
+    if campaign.project_id != data.project_id:
+        raise ValueError("Campaign project mismatch")
+    obj = models.InterviewTemplate(
+        project_id=data.project_id,
+        name=data.name.strip(),
+        description=(data.description or "").strip() or None,
+        fields_json=_json_dumps_safe(data.fields_json),
+        campaign_id=data.campaign_id,
+    )
+    db.add(obj)
+    db.commit()
+    db.refresh(obj)
+    return _template_out(db, obj)
+
+
+def list_interview_templates(db: Session, project_id: int | None = None, campaign_id: int | None = None):
+    query = select(models.InterviewTemplate)
+    if project_id is not None:
+        query = query.where(models.InterviewTemplate.project_id == project_id)
+    if campaign_id is not None:
+        query = query.where(models.InterviewTemplate.campaign_id == campaign_id)
+    query = query.order_by(desc(models.InterviewTemplate.created_at))
+    return [_template_out(db, item) for item in db.scalars(query).all()]
+
+
+def get_interview_template(db: Session, template_id: int):
+    item = db.get(models.InterviewTemplate, template_id)
+    return _template_out(db, item) if item else None
+
+
+def update_interview_template(db: Session, template_id: int, data: schemas.InterviewTemplateUpdate):
+    item = db.get(models.InterviewTemplate, template_id)
+    if not item:
+        return None
+    payload = data.model_dump(exclude_unset=True, mode="json")
+    if "name" in payload:
+        item.name = (payload["name"] or "").strip()
+    if "description" in payload:
+        item.description = (payload["description"] or "").strip() or None
+    if "fields_json" in payload and payload["fields_json"] is not None:
+        item.fields_json = _json_dumps_safe(payload["fields_json"])
+    campaign = db.get(models.ResearchCampaign, payload["campaign_id"])
+    if not campaign:
+        raise ValueError("Campaign not found")
+    if campaign.project_id != item.project_id:
+        raise ValueError("Campaign project mismatch")
+    item.campaign_id = payload["campaign_id"]
+    db.commit()
+    db.refresh(item)
+    return _template_out(db, item)
+
+
+def delete_interview_template(db: Session, template_id: int):
+    item = db.get(models.InterviewTemplate, template_id)
+    if not item:
+        return None
+    db.execute(delete(models.InterviewSession).where(models.InterviewSession.template_id == template_id))
+    db.delete(item)
+    db.commit()
+    return {"deleted": True, "template_id": template_id}
+
+
+def create_interview_session(db: Session, data: schemas.InterviewSessionCreate):
+    campaign = db.get(models.ResearchCampaign, data.campaign_id)
+    if not campaign:
+        raise ValueError("Campaign not found")
+    if campaign.project_id != data.project_id:
+        raise ValueError("Campaign project mismatch")
+    if campaign.hypothesis_id is not None and data.hypothesis_id != campaign.hypothesis_id:
+        raise ValueError("Hypothesis does not match campaign")
+    template = db.get(models.InterviewTemplate, data.template_id)
+    if not template:
+        raise ValueError("Template not found")
+    if template.campaign_id != data.campaign_id:
+        raise ValueError("Template must belong to selected campaign")
+    client = db.get(models.Client, data.client_id) if data.client_id is not None else None
+    if data.client_id is not None and (not client or client.campaign_id != data.campaign_id):
+        raise ValueError("Client must belong to selected campaign")
+    metric_name = (data.metric_name or "").strip() or None
+    if campaign.metric_name and metric_name and campaign.metric_name != metric_name:
+        raise ValueError("Metric does not match campaign")
+    if campaign.metric_name and not metric_name:
+        metric_name = campaign.metric_name
+    obj = models.InterviewSession(
+        template_id=data.template_id,
+        project_id=data.project_id,
+        hypothesis_id=data.hypothesis_id,
+        client_id=data.client_id,
+        metric_name=metric_name,
+        campaign_id=data.campaign_id,
+        interviewee_name=data.interviewee_name.strip(),
+        notes=(data.notes or "").strip() or None,
+        responses_json=json.dumps(data.responses_json),
+    )
+    db.add(obj)
+    db.commit()
+    db.refresh(obj)
+    return _session_out(db, obj)
+
+
+def list_interview_sessions(db: Session, project_id: int | None = None):
+    query = select(models.InterviewSession)
+    if project_id is not None:
+        query = query.where(models.InterviewSession.project_id == project_id)
+    query = query.order_by(desc(models.InterviewSession.created_at))
+    return [_session_out(db, item) for item in db.scalars(query).all()]
+
+
+def get_interview_session(db: Session, session_id: int):
+    item = db.get(models.InterviewSession, session_id)
+    return _session_out(db, item) if item else None
+
+
+def update_interview_session(db: Session, session_id: int, data: schemas.InterviewSessionUpdate):
+    item = db.get(models.InterviewSession, session_id)
+    if not item:
+        return None
+    payload = data.model_dump(exclude_unset=True, mode="json")
+    campaign = db.get(models.ResearchCampaign, payload["campaign_id"])
+    if not campaign:
+        raise ValueError("Campaign not found")
+    if campaign.project_id != item.project_id:
+        raise ValueError("Campaign project mismatch")
+    if campaign.hypothesis_id is not None:
+        hypothesis_id = payload.get("hypothesis_id", item.hypothesis_id)
+        if hypothesis_id != campaign.hypothesis_id:
+            raise ValueError("Hypothesis does not match campaign")
+    template_id = payload.get("template_id", item.template_id)
+    template = db.get(models.InterviewTemplate, template_id)
+    if not template or template.campaign_id != payload["campaign_id"]:
+        raise ValueError("Template must belong to selected campaign")
+    client_id = payload.get("client_id", item.client_id)
+    if client_id is not None:
+        client = db.get(models.Client, client_id)
+        if not client or client.campaign_id != payload["campaign_id"]:
+            raise ValueError("Client must belong to selected campaign")
+
+    for key in ["hypothesis_id", "client_id", "template_id", "campaign_id"]:
+        if key in payload:
+            setattr(item, key, payload[key])
+    if "metric_name" in payload:
+        metric_name = (payload["metric_name"] or "").strip() or None
+        if campaign.metric_name and metric_name and metric_name != campaign.metric_name:
+            raise ValueError("Metric does not match campaign")
+        item.metric_name = metric_name or campaign.metric_name
+    if "interviewee_name" in payload:
+        item.interviewee_name = (payload["interviewee_name"] or "").strip()
+    if "notes" in payload:
+        item.notes = (payload["notes"] or "").strip() or None
+    if "responses_json" in payload and payload["responses_json"] is not None:
+        item.responses_json = json.dumps(payload["responses_json"])
+    item.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(item)
+    return _session_out(db, item)
+
+
+def delete_interview_session(db: Session, session_id: int):
+    item = db.get(models.InterviewSession, session_id)
+    if not item:
+        return None
+    db.delete(item)
+    db.commit()
+    return {"deleted": True, "session_id": session_id}
+
+# ------------------------------------------------------------------ #
+#  CLIENTS + INTERVIEWS V2 + ATTACHMENTS
+# ------------------------------------------------------------------ #
+
+def _client_out(db: Session, client: models.Client) -> schemas.ClientOut:
+    public_name = None
+    if client.public_id:
+        public = db.get(models.Public, client.public_id)
+        public_name = public.name if public else None
+    return schemas.ClientOut(
+        id=client.id,
+        full_name=client.full_name,
+        age=client.age,
+        email=client.email,
+        phone=client.phone,
+        country=client.country,
+        state=client.state,
+        city=client.city,
+        nationality=client.nationality,
+        gender=client.gender,
+        public_id=client.public_id,
+        public_name=public_name,
+        campaign_id=client.campaign_id,
+        campaign_name=_campaign_name(db, client.campaign_id),
+        sex=client.sex or client.gender,
+        social_network=client.social_network,
+        tags=json.loads(client.tags_json or "[]"),
+        notes=client.notes,
+        created_at=client.created_at,
+        updated_at=client.updated_at,
+    )
+
+
+def create_client(db: Session, data: schemas.ClientCreate):
+    campaign = db.get(models.ResearchCampaign, data.campaign_id)
+    if not campaign:
+        raise ValueError("Campaign not found")
+    if data.public_id:
+        public = db.get(models.Public, data.public_id)
+        if not public:
+            raise ValueError("Public not found")
+    obj = models.Client(
+        full_name=data.full_name.strip(),
+        age=data.age,
+        email=(data.email or "").strip() or None,
+        phone=(data.phone or "").strip() or None,
+        country=data.country.strip(),
+        state=(data.state or "").strip() or None,
+        city=(data.city or "").strip() or None,
+        nationality=(data.nationality or "").strip() or None,
+        gender=(data.gender or data.sex or "").strip() or None,
+        public_id=data.public_id,
+        sex=(data.sex or "").strip() or None,
+        social_network=(data.social_network or "").strip() or None,
+        campaign_id=data.campaign_id,
+        tags_json=json.dumps(data.tags or []),
+        notes=(data.notes or "").strip() or None,
+    )
+    db.add(obj)
+    db.commit()
+    db.refresh(obj)
+    return _client_out(db, obj)
+
+
+def list_clients(db: Session, search: str | None = None, country: str | None = None, campaign_id: int | None = None, limit: int = 100, offset: int = 0):
+    q = select(models.Client)
+    if search:
+        term = f"%{search.strip()}%"
+        q = q.where(or_(models.Client.full_name.ilike(term), models.Client.email.ilike(term), models.Client.phone.ilike(term), models.Client.country.ilike(term)))
+    if country:
+        q = q.where(models.Client.country.ilike(country.strip()))
+    if campaign_id is not None:
+        q = q.where(models.Client.campaign_id == campaign_id)
+    q = q.order_by(desc(models.Client.created_at)).offset(offset).limit(limit)
+    return [_client_out(db, x) for x in db.scalars(q).all()]
+
+
+def get_client(db: Session, client_id: int):
+    obj = db.get(models.Client, client_id)
+    return _client_out(db, obj) if obj else None
+
+
+def update_client(db: Session, client_id: int, data: schemas.ClientUpdate):
+    obj = db.get(models.Client, client_id)
+    if not obj:
+        return None
+    payload = data.model_dump(exclude_unset=True, mode="json")
+    for key in ["full_name", "age", "email", "phone", "country", "state", "city", "nationality", "gender", "public_id", "sex", "social_network", "campaign_id", "notes"]:
+        if key in payload:
+            val = payload[key]
+            if isinstance(val, str):
+                val = val.strip() or None
+            setattr(obj, key, val)
+    if "tags" in payload and payload["tags"] is not None:
+        obj.tags_json = json.dumps(payload["tags"])
+    if "public_id" in payload and payload["public_id"]:
+        public = db.get(models.Public, payload["public_id"])
+        if not public:
+            raise ValueError("Public not found")
+    if "sex" in payload and payload["sex"]:
+        obj.gender = payload["sex"]
+    campaign = db.get(models.ResearchCampaign, payload["campaign_id"])
+    if not campaign:
+        raise ValueError("Campaign not found")
+    obj.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(obj)
+    return _client_out(db, obj)
+
+
+def delete_client(db: Session, client_id: int):
+    obj = db.get(models.Client, client_id)
+    if not obj:
+        return None
+    db.execute(update(models.InterviewSession).where(models.InterviewSession.client_id == client_id).values(client_id=None))
+    db.delete(obj)
+    db.commit()
+    return {"deleted": True, "client_id": client_id}
+
+
+def list_client_interviews(db: Session, client_id: int):
+    q = select(models.InterviewSession).where(models.InterviewSession.client_id == client_id).order_by(desc(models.InterviewSession.created_at))
+    return [_session_out(db, item) for item in db.scalars(q).all()]
+
+
+def _validate_campaign_scope(db: Session, project_id: int, hypothesis_id: int | None):
+    project = db.get(models.CloudProject, project_id)
+    if not project:
+        raise ValueError("Project not found")
+    if hypothesis_id is None:
+        return project, None
+    hypothesis = db.get(models.Experiment, hypothesis_id)
+    if not hypothesis:
+        raise ValueError("Hypothesis not found")
+    hypothesis_key = drive_sync_service._normalize_project_key(hypothesis.project_name or "")
+    if hypothesis_key != project.project_key:
+        raise ValueError("Hypothesis must belong to selected project")
+    return project, hypothesis
+
+
+def _campaign_out(db: Session, campaign: models.ResearchCampaign) -> schemas.ResearchCampaignOut:
+    project = db.get(models.CloudProject, campaign.project_id)
+    hypothesis = db.get(models.Experiment, campaign.hypothesis_id) if campaign.hypothesis_id else None
+    hypothesis_name = None
+    if hypothesis:
+        hypothesis_name = (
+            (hypothesis.independent_variable or "").strip()
+            or (hypothesis.metric_x or "").strip()
+            or (hypothesis.hypothesis or "").strip()
+            or f"Hipótesis {hypothesis.id}"
+        )
+    return schemas.ResearchCampaignOut(
+        id=campaign.id,
+        name=campaign.name,
+        description=campaign.description,
+        project_id=campaign.project_id,
+        project_name=project.project_name if project else None,
+        hypothesis_id=campaign.hypothesis_id,
+        hypothesis_name=hypothesis_name,
+        metric_name=campaign.metric_name,
+        status=campaign.status,
+        start_date=campaign.start_date,
+        end_date=campaign.end_date,
+        created_at=campaign.created_at,
+        updated_at=campaign.updated_at,
+    )
+
+
+def create_research_campaign(db: Session, data: schemas.ResearchCampaignCreate):
+    _validate_campaign_scope(db, data.project_id, data.hypothesis_id)
+    obj = models.ResearchCampaign(
+        name=data.name.strip(),
+        description=(data.description or "").strip() or None,
+        project_id=data.project_id,
+        hypothesis_id=data.hypothesis_id,
+        metric_name=(data.metric_name or "").strip() or None,
+        status=data.status,
+        start_date=data.start_date,
+        end_date=data.end_date,
+    )
+    db.add(obj)
+    db.commit()
+    db.refresh(obj)
+    return _campaign_out(db, obj)
+
+
+def list_research_campaigns(db: Session, project_id: int | None = None, status: str | None = None, search: str | None = None):
+    q = select(models.ResearchCampaign)
+    if project_id is not None:
+        q = q.where(models.ResearchCampaign.project_id == project_id)
+    if status:
+        q = q.where(models.ResearchCampaign.status == status)
+    if search:
+        term = f"%{search.strip()}%"
+        q = q.where(or_(models.ResearchCampaign.name.ilike(term), models.ResearchCampaign.description.ilike(term)))
+    q = q.order_by(desc(models.ResearchCampaign.created_at))
+    return [_campaign_out(db, campaign) for campaign in db.scalars(q).all()]
+
+
+def get_research_campaign(db: Session, campaign_id: int):
+    obj = db.get(models.ResearchCampaign, campaign_id)
+    return _campaign_out(db, obj) if obj else None
+
+
+def update_research_campaign(db: Session, campaign_id: int, data: schemas.ResearchCampaignUpdate):
+    obj = db.get(models.ResearchCampaign, campaign_id)
+    if not obj:
+        return None
+    payload = data.model_dump(exclude_unset=True, mode="json")
+    next_project_id = payload.get("project_id", obj.project_id)
+    next_hypothesis_id = payload.get("hypothesis_id", obj.hypothesis_id)
+    _validate_campaign_scope(db, next_project_id, next_hypothesis_id)
+
+    for key in ["name", "description", "project_id", "hypothesis_id", "metric_name", "status", "start_date", "end_date"]:
+        if key in payload:
+            val = payload[key]
+            if isinstance(val, str):
+                val = val.strip() or None
+            setattr(obj, key, val)
+    obj.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(obj)
+    return _campaign_out(db, obj)
+
+
+def delete_research_campaign(db: Session, campaign_id: int):
+    obj = db.get(models.ResearchCampaign, campaign_id)
+    if not obj:
+        return None
+    clients_count = db.scalar(select(func.count(models.Client.id)).where(models.Client.campaign_id == campaign_id)) or 0
+    templates_count = db.scalar(select(func.count(models.InterviewTemplate.id)).where(models.InterviewTemplate.campaign_id == campaign_id)) or 0
+    sessions_count = db.scalar(select(func.count(models.InterviewSession.id)).where(models.InterviewSession.campaign_id == campaign_id)) or 0
+    if clients_count or templates_count or sessions_count:
+        raise ValueError("Cannot delete campaign with associated clients/templates/interviews")
+    db.delete(obj)
+    db.commit()
+    return {"deleted": True, "campaign_id": campaign_id}
+
+
+def list_campaign_clients(db: Session, campaign_id: int):
+    return list_clients(db, campaign_id=campaign_id, limit=500, offset=0)
+
+
+def list_campaign_templates(db: Session, campaign_id: int):
+    return list_interview_templates(db, campaign_id=campaign_id)
+
+
+def list_campaign_interviews(db: Session, campaign_id: int, limit: int = 200, offset: int = 0):
+    return list_interviews_v2(db, campaign_id=campaign_id, limit=limit, offset=offset)
+
+
+def create_interview_v2(db: Session, data: schemas.InterviewSessionCreateV2):
+    campaign = db.get(models.ResearchCampaign, data.campaign_id)
+    if not campaign:
+        raise ValueError("Campaign not found")
+    if campaign.project_id != data.project_id:
+        raise ValueError("Campaign project mismatch")
+    if campaign.hypothesis_id is not None and data.hypothesis_id != campaign.hypothesis_id:
+        raise ValueError("Hypothesis does not match campaign")
+
+    template = db.get(models.InterviewTemplate, data.template_id)
+    if not template:
+        raise ValueError("Template not found")
+    if template.campaign_id != data.campaign_id:
+        raise ValueError("Template must belong to selected campaign")
+
+    client = db.get(models.Client, data.client_id) if data.client_id is not None else None
+    if data.client_id is not None and (not client or client.campaign_id != data.campaign_id):
+        raise ValueError("Client must belong to selected campaign")
+
+    metric_name = (data.metric_name or "").strip() or None
+    if campaign.metric_name and metric_name and campaign.metric_name != metric_name:
+        raise ValueError("Metric does not match campaign")
+    if campaign.metric_name and not metric_name:
+        metric_name = campaign.metric_name
+
+    obj = models.InterviewSession(
+        project_id=data.project_id,
+        hypothesis_id=data.hypothesis_id,
+        client_id=data.client_id,
+        template_id=data.template_id,
+        metric_name=metric_name,
+        campaign_id=data.campaign_id,
+        interviewee_name=data.interviewee_name.strip(),
+        responses_json=json.dumps(data.responses_json or {}),
+        notes=(data.notes or "").strip() or None,
+    )
+    db.add(obj)
+    db.commit()
+    db.refresh(obj)
+    return _session_out(db, obj)
+
+
+def list_interviews_v2(db: Session, project_id: int | None = None, hypothesis_id: int | None = None, client_id: int | None = None, campaign_id: int | None = None, limit: int = 100, offset: int = 0):
+    q = select(models.InterviewSession)
+    if project_id is not None:
+        q = q.where(models.InterviewSession.project_id == project_id)
+    if hypothesis_id is not None:
+        q = q.where(models.InterviewSession.hypothesis_id == hypothesis_id)
+    if client_id is not None:
+        q = q.where(models.InterviewSession.client_id == client_id)
+    if campaign_id is not None:
+        q = q.where(models.InterviewSession.campaign_id == campaign_id)
+    q = q.order_by(desc(models.InterviewSession.created_at)).offset(offset).limit(limit)
+    return [_session_out(db, item) for item in db.scalars(q).all()]
+
+
+def patch_interview_v2(db: Session, interview_id: int, data: schemas.InterviewSessionPatchV2):
+    obj = db.get(models.InterviewSession, interview_id)
+    if not obj:
+        return None
+    payload = data.model_dump(exclude_unset=True, mode="json")
+
+    campaign = db.get(models.ResearchCampaign, payload["campaign_id"])
+    if not campaign:
+        raise ValueError("Campaign not found")
+
+    project_id = payload.get("project_id", obj.project_id)
+    if project_id != campaign.project_id:
+        raise ValueError("Campaign project mismatch")
+
+    hypothesis_id = payload.get("hypothesis_id", obj.hypothesis_id)
+    if campaign.hypothesis_id is not None and hypothesis_id != campaign.hypothesis_id:
+        raise ValueError("Hypothesis does not match campaign")
+
+    template_id = payload.get("template_id", obj.template_id)
+    template = db.get(models.InterviewTemplate, template_id)
+    if not template or template.campaign_id != payload["campaign_id"]:
+        raise ValueError("Template must belong to selected campaign")
+
+    client_id = payload.get("client_id", obj.client_id)
+    if client_id is not None:
+        client = db.get(models.Client, client_id)
+        if not client or client.campaign_id != payload["campaign_id"]:
+            raise ValueError("Client must belong to selected campaign")
+
+    metric_name = (payload.get("metric_name", obj.metric_name) or "").strip() or None
+    if campaign.metric_name and metric_name and metric_name != campaign.metric_name:
+        raise ValueError("Metric does not match campaign")
+    metric_name = metric_name or campaign.metric_name
+
+    for key in ["project_id", "hypothesis_id", "client_id", "template_id", "interviewee_name", "campaign_id", "notes"]:
+        if key in payload:
+            val = payload[key]
+            if isinstance(val, str):
+                val = val.strip() or None
+            setattr(obj, key, val)
+    obj.metric_name = metric_name
+    if "responses_json" in payload and payload["responses_json"] is not None:
+        obj.responses_json = json.dumps(payload["responses_json"])
+    obj.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(obj)
+    return _session_out(db, obj)
+
+
+def create_interview_attachment(db: Session, interview_id: int, filename: str, content_type: str | None, size: int, storage_path: str):
+    obj = models.InterviewAttachment(
+        interview_session_id=interview_id,
+        filename=filename,
+        content_type=content_type,
+        size=size,
+        storage_path=storage_path,
+    )
+    db.add(obj)
+    db.commit()
+    db.refresh(obj)
+    return schemas.InterviewAttachmentOut.model_validate(obj)
+
+
+def list_interview_attachments(db: Session, interview_id: int):
+    q = select(models.InterviewAttachment).where(models.InterviewAttachment.interview_session_id == interview_id).order_by(desc(models.InterviewAttachment.created_at))
+    return [schemas.InterviewAttachmentOut.model_validate(x) for x in db.scalars(q).all()]
+
+
+def get_attachment(db: Session, attachment_id: int):
+    return db.get(models.InterviewAttachment, attachment_id)
+
+
+def delete_attachment(db: Session, attachment_id: int):
+    obj = db.get(models.InterviewAttachment, attachment_id)
+    if not obj:
+        return None
+    db.delete(obj)
+    db.commit()
+    return obj

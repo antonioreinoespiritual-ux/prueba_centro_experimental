@@ -4,12 +4,13 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Optional, Literal, Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 TrafficType = Literal["paid", "organic", "mixed", "live"]
 
 HypothesisType = Literal[
+    # legacy values (backward compatibility)
     "acquisition",
     "activation",
     "retention",
@@ -19,7 +20,47 @@ HypothesisType = Literal[
     "channel_fit",
     "pricing",
     "funnel_friction",
+    # canonical values
+    "ACQUISITION",
+    "ACTIVATION",
+    "RETENTION",
+    "MONETIZATION",
+    "TRUST",
+    "MESSAGE_MARKET_FIT",
+    "CHANNEL_FIT",
+    "PRICING",
+    "FUNNEL_FRICTION",
+    # new canonical values
+    "PROBLEM",
+    "CUSTOMER_SEGMENT",
+    "SOLUTION",
+    "VALUE",
 ]
+
+
+_HYPOTHESIS_TYPE_NORMALIZATION = {
+    "problema": "PROBLEM",
+    "problem": "PROBLEM",
+    "cliente_segmento": "CUSTOMER_SEGMENT",
+    "cliente-segmento": "CUSTOMER_SEGMENT",
+    "customer_segment": "CUSTOMER_SEGMENT",
+    "customer-segment": "CUSTOMER_SEGMENT",
+    "solucion": "SOLUTION",
+    "solución": "SOLUTION",
+    "solution": "SOLUTION",
+    "valor": "VALUE",
+    "value": "VALUE",
+}
+
+
+def _normalize_hypothesis_type(value: str | None) -> str | None:
+    if value is None:
+        return None
+    stripped = value.strip()
+    if not stripped:
+        return None
+    lowered = stripped.lower()
+    return _HYPOTHESIS_TYPE_NORMALIZATION.get(lowered, stripped)
 
 ExperimentStatus = Literal[
     "draft",
@@ -174,6 +215,11 @@ class AIAnalysisResponse(BaseModel):
 
 # ---------- Experiments ----------
 class ExperimentCreate(BaseModel):
+    @field_validator("hypothesis_type", mode="before")
+    @classmethod
+    def normalize_hypothesis_type(cls, value: str | None):
+        return _normalize_hypothesis_type(value)
+
     project_name: str = Field(min_length=1, max_length=200)
     hypothesis: str = Field(min_length=1, max_length=5000)
     traffic_type: TrafficType
@@ -197,6 +243,11 @@ class ExperimentCreate(BaseModel):
 
 
 class ExperimentUpdate(BaseModel):
+    @field_validator("hypothesis_type", mode="before")
+    @classmethod
+    def normalize_hypothesis_type(cls, value: str | None):
+        return _normalize_hypothesis_type(value)
+
     hypothesis: Optional[str] = Field(default=None, min_length=1, max_length=5000)
     hypothesis_type: Optional[HypothesisType] = None
     independent_variable: Optional[str] = Field(default=None, max_length=500)
@@ -647,3 +698,207 @@ class CloudProjectHypothesisOut(BaseModel):
     experiment_id: int
     display_name: str
     drive_folder_path: Optional[str] = None
+
+
+# ---------- Interviews ----------
+class InterviewQuestion(BaseModel):
+    id: str
+    label: str
+    type: Literal["short_text", "long_text", "multiple_choice", "checkbox", "scale_1_5"]
+    options: list[str] = []
+    required: bool = False
+
+
+class InterviewTemplateCreate(BaseModel):
+    project_id: int
+    name: str = Field(min_length=1, max_length=200)
+    description: Optional[str] = Field(default=None, max_length=5000)
+    fields_json: dict[str, list[InterviewQuestion]]
+    campaign_id: int
+
+
+class InterviewTemplateUpdate(BaseModel):
+    name: Optional[str] = Field(default=None, min_length=1, max_length=200)
+    description: Optional[str] = Field(default=None, max_length=5000)
+    fields_json: Optional[dict[str, list[InterviewQuestion]]] = None
+    campaign_id: int
+
+
+class InterviewTemplateOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    project_id: int
+    name: str
+    description: Optional[str] = None
+    fields_json: dict[str, Any]
+    campaign_id: int
+    campaign_name: Optional[str] = None
+    created_at: datetime
+
+
+class InterviewSessionCreate(BaseModel):
+    template_id: int
+    project_id: int
+    hypothesis_id: Optional[int] = None
+    client_id: Optional[int] = None
+    metric_name: Optional[str] = None
+    campaign_id: int
+    interviewee_name: str = Field(min_length=1, max_length=200)
+    notes: Optional[str] = Field(default=None, max_length=50000)
+    responses_json: dict[str, Any] = Field(default_factory=dict)
+
+
+class InterviewSessionUpdate(BaseModel):
+    hypothesis_id: Optional[int] = None
+    client_id: Optional[int] = None
+    template_id: Optional[int] = None
+    metric_name: Optional[str] = None
+    campaign_id: int
+    interviewee_name: Optional[str] = Field(default=None, min_length=1, max_length=200)
+    notes: Optional[str] = Field(default=None, max_length=50000)
+    responses_json: Optional[dict[str, Any]] = None
+
+
+class InterviewSessionOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    template_id: int
+    project_id: int
+    hypothesis_id: Optional[int] = None
+    client_id: Optional[int] = None
+    metric_name: Optional[str] = None
+    campaign_id: int
+    campaign_name: Optional[str] = None
+    interviewee_name: str
+    notes: Optional[str] = None
+    responses_json: dict[str, Any]
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+# ---------- Clients (CRM mínimo) ----------
+class ClientBase(BaseModel):
+    full_name: str = Field(min_length=1, max_length=200)
+    age: Optional[int] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    country: str = Field(min_length=1, max_length=120)
+    state: Optional[str] = None
+    city: Optional[str] = None
+    nationality: Optional[str] = None
+    gender: Optional[str] = None  # backward compatibility
+    public_id: Optional[int] = None
+    sex: Optional[Literal["Hombre", "Mujer", "Otro", "Prefiero no decir"]] = None
+    social_network: Optional[Literal["Instagram", "WhatsApp", "TikTok", "Facebook"]] = None
+    campaign_id: int
+    tags: list[str] = Field(default_factory=list)
+    notes: Optional[str] = None
+
+
+class ClientCreate(ClientBase):
+    pass
+
+
+class ClientUpdate(BaseModel):
+    full_name: Optional[str] = Field(default=None, min_length=1, max_length=200)
+    age: Optional[int] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    country: Optional[str] = Field(default=None, min_length=1, max_length=120)
+    state: Optional[str] = None
+    city: Optional[str] = None
+    nationality: Optional[str] = None
+    gender: Optional[str] = None
+    public_id: Optional[int] = None
+    sex: Optional[Literal["Hombre", "Mujer", "Otro", "Prefiero no decir"]] = None
+    social_network: Optional[Literal["Instagram", "WhatsApp", "TikTok", "Facebook"]] = None
+    campaign_id: int
+    tags: Optional[list[str]] = None
+    notes: Optional[str] = None
+
+
+class ClientOut(ClientBase):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    public_name: Optional[str] = None
+    campaign_id: int
+    campaign_name: Optional[str] = None
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+
+class InterviewSessionCreateV2(BaseModel):
+    project_id: int
+    hypothesis_id: Optional[int] = None
+    client_id: Optional[int] = None
+    template_id: int
+    metric_name: Optional[str] = None
+    campaign_id: int
+    interviewee_name: str = Field(min_length=1, max_length=200)
+    responses_json: dict[str, Any] = Field(default_factory=dict)
+    notes: Optional[str] = None
+
+
+class InterviewSessionPatchV2(BaseModel):
+    hypothesis_id: Optional[int] = None
+    client_id: Optional[int] = None
+    template_id: Optional[int] = None
+    metric_name: Optional[str] = None
+    campaign_id: int
+    interviewee_name: Optional[str] = Field(default=None, min_length=1, max_length=200)
+    responses_json: Optional[dict[str, Any]] = None
+    notes: Optional[str] = None
+
+
+class InterviewAttachmentOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    interview_session_id: int
+    filename: str
+    content_type: Optional[str] = None
+    size: int
+    storage_path: str
+    created_at: datetime
+
+
+class ResearchCampaignCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    description: Optional[str] = None
+    project_id: int
+    hypothesis_id: Optional[int] = None
+    metric_name: Optional[str] = None
+    status: Literal["planned", "running", "paused", "completed"] = "planned"
+    start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None
+
+
+class ResearchCampaignUpdate(BaseModel):
+    name: Optional[str] = Field(default=None, min_length=1, max_length=200)
+    description: Optional[str] = None
+    project_id: Optional[int] = None
+    hypothesis_id: Optional[int] = None
+    metric_name: Optional[str] = None
+    status: Optional[Literal["planned", "running", "paused", "completed"]] = None
+    start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None
+
+
+class ResearchCampaignOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    description: Optional[str] = None
+    project_id: int
+    project_name: Optional[str] = None
+    hypothesis_id: Optional[int] = None
+    hypothesis_name: Optional[str] = None
+    metric_name: Optional[str] = None
+    status: str
+    start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None
+    created_at: datetime
+    updated_at: Optional[datetime] = None

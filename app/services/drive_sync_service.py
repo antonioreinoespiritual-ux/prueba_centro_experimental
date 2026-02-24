@@ -71,6 +71,14 @@ def _normalize_project_key(value: str) -> str:
     return normalized or "proyecto"
 
 
+def _normalize_folder_slug(value: str) -> str:
+    normalized = unicodedata.normalize("NFKD", value.strip().lower())
+    normalized = "".join(ch for ch in normalized if not unicodedata.combining(ch))
+    normalized = re.sub(r"[^a-z0-9]+", "-", normalized)
+    normalized = re.sub(r"-{2,}", "-", normalized).strip("-")
+    return normalized or "item"
+
+
 def _build_folder_name(prefix: str, item_id: int, name: str) -> str:
     return f"{prefix}{item_id}_{_slugify(name)}"
 
@@ -165,6 +173,20 @@ def _move_tree_merge(source: Path, dest: Path) -> int:
     return moved
 
 
+def _archive_path(name: str) -> Path:
+    base = safe_join(CLOUD_ROOT, "_Archived")
+    base.mkdir(parents=True, exist_ok=True)
+    candidate = base / name
+    if not candidate.exists():
+        return candidate
+    suffix = 1
+    while True:
+        candidate = base / f"{name}-{suffix}"
+        if not candidate.exists():
+            return candidate
+        suffix += 1
+
+
 def _consolidate_legacy_projects() -> dict[str, int]:
     projects_root = safe_join(CLOUD_ROOT, CLOUD_PROJECTS_DIR)
     consolidated = 0
@@ -185,6 +207,88 @@ def _consolidate_legacy_projects() -> dict[str, int]:
             shutil.move(str(entry), str(target))
         consolidated += 1
     return {"consolidated": consolidated, "moved_items": moved_items}
+
+
+def consolidate_duplicates(db: Session) -> dict[str, int]:
+    ensure_base_folders()
+    projects_root = safe_join(CLOUD_ROOT, CLOUD_PROJECTS_DIR)
+    if not projects_root.exists():
+        return {"projects_consolidated": 0, "hypotheses_consolidated": 0, "updated_records": 0, "updated_experiments": 0}
+
+    projects_by_slug: dict[str, list[Path]] = {}
+    for entry in projects_root.iterdir():
+        if entry.is_dir():
+            projects_by_slug.setdefault(_normalize_folder_slug(entry.name), []).append(entry)
+
+    projects_consolidated = 0
+    hypotheses_consolidated = 0
+    updated_records = 0
+    updated_experiments = 0
+
+    for slug, dirs in projects_by_slug.items():
+        if len(dirs) <= 1:
+            continue
+        dirs.sort(key=lambda p: p.name)
+        canonical = next((path for path in dirs if path.name == slug), dirs[0])
+        old_name = canonical.name
+        if canonical.name != slug:
+            target = projects_root / slug
+            if target.exists():
+                canonical = target
+            else:
+                shutil.move(str(canonical), str(target))
+                canonical = target
+            old_prefix = f"{CLOUD_PROJECTS_DIR}/{old_name}/"
+            new_prefix = f"{CLOUD_PROJECTS_DIR}/{slug}/"
+            for exp in db.scalars(select(models.Experiment)).all():
+                if exp.drive_folder_path and exp.drive_folder_path.startswith(old_prefix):
+                    exp.drive_folder_path = exp.drive_folder_path.replace(old_prefix, new_prefix, 1)
+                    updated_experiments += 1
+            for record in db.scalars(select(models.ExperimentRecord)).all():
+                if record.drive_folder_path and record.drive_folder_path.startswith(old_prefix):
+                    record.drive_folder_path = record.drive_folder_path.replace(old_prefix, new_prefix, 1)
+                    updated_records += 1
+            for project in db.scalars(select(models.CloudProject)).all():
+                if project.folder_path and project.folder_path.startswith(old_prefix):
+                    project.folder_path = project.folder_path.replace(old_prefix, new_prefix, 1)
+
+        for duplicate in dirs:
+            if duplicate == canonical:
+                continue
+            dup_prefix = f"{CLOUD_PROJECTS_DIR}/{duplicate.name}/"
+            canonical_prefix = f"{CLOUD_PROJECTS_DIR}/{canonical.name}/"
+            for exp in db.scalars(select(models.Experiment)).all():
+                if exp.drive_folder_path and exp.drive_folder_path.startswith(dup_prefix):
+                    exp.drive_folder_path = exp.drive_folder_path.replace(dup_prefix, canonical_prefix, 1)
+                    updated_experiments += 1
+            for record in db.scalars(select(models.ExperimentRecord)).all():
+                if record.drive_folder_path and record.drive_folder_path.startswith(dup_prefix):
+                    record.drive_folder_path = record.drive_folder_path.replace(dup_prefix, canonical_prefix, 1)
+                    updated_records += 1
+            for project in db.scalars(select(models.CloudProject)).all():
+                if project.folder_path and project.folder_path.startswith(dup_prefix):
+                    project.folder_path = project.folder_path.replace(dup_prefix, canonical_prefix, 1)
+            _move_tree_merge(duplicate, canonical)
+            if duplicate.exists():
+                shutil.move(str(duplicate), str(_archive_path(duplicate.name)))
+            projects_consolidated += 1
+
+        hypotheses_dir = canonical / "Hypotheses"
+        for entry in canonical.iterdir():
+            if entry.is_dir() and entry.name.startswith("Hypotheses_dup"):
+                hypotheses_dir.mkdir(parents=True, exist_ok=True)
+                _move_tree_merge(entry, hypotheses_dir)
+                if entry.exists():
+                    shutil.move(str(entry), str(_archive_path(entry.name)))
+                hypotheses_consolidated += 1
+
+    db.commit()
+    return {
+        "projects_consolidated": projects_consolidated,
+        "hypotheses_consolidated": hypotheses_consolidated,
+        "updated_records": updated_records,
+        "updated_experiments": updated_experiments,
+    }
 
 
 def get_or_create_project(db: Session, project_name: str) -> models.CloudProject:
@@ -241,6 +345,15 @@ def record_root(project: models.CloudProject, record: models.ExperimentRecord, e
     return f"{hypothesis_rel}/Records/{folder_name}"
 
 
+def ensure_records_folder(project: models.CloudProject, experiment: models.Experiment) -> bool:
+    records_rel = f"{hypothesis_root(project, experiment)}/Records"
+    records_path = safe_join(CLOUD_ROOT, records_rel)
+    if records_path.exists():
+        return False
+    records_path.mkdir(parents=True, exist_ok=True)
+    return True
+
+
 
 def ensure_hypothesis_folder(db: Session, experiment: models.Experiment) -> models.Experiment:
     ensure_base_folders()
@@ -252,6 +365,7 @@ def ensure_hypothesis_folder(db: Session, experiment: models.Experiment) -> mode
         db.add(experiment)
         db.commit()
         db.refresh(experiment)
+    ensure_records_folder(project, experiment)
     return experiment
 
 
@@ -262,6 +376,7 @@ def ensure_record_folder(db: Session, record: models.ExperimentRecord) -> models
         return record
     experiment = ensure_hypothesis_folder(db, experiment)
     project = get_or_create_project(db, experiment.project_name)
+    ensure_records_folder(project, experiment)
     base_rel = f"{hypothesis_root(project, experiment)}/Records"
     folder_name = _extract_folder_segment(record.drive_folder_path, "R") or _build_folder_name(
         "R",
@@ -309,6 +424,9 @@ def backfill_all(db: Session) -> dict[str, int]:
     moved = 0
     updated = 0
     skipped = 0
+    created_records_folder = 0
+    moved_records = 0
+    fixed_parent_id = 0
     errors: list[str] = []
 
     for exp in db.scalars(select(models.Experiment)).all():
@@ -323,6 +441,9 @@ def backfill_all(db: Session) -> dict[str, int]:
             )
         try:
             exp = ensure_hypothesis_folder(db, exp)
+            project = get_or_create_project(db, exp.project_name)
+            if ensure_records_folder(project, exp):
+                created_records_folder += 1
             if before is None and exp.drive_folder_path:
                 created += 1
                 updated += 1
@@ -338,6 +459,14 @@ def backfill_all(db: Session) -> dict[str, int]:
         before = record.drive_folder_path
         try:
             record = ensure_record_folder(db, record)
+            experiment = db.get(models.Experiment, record.experiment_id)
+            if experiment:
+                project = get_or_create_project(db, experiment.project_name)
+                desired_prefix = f"{hypothesis_root(project, experiment)}/Records/"
+                if record.drive_folder_path and before and not before.startswith(desired_prefix):
+                    if record.drive_folder_path.startswith(desired_prefix):
+                        moved_records += 1
+                        fixed_parent_id += 1
             if before is None and record.drive_folder_path:
                 created += 1
                 updated += 1
@@ -353,6 +482,9 @@ def backfill_all(db: Session) -> dict[str, int]:
         "created": created,
         "project_consolidated": consolidation["consolidated"],
         "project_consolidated_items": consolidation["moved_items"],
+        "created_records_folder": created_records_folder,
+        "moved_records": moved_records,
+        "fixed_parent_id": fixed_parent_id,
         "moved": moved,
         "updated": updated,
         "skipped": skipped,

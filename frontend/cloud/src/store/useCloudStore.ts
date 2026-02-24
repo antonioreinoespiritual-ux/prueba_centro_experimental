@@ -8,6 +8,7 @@ import {
   deleteItem,
   downloadFile,
   fetchDisplayMap,
+  fetchHypothesisRecords,
   fetchItems,
   fetchLibraries,
   fetchProjectHypotheses,
@@ -18,7 +19,7 @@ import {
 } from '../api/cloud';
 
 type ViewMode = 'list' | 'grid';
-type NavigationMode = 'library' | 'projects' | 'project_hypotheses';
+type NavigationMode = 'library' | 'projects' | 'project_hypotheses' | 'hypothesis_records';
 
 interface BreadcrumbEntry {
   id: number | null;
@@ -37,6 +38,7 @@ interface CloudState {
   currentLibraryId: number | null;
   currentParentId: number | null;
   currentProject: CloudProject | null;
+  currentHypothesis: { id: number; name: string } | null;
   hypothesisPaths: Record<number, string>;
   loading: boolean;
   error: string | null;
@@ -79,6 +81,7 @@ export const useCloudStore = create<CloudState>((set, get) => ({
   currentLibraryId: null,
   currentParentId: null,
   currentProject: null,
+  currentHypothesis: null,
   hypothesisPaths: {},
   loading: false,
   error: null,
@@ -123,6 +126,7 @@ export const useCloudStore = create<CloudState>((set, get) => ({
       currentPath: [{ id: null, name: displayName }],
       navigationMode: 'library',
       currentProject: null,
+      currentHypothesis: null,
     });
     await get().loadItems();
   },
@@ -173,6 +177,32 @@ export const useCloudStore = create<CloudState>((set, get) => ({
         set({ items, displayMap, hypothesisPaths, loading: false });
         return;
       }
+      if (navigationMode === 'hypothesis_records' && get().currentHypothesis) {
+        const records = await fetchHypothesisRecords(get().currentHypothesis.id);
+        set({ items: records, loading: false });
+        if (records.length) {
+          try {
+            const displayEntries = await fetchDisplayMap({
+              library_id: currentLibraryId,
+              parent_id: records[0].parent_id ?? undefined,
+            });
+            const displayMap = displayEntries.reduce<Record<number, { display_name: string; badge?: string | null }>>(
+              (acc, entry) => {
+                acc[entry.item_id] = { display_name: entry.display_name, badge: entry.badge };
+                return acc;
+              },
+              {},
+            );
+            set({ displayMap });
+          } catch (displayError) {
+            console.warn('Display map error', displayError);
+            set({ displayMap: {} });
+          }
+        } else {
+          set({ displayMap: {} });
+        }
+        return;
+      }
       const items = await fetchItems({ library_id: currentLibraryId, parent_id: currentParentId });
       set({ items, loading: false });
       try {
@@ -215,13 +245,26 @@ export const useCloudStore = create<CloudState>((set, get) => ({
       return;
     }
     if (navigationMode === 'project_hypotheses') {
-      const relPath = get().hypothesisPaths[folder.id];
-      if (!relPath) {
-        set({ toast: 'Ruta de hipótesis no encontrada.' });
-        return;
-      }
-      set({ navigationMode: 'library', currentParentId: null });
-      await get().openSystemRelPath(relPath);
+      set({
+        navigationMode: 'hypothesis_records',
+        currentHypothesis: { id: folder.id, name: folder.name },
+        currentParentId: null,
+        currentPath: [
+          { id: null, name: 'Projects' },
+          { id: get().currentProject?.id ?? folder.id, name: get().currentProject?.project_name ?? folder.name },
+          { id: null, name: 'Hypotheses' },
+          { id: folder.id, name: folder.name },
+          { id: null, name: 'Records' },
+        ],
+      });
+      await get().loadItems();
+      return;
+    }
+    if (navigationMode === 'hypothesis_records') {
+      const { currentPath } = get();
+      const displayName = get().getDisplayNameForItem(folder);
+      set({ navigationMode: 'library', currentParentId: folder.id, currentPath: [...currentPath, { id: folder.id, name: displayName }] });
+      await get().loadItems();
       return;
     }
     const { currentPath } = get();
@@ -230,7 +273,7 @@ export const useCloudStore = create<CloudState>((set, get) => ({
     await get().loadItems();
   },
   goToBreadcrumb: async (index) => {
-    const { navigationMode, currentProject } = get();
+    const { navigationMode, currentProject, currentHypothesis } = get();
     if (navigationMode !== 'library') {
       if (index === 0) {
         await get().openProjectsRoot();
@@ -239,11 +282,27 @@ export const useCloudStore = create<CloudState>((set, get) => ({
       if (index === 1 && currentProject) {
         set({
           navigationMode: 'project_hypotheses',
+          currentHypothesis: null,
           currentParentId: null,
           currentPath: [
             { id: null, name: 'Projects' },
             { id: currentProject.id, name: currentProject.project_name },
             { id: null, name: 'Hypotheses' },
+          ],
+        });
+        await get().loadItems();
+        return;
+      }
+      if (navigationMode === 'hypothesis_records' && index >= 3 && currentHypothesis) {
+        set({
+          navigationMode: 'hypothesis_records',
+          currentParentId: null,
+          currentPath: [
+            { id: null, name: 'Projects' },
+            { id: currentProject?.id ?? currentHypothesis.id, name: currentProject?.project_name ?? currentHypothesis.name },
+            { id: null, name: 'Hypotheses' },
+            { id: currentHypothesis.id, name: currentHypothesis.name },
+            { id: null, name: 'Records' },
           ],
         });
         await get().loadItems();
@@ -291,7 +350,7 @@ export const useCloudStore = create<CloudState>((set, get) => ({
     } else {
       await get().loadItems();
     }
-    set({ navigationMode: 'library', currentProject: null });
+    set({ navigationMode: 'library', currentProject: null, currentHypothesis: null });
     for (const segment of segments) {
       const target = get().items.find(
         (item) => item.item_type === 'folder' && item.name.toLowerCase() === segment.toLowerCase(),
@@ -318,6 +377,7 @@ export const useCloudStore = create<CloudState>((set, get) => ({
     set({
       navigationMode: 'projects',
       currentProject: null,
+      currentHypothesis: null,
       currentParentId: null,
       currentPath: [{ id: null, name: 'Projects' }],
     });

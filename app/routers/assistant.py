@@ -726,8 +726,8 @@ def _build_context(
     )
     conversation_messages: list[ChatMessage] = []
     if conversation_id:
-        conversation_messages = list(
-            db.execute(
+        try:
+            message_query = (
                 select(ChatMessage)
                 .where(
                     ChatMessage.conversation_id == conversation_id,
@@ -735,8 +735,18 @@ def _build_context(
                 )
                 .order_by(desc(ChatMessage.created_at))
                 .limit(8)
-            ).scalars()
-        )
+            )
+        except Exception:
+            message_query = (
+                select(ChatMessage)
+                .where(
+                    ChatMessage.conversation_id == conversation_id,
+                    ChatMessage.assistant_type == assistant_type,
+                )
+                .order_by(desc(ChatMessage.id))
+                .limit(8)
+            )
+        conversation_messages = list(db.execute(message_query).scalars())
 
     ids = _extract_ids(message)
     matched_records: list[ExperimentRecord] = []

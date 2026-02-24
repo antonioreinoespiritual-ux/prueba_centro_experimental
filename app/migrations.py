@@ -7,6 +7,14 @@ from pathlib import Path
 from .database import DATABASE_URL
 
 
+def _is_sqlite() -> bool:
+    return DATABASE_URL.startswith("sqlite")
+
+
+def _current_timestamp_sql() -> str:
+    return "datetime('now')" if _is_sqlite() else "CURRENT_TIMESTAMP"
+
+
 def _column_exists(cursor: sqlite3.Cursor, table: str, column: str) -> bool:
     cursor.execute(f"PRAGMA table_info({table})")
     return any(row[1] == column for row in cursor.fetchall())
@@ -273,6 +281,17 @@ def ensure_schema() -> None:
             CREATE INDEX IF NOT EXISTS ix_chat_messages_assistant_type
             ON chat_messages (assistant_type)
         """)
+    if _column_exists(cur, "chat_messages", "created_at") is False:
+        if _is_sqlite():
+            cur.execute("ALTER TABLE chat_messages ADD COLUMN created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP")
+        else:
+            cur.execute("ALTER TABLE chat_messages ADD COLUMN created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP")
+    cur.execute(f"UPDATE chat_messages SET created_at = {_current_timestamp_sql()} WHERE created_at IS NULL")
+    if _column_exists(cur, "chat_messages", "updated_at") is False:
+        if _is_sqlite():
+            cur.execute("ALTER TABLE chat_messages ADD COLUMN updated_at DATETIME NULL")
+        else:
+            cur.execute("ALTER TABLE chat_messages ADD COLUMN updated_at TIMESTAMP NULL")
 
     # --- Assistant drafts ---
     cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='assistant_drafts'")
@@ -361,6 +380,308 @@ def ensure_schema() -> None:
                 CREATE INDEX IF NOT EXISTS ix_experiment_records_drive_folder_path
                 ON experiment_records (drive_folder_path)
             """)
+
+
+    # --- Research campaigns ---
+    cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='research_campaigns'")
+    if not cur.fetchone():
+        cur.execute(
+            """
+            CREATE TABLE research_campaigns (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name VARCHAR(200) NOT NULL,
+                description TEXT,
+                project_id INTEGER NOT NULL REFERENCES cloud_projects(id),
+                hypothesis_id INTEGER REFERENCES experiments(id),
+                metric_name VARCHAR(120),
+                status VARCHAR(20) NOT NULL DEFAULT 'planned',
+                start_date DATETIME,
+                end_date DATETIME,
+                created_at DATETIME NOT NULL DEFAULT (datetime('now')),
+                updated_at DATETIME
+            )
+            """
+        )
+    cur.execute("CREATE INDEX IF NOT EXISTS ix_research_campaigns_project_id ON research_campaigns (project_id)")
+    cur.execute("CREATE INDEX IF NOT EXISTS ix_research_campaigns_hypothesis_id ON research_campaigns (hypothesis_id)")
+    cur.execute("CREATE INDEX IF NOT EXISTS ix_research_campaigns_status ON research_campaigns (status)")
+
+    # --- Interviews ---
+    cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='interview_templates'")
+    if not cur.fetchone():
+        cur.execute(
+            """
+            CREATE TABLE interview_templates (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                project_id INTEGER NOT NULL REFERENCES cloud_projects(id),
+                name VARCHAR(200) NOT NULL,
+                description TEXT,
+                fields_json TEXT NOT NULL,
+                campaign_id INTEGER NOT NULL REFERENCES research_campaigns(id),
+                created_at DATETIME NOT NULL DEFAULT (datetime('now'))
+            )
+            """
+        )
+        cur.execute(
+            """
+            CREATE INDEX IF NOT EXISTS ix_interview_templates_project_id
+            ON interview_templates (project_id)
+            """
+        )
+
+
+    if _column_exists(cur, "interview_templates", "campaign_id") is False:
+        cur.execute("ALTER TABLE interview_templates ADD COLUMN campaign_id INTEGER REFERENCES research_campaigns(id)")
+    cur.execute("CREATE INDEX IF NOT EXISTS ix_interview_templates_campaign_id ON interview_templates (campaign_id)")
+
+    cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='interview_sessions'")
+    if not cur.fetchone():
+        cur.execute(
+            """
+            CREATE TABLE interview_sessions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                template_id INTEGER NOT NULL REFERENCES interview_templates(id),
+                project_id INTEGER NOT NULL REFERENCES cloud_projects(id),
+                hypothesis_id INTEGER REFERENCES experiments(id),
+                client_id INTEGER REFERENCES clients(id),
+                metric_name VARCHAR(120),
+                campaign_id INTEGER NOT NULL REFERENCES research_campaigns(id),
+                interviewee_name VARCHAR(200) NOT NULL,
+                notes TEXT,
+                responses_json TEXT NOT NULL,
+                created_at DATETIME NOT NULL DEFAULT (datetime('now')),
+                updated_at DATETIME
+            )
+            """
+        )
+        cur.execute(
+            """
+            CREATE INDEX IF NOT EXISTS ix_interview_sessions_project_id
+            ON interview_sessions (project_id)
+            """
+        )
+        cur.execute(
+            """
+            CREATE INDEX IF NOT EXISTS ix_interview_sessions_template_id
+            ON interview_sessions (template_id)
+            """
+        )
+        cur.execute(
+            """
+            CREATE INDEX IF NOT EXISTS ix_interview_sessions_hypothesis_id
+            ON interview_sessions (hypothesis_id)
+            """
+        )
+        cur.execute(
+            """
+            CREATE INDEX IF NOT EXISTS ix_interview_sessions_client_id
+            ON interview_sessions (client_id)
+            """
+        )
+
+
+    # --- Clients ---
+    cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='clients'")
+    if not cur.fetchone():
+        cur.execute(
+            """
+            CREATE TABLE clients (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                full_name VARCHAR(200) NOT NULL,
+                age INTEGER,
+                email VARCHAR(200),
+                phone VARCHAR(60),
+                country VARCHAR(120) NOT NULL,
+                state VARCHAR(120),
+                city VARCHAR(120),
+                nationality VARCHAR(120),
+                gender VARCHAR(60),
+                public_id INTEGER REFERENCES publics(id),
+                sex VARCHAR(40),
+                social_network VARCHAR(40),
+                campaign_id INTEGER NOT NULL REFERENCES research_campaigns(id),
+                tags_json TEXT,
+                notes TEXT,
+                created_at DATETIME NOT NULL DEFAULT (datetime('now')),
+                updated_at DATETIME
+            )
+            """
+        )
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_clients_full_name ON clients (full_name)")
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_clients_country ON clients (country)")
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_clients_email ON clients (email)")
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_clients_phone ON clients (phone)")
+
+    if _column_exists(cur, "clients", "public_id") is False:
+        cur.execute("ALTER TABLE clients ADD COLUMN public_id INTEGER REFERENCES publics(id)")
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_clients_public_id ON clients (public_id)")
+    if _column_exists(cur, "clients", "sex") is False:
+        cur.execute("ALTER TABLE clients ADD COLUMN sex VARCHAR(40)")
+    if _column_exists(cur, "clients", "social_network") is False:
+        cur.execute("ALTER TABLE clients ADD COLUMN social_network VARCHAR(40)")
+
+    if _column_exists(cur, "clients", "campaign_id") is False:
+        cur.execute("ALTER TABLE clients ADD COLUMN campaign_id INTEGER REFERENCES research_campaigns(id)")
+    cur.execute("CREATE INDEX IF NOT EXISTS ix_clients_campaign_id ON clients (campaign_id)")
+
+    # --- Interview sessions additive columns ---
+    if _column_exists(cur, "interview_sessions", "hypothesis_id") is False:
+        cur.execute("ALTER TABLE interview_sessions ADD COLUMN hypothesis_id INTEGER REFERENCES experiments(id)")
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_interview_sessions_hypothesis_id ON interview_sessions (hypothesis_id)")
+    if _column_exists(cur, "interview_sessions", "client_id") is False:
+        cur.execute("ALTER TABLE interview_sessions ADD COLUMN client_id INTEGER REFERENCES clients(id)")
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_interview_sessions_client_id ON interview_sessions (client_id)")
+    if _column_exists(cur, "interview_sessions", "metric_name") is False:
+        cur.execute("ALTER TABLE interview_sessions ADD COLUMN metric_name VARCHAR(120)")
+
+    if _column_exists(cur, "interview_sessions", "campaign_id") is False:
+        cur.execute("ALTER TABLE interview_sessions ADD COLUMN campaign_id INTEGER REFERENCES research_campaigns(id)")
+    cur.execute("CREATE INDEX IF NOT EXISTS ix_interview_sessions_campaign_id ON interview_sessions (campaign_id)")
+    if _column_exists(cur, "interview_sessions", "updated_at") is False:
+        cur.execute("ALTER TABLE interview_sessions ADD COLUMN updated_at DATETIME")
+
+    # --- Backfill campaign_id for legacy rows (mandatory campaign container) ---
+    default_campaign_cache: dict[tuple[int, int | None], int] = {}
+
+    def _ensure_default_campaign(project_id: int, hypothesis_id: int | None = None) -> int:
+        key = (project_id, hypothesis_id)
+        if key in default_campaign_cache:
+            return default_campaign_cache[key]
+        cur.execute(
+            """
+            SELECT id FROM research_campaigns
+            WHERE project_id = ? AND ((hypothesis_id IS NULL AND ? IS NULL) OR hypothesis_id = ?) AND name = ?
+            ORDER BY id ASC LIMIT 1
+            """,
+            (project_id, hypothesis_id, hypothesis_id, "Campaña default"),
+        )
+        row = cur.fetchone()
+        if row:
+            default_campaign_cache[key] = int(row[0])
+            return int(row[0])
+        cur.execute(
+            """
+            INSERT INTO research_campaigns (name, description, project_id, hypothesis_id, status, created_at, updated_at)
+            VALUES (?, ?, ?, ?, 'running', datetime('now'), datetime('now'))
+            """,
+            ("Campaña default", "Campaña creada automáticamente para compatibilidad.", project_id, hypothesis_id),
+        )
+        campaign_id = int(cur.lastrowid)
+        default_campaign_cache[key] = campaign_id
+        return campaign_id
+
+    # clients without campaign -> assign by most recent interview project fallback
+    cur.execute("SELECT id FROM clients WHERE campaign_id IS NULL")
+    missing_client_ids = [int(row[0]) for row in cur.fetchall()]
+    for client_id in missing_client_ids:
+        cur.execute(
+            "SELECT project_id, hypothesis_id FROM interview_sessions WHERE client_id = ? ORDER BY created_at DESC LIMIT 1",
+            (client_id,),
+        )
+        row = cur.fetchone()
+        project_id = int(row[0]) if row else 1
+        hypothesis_id = int(row[1]) if row and row[1] is not None else None
+        campaign_id = _ensure_default_campaign(project_id, hypothesis_id)
+        cur.execute("UPDATE clients SET campaign_id = ? WHERE id = ?", (campaign_id, client_id))
+
+    # templates without campaign -> assign by project
+    cur.execute("SELECT id, project_id FROM interview_templates WHERE campaign_id IS NULL")
+    for tpl_id, project_id in cur.fetchall():
+        campaign_id = _ensure_default_campaign(int(project_id), None)
+        cur.execute("UPDATE interview_templates SET campaign_id = ? WHERE id = ?", (campaign_id, int(tpl_id)))
+
+    # sessions without campaign -> assign by project/hypothesis and align template/client
+    cur.execute("SELECT id, project_id, hypothesis_id, template_id, client_id FROM interview_sessions")
+    for session_id, project_id, hypothesis_id, template_id, client_id in cur.fetchall():
+        effective_campaign_id = None
+        cur.execute("SELECT campaign_id FROM interview_sessions WHERE id = ?", (int(session_id),))
+        existing = cur.fetchone()
+        if existing and existing[0] is not None:
+            effective_campaign_id = int(existing[0])
+        if effective_campaign_id is None:
+            effective_campaign_id = _ensure_default_campaign(int(project_id), int(hypothesis_id) if hypothesis_id is not None else None)
+            cur.execute("UPDATE interview_sessions SET campaign_id = ? WHERE id = ?", (effective_campaign_id, int(session_id)))
+
+        # align template campaign
+        cur.execute("SELECT campaign_id FROM interview_templates WHERE id = ?", (int(template_id),))
+        tpl_row = cur.fetchone()
+        if tpl_row and tpl_row[0] is None:
+            cur.execute("UPDATE interview_templates SET campaign_id = ? WHERE id = ?", (effective_campaign_id, int(template_id)))
+
+        # align client campaign
+        if client_id is not None:
+            cur.execute("SELECT campaign_id FROM clients WHERE id = ?", (int(client_id),))
+            c_row = cur.fetchone()
+            if c_row and c_row[0] is None:
+                cur.execute("UPDATE clients SET campaign_id = ? WHERE id = ?", (effective_campaign_id, int(client_id)))
+
+    # safety triggers for sqlite legacy tables that cannot be ALTERed to NOT NULL
+    cur.execute("""
+        CREATE TRIGGER IF NOT EXISTS trg_clients_campaign_not_null_insert
+        BEFORE INSERT ON clients FOR EACH ROW
+        WHEN NEW.campaign_id IS NULL
+        BEGIN
+            SELECT RAISE(ABORT, 'campaign_id is required for clients');
+        END;
+    """)
+    cur.execute("""
+        CREATE TRIGGER IF NOT EXISTS trg_clients_campaign_not_null_update
+        BEFORE UPDATE ON clients FOR EACH ROW
+        WHEN NEW.campaign_id IS NULL
+        BEGIN
+            SELECT RAISE(ABORT, 'campaign_id is required for clients');
+        END;
+    """)
+    cur.execute("""
+        CREATE TRIGGER IF NOT EXISTS trg_templates_campaign_not_null_insert
+        BEFORE INSERT ON interview_templates FOR EACH ROW
+        WHEN NEW.campaign_id IS NULL
+        BEGIN
+            SELECT RAISE(ABORT, 'campaign_id is required for interview_templates');
+        END;
+    """)
+    cur.execute("""
+        CREATE TRIGGER IF NOT EXISTS trg_templates_campaign_not_null_update
+        BEFORE UPDATE ON interview_templates FOR EACH ROW
+        WHEN NEW.campaign_id IS NULL
+        BEGIN
+            SELECT RAISE(ABORT, 'campaign_id is required for interview_templates');
+        END;
+    """)
+    cur.execute("""
+        CREATE TRIGGER IF NOT EXISTS trg_sessions_campaign_not_null_insert
+        BEFORE INSERT ON interview_sessions FOR EACH ROW
+        WHEN NEW.campaign_id IS NULL
+        BEGIN
+            SELECT RAISE(ABORT, 'campaign_id is required for interview_sessions');
+        END;
+    """)
+    cur.execute("""
+        CREATE TRIGGER IF NOT EXISTS trg_sessions_campaign_not_null_update
+        BEFORE UPDATE ON interview_sessions FOR EACH ROW
+        WHEN NEW.campaign_id IS NULL
+        BEGIN
+            SELECT RAISE(ABORT, 'campaign_id is required for interview_sessions');
+        END;
+    """)
+
+    # --- Interview attachments ---
+    cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='interview_attachments'")
+    if not cur.fetchone():
+        cur.execute(
+            """
+            CREATE TABLE interview_attachments (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                interview_session_id INTEGER NOT NULL REFERENCES interview_sessions(id),
+                filename VARCHAR(255) NOT NULL,
+                content_type VARCHAR(100),
+                size INTEGER NOT NULL,
+                storage_path VARCHAR(500) NOT NULL,
+                created_at DATETIME NOT NULL DEFAULT (datetime('now'))
+            )
+            """
+        )
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_interview_attachments_session_id ON interview_attachments (interview_session_id)")
 
     conn.commit()
     conn.close()

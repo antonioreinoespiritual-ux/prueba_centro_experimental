@@ -1,5 +1,5 @@
 # app/main.py
-from fastapi import FastAPI
+from fastapi import FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -11,7 +11,7 @@ load_env()
 
 from .database import Base, engine
 from .migrations import ensure_schema
-from .routers import experiments, records, documentation, ai_analysis, publics, assistant, files, cloud, drive_sync
+from .routers import experiments, records, documentation, ai_analysis, publics, publics_ui, assistant, files, cloud, drive_sync, hypotheses_ui, interviews, interviews_ui, clients, campaigns
 ensure_schema()
 Base.metadata.create_all(bind=engine)
 
@@ -34,12 +34,35 @@ app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 def home():
     return FileResponse(str(STATIC_DIR / "index.html"))
 
+
+@app.get("/favicon.ico", include_in_schema=False)
+def favicon():
+    return Response(status_code=204)
+
+
+@app.get("/apple-touch-icon.png", include_in_schema=False)
+def apple_touch_icon():
+    return Response(status_code=204)
+
+
+@app.get("/apple-touch-icon-precomposed.png", include_in_schema=False)
+def apple_touch_icon_precomposed():
+    return Response(status_code=204)
+
 app.include_router(experiments.router, prefix="/experiments", tags=["experiments"])
 app.include_router(records.router, prefix="/records", tags=["records"])
 app.include_router(documentation.router, prefix="/documentation", tags=["documentation"])
 app.include_router(ai_analysis.router, prefix="/ai", tags=["ai-analysis"])
 app.include_router(publics.router, prefix="/publics", tags=["publics"])
+app.include_router(publics_ui.router, tags=["publics-ui"])
 app.include_router(assistant.router, tags=["assistant"])
 app.include_router(files.router, prefix="/files", tags=["files"])
 app.include_router(cloud.router, tags=["cloud"])
 app.include_router(drive_sync.router, tags=["drive-sync"])
+app.include_router(hypotheses_ui.router, tags=["hypotheses-ui"])
+
+app.include_router(interviews_ui.router, tags=["interviews-ui"])
+app.include_router(interviews.router, tags=["interviews"])
+app.include_router(clients.router, tags=["clients"])
+
+app.include_router(campaigns.router, tags=["campaigns"])
